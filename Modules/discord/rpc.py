@@ -8,7 +8,7 @@ DISCORD_RPC_TITLE = "Sniffin' my babies IPs."
 DISCORD_RPC_BUTTONS = [
     {
         "label": "GitHub Repo",
-        "url": "https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer"
+        "url": "https://github.com/BUZZARDGTA/Session-Sniffer"
     }
 ]
 

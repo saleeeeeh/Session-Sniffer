@@ -12,4 +12,4 @@
 # Contributors
 
 [@Grub4K](https://github.com/Grub4K) - General help during the source code development.  
-[@2jang](https://github.com/2jang) - Helped me fixing ARP parsing issues (https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/issues/7 and https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/pull/8)
+[@2jang](https://github.com/2jang) - Helped me fixing ARP parsing issues (https://github.com/BUZZARDGTA/Session-Sniffer/issues/7 and https://github.com/BUZZARDGTA/Session-Sniffer/pull/8)

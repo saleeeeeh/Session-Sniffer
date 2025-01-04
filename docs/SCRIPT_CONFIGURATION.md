@@ -235,7 +235,7 @@ It allows up to 1500 IP resolutions per minute.
 A UserIP database tracks users by linking their in-game usernames to their IP addresses.
 
 In earlier versions, the script used a single database, `Blacklist.ini, for blacklisting users.  
-Since [v1.1.8](https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/releases/tag/v1.1.8), you can create multiple lists with custom behaviors to better suit your needs.
+Since [v1.1.8](https://github.com/BUZZARDGTA/Session-Sniffer/releases/tag/v1.1.8), you can create multiple lists with custom behaviors to better suit your needs.
 
 By default, these lists are generated the first time the script runs:
 

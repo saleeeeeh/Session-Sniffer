@@ -121,8 +121,8 @@ def terminate_script(
         error_message = Text.from_markup(
             (
                 "\n\n\nAn unexpected (uncaught) error occurred. [bold]Please kindly report it to:[/bold]\n"
-                "[link=https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/issues]"
-                "https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/issues[/link].\n\n"
+                "[link=https://github.com/BUZZARDGTA/Session-Sniffer/issues]"
+                "https://github.com/BUZZARDGTA/Session-Sniffer/issues[/link].\n\n"
                 "DEBUG:\n"
                 f"VERSION={globals().get('VERSION', 'Unknown Version')}"  # Define a default value for VERSION if it's not defined
             ),
@@ -158,7 +158,7 @@ def handle_exception(exc_type: Type[BaseException], exc_value: BaseException, ex
         return
 
     exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
-    terminate_script("EXIT", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/issues", exception_info = exception_info)
+    terminate_script("EXIT", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues", exception_info = exception_info)
 
 def signal_handler(sig: int, frame: FrameType):
     if sig == 2: # means CTRL+C pressed
@@ -270,7 +270,7 @@ class Threads_ExceptionHandler:
             Threads_ExceptionHandler.raising_function = tb.tb_frame.f_code.co_name
 
             exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
-            terminate_script("THREAD_RAISED", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/issues", exception_info = exception_info)
+            terminate_script("THREAD_RAISED", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues", exception_info = exception_info)
 
             return True  # Prevent exceptions from propagating
 
@@ -378,7 +378,7 @@ class Settings(DefaultSettings):
             ;; Lines starting with \";\" or \"#\" symbols are commented lines.
             ;;
             ;; For detailed explanations of each setting, please refer to the following documentation:
-            ;; https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/?tab=readme-ov-file#editing-settings
+            ;; https://github.com/BUZZARDGTA/Session-Sniffer/?tab=readme-ov-file#editing-settings
             ;;-----------------------------------------------------------------------------
         """.removeprefix("\n"))
         for setting_name, setting_value in Settings.iterate_over_settings():
@@ -1769,7 +1769,7 @@ title(f"Searching for a new update - {TITLE}")
 print("\nSearching for a new update ...\n")
 error_updating__flag = False
 try:
-    response = s.get("https://raw.githubusercontent.com/BUZZARDGTA/GTA-V-Session-Sniffer/version/version.txt")
+    response = s.get("https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/version.txt")
 except:
     error_updating__flag = True
 else:
@@ -1787,7 +1787,7 @@ else:
             msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Question | MsgBox.Style.MsgBoxSetForeground
             errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
             if errorlevel == MsgBox.ReturnValues.IDYES:
-                webbrowser.open("https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer")
+                webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer")
                 terminate_script("EXIT")
     else:
         error_updating__flag = True
@@ -1803,7 +1803,7 @@ if error_updating__flag:
     msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
     errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
     if errorlevel == MsgBox.ReturnValues.IDYES:
-        webbrowser.open("https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer")
+        webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer")
         terminate_script("EXIT")
 
 
@@ -3024,7 +3024,7 @@ def rendering_core():
 
                                         For more information on formatting, please refer to the
                                         documentation:
-                                        https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
+                                        https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                                 """.removeprefix("\n").removesuffix("\n")), "    ")
                                 msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
                                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
@@ -3100,7 +3100,7 @@ def rendering_core():
 
                             For more information on formatting, please refer to the
                             documentation:
-                            https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
+                            https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                     """.removeprefix("\n").removesuffix("\n")), "    ")
                     msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
                     threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
@@ -3141,7 +3141,7 @@ def rendering_core():
                 ;; Lines starting with \";\" or \"#\" symbols are commented lines.
                 ;;
                 ;; For detailed explanations of each setting, please refer to the following documentation:
-                ;; https://github.com/BUZZARDGTA/GTA-V-Session-Sniffer/?tab=readme-ov-file#editing-settings
+                ;; https://github.com/BUZZARDGTA/Session-Sniffer/?tab=readme-ov-file#editing-settings
                 ;;-----------------------------------------------------------------------------
                 [Settings]
             """.removeprefix("\n").removesuffix("\n"))
