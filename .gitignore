@@ -10,9 +10,9 @@ Settings.ini
 error.log
 debug.log
 UserIP_Logging.log
-GTA_V_Session_Sniffer-x64.exe
-GTA_V_Session_Sniffer-x86.exe
 /Sessions Logging
 /UserIP Databases
+GTA_V_Session_Sniffer-x64.exe
+GTA_V_Session_Sniffer-x86.exe
 Session_Sniffer-x64.exe
 Session_Sniffer-x86.exe
