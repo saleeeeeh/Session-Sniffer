@@ -2,7 +2,7 @@
 
 # Session Sniffer
 
-![WindowsTerminal_2024-12-02_18-25](https://github.com/user-attachments/assets/ff855c9b-cbad-4381-b826-4ef2fe7560ba)
+![399083506-81ca21ce-bf6a-4437-a995-205245fbd795](https://github.com/user-attachments/assets/d9d94105-d1e6-4967-9d23-f9b695364e10)
 
 </div>
 
