@@ -25,29 +25,18 @@ CAPTURE_VPN_MODE=False
 CAPTURE_OVERFLOW_TIMER=3.0
 CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER=None
 CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER=None
-STDOUT_SHOW_ADVERTISING_HEADER=False
-STDOUT_SESSIONS_LOGGING=True
-STDOUT_RESET_PORTS_ON_REJOINS=True
-STDOUT_FIELDS_TO_HIDE=['Intermediate Ports', 'First Port', 'Continent', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'AS', 'ASN / ISP']
-STDOUT_DATE_FIELDS_SHOW_DATE=False
-STDOUT_DATE_FIELDS_SHOW_TIME=False
-STDOUT_DATE_FIELDS_SHOW_ELAPSED=True
-STDOUT_FIELD_SHOW_COUNTRY_CODE=True
-STDOUT_FIELD_SHOW_CONTINENT_CODE=True
-STDOUT_FIELD_CONNECTED_PLAYERS_SORTED_BY=Last Rejoin
-STDOUT_FIELD_DISCONNECTED_PLAYERS_SORTED_BY=Last Seen
-STDOUT_FIELD_COUNTRY_MAX_LEN=20
-STDOUT_FIELD_CITY_MAX_LEN=20
-STDOUT_FIELD_CONTINENT_MAX_LEN=20
-STDOUT_FIELD_REGION_MAX_LEN=20
-STDOUT_FIELD_ORGANIZATION_MAX_LEN=20
-STDOUT_FIELD_ISP_MAX_LEN=20
-STDOUT_FIELD_ASN_ISP_MAX_LEN=20
-STDOUT_FIELD_AS_MAX_LEN=20
-STDOUT_FIELD_AS_NAME_MAX_LEN=20
-STDOUT_DISCONNECTED_PLAYERS_TIMER=10.0
-STDOUT_DISCONNECTED_PLAYERS_COUNTER=6
-STDOUT_REFRESHING_TIMER=0.1
+GUI_SESSIONS_LOGGING=True
+GUI_RESET_PORTS_ON_REJOINS=True
+GUI_FIELDS_TO_HIDE=['Intermediate Ports', 'First Port', 'Continent', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'AS', 'ASN / ISP']
+GUI_DATE_FIELDS_SHOW_DATE=False
+GUI_DATE_FIELDS_SHOW_TIME=False
+GUI_DATE_FIELDS_SHOW_ELAPSED=True
+GUI_FIELD_SHOW_COUNTRY_CODE=True
+GUI_FIELD_SHOW_CONTINENT_CODE=True
+GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY=Last Rejoin
+GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY=Last Seen
+GUI_DISCONNECTED_PLAYERS_TIMER=10.0
+GUI_DISCONNECTED_PLAYERS_COUNTER=6
 USERIP_ENABLED=True
 DISCORD_PRESENCE=True
 ```
@@ -114,83 +103,53 @@ Learn more: [Wireshark Capture Filters](https://wiki.wireshark.org/CaptureFilter
 **For advanced users**; Allows you to specify a custom Tshark display filter, which will be prepended to the filter used in the script.  
 Learn more: [Wireshark Display Filters](https://wiki.wireshark.org/DisplayFilters) / [Tshark Display Filters](https://tshark.dev/analyze/packet_hunting/packet_hunting/)
 
-* `<STDOUT_SHOW_ADVERTISING_HEADER>`  
-Determine if you want or not to show the developer's advertisements in the script's display.
+* `<GUI_SESSIONS_LOGGING>`  
+Determine if you want to log the gui session's output to the "Sessions Logging" folder.  
+It is synced with the gui tables output and contains all fields.
 
-* `<STDOUT_SESSIONS_LOGGING>`  
-Determine if you want to log console's output to "SessionsLogging" folder.  
-It is synced with the console output and contains all fields.
-
-* `<STDOUT_RESET_PORTS_ON_REJOINS>`  
+* `<GUI_RESET_PORTS_ON_REJOINS>`  
 When a player rejoins, clear their previously detected ports list.
 
-* `<STDOUT_FIELDS_TO_HIDE>`  
+* `<GUI_FIELDS_TO_HIDE>`  
 Specifies a list of fields you wish to hide from the output.  
 It can only hides field names that are not essential to the script's functionality.  
 Valid values include any of the following field names:
-{Settings.stdout_hideable_fields}
+["Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
 
-* `<STDOUT_DATE_FIELDS_SHOW_ELAPSED_TIME>`  
+* `<GUI_DATE_FIELDS_SHOW_ELAPSED_TIME>`  
 Shows or not the elapsed time from which a player has been captured in "First Seen", "Last Rejoin" and "Last Seen" fields.
 
-* `<STDOUT_DATE_FIELDS_SHOW_DATE>`  
+* `<GUI_DATE_FIELDS_SHOW_DATE>`  
 Shows or not the date from which a player has been captured in "First Seen", "Last Rejoin" and "Last Seen" fields.
 
-* `<STDOUT_FIELD_SHOW_CONTINENT_CODE>`  
+* `<GUI_FIELD_SHOW_CONTINENT_CODE>`  
 Specify whether to display the continent's ISO 2-letter code in parentheses next to the continent name.
 
-* `<STDOUT_FIELD_SHOW_COUNTRY_CODE>`  
+* `<GUI_FIELD_SHOW_COUNTRY_CODE>`  
 Specify whether to display the country's ISO 2-letter code in parentheses next to the country name.
 
-* `<STDOUT_FIELD_CONNECTED_PLAYERS_SORTED_BY>`  
+* `<GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY>`  
 Specifies the fields from the connected players by which you want the output data to be sorted.  
 Valid values include any field names. For example: Last Rejoin
 
-* `<STDOUT_FIELD_DISCONNECTED_PLAYERS_SORTED_BY>`  
+* `<GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY>`  
 Specifies the fields from the disconnected players by which you want the output data to be sorted.  
 Valid values include any field names. For example: Last Seen
 
-* `<STDOUT_FIELD_COUNTRY_MAX_LEN>`  
-Maximum allowed length for the "Country" field.
-
-* `<STDOUT_FIELD_CITY_MAX_LEN>`  
-Maximum allowed length for the "City" field.
-
-* `<STDOUT_FIELD_CONTINENT_MAX_LEN>`  
-Maximum allowed length for the "Continent" field.
-
-* `<STDOUT_FIELD_REGION_MAX_LEN>`  
-Maximum allowed length for the "Region" field.
-
-* `<STDOUT_FIELD_ORGANIZATION_MAX_LEN>`  
-Maximum allowed length for the "Organization" field.
-
-* `<STDOUT_FIELD_ISP_MAX_LEN>`  
-Maximum allowed length for the "ISP" field.
-
-* `<STDOUT_FIELD_ASN_ISP_MAX_LEN>`  
-Maximum allowed length for the "ASN / ISP" field.
-
-* `<STDOUT_FIELD_AS_MAX_LEN>`  
-Maximum allowed length for the "AS" field.
-
-* `<STDOUT_FIELD_AS_NAME_MAX_LEN>`  
-Maximum allowed length for the "AS Name" field.
-
-* `<STDOUT_DISCONNECTED_PLAYERS_TIMER>`  
+* `<GUI_DISCONNECTED_PLAYERS_TIMER>`  
 The duration after which a player will be moved as disconnected on the console if no packets are received within this time.  
 Valid values include any number greater than or equal to 3.
 
-* `<STDOUT_DISCONNECTED_PLAYERS_COUNTER>`  
+* `<GUI_DISCONNECTED_PLAYERS_COUNTER>`  
 The maximum number of players showing up in disconnected players list.  
 Valid values include any number greater than or equal to 0.  
 Setting it to 0 will make it unlimitted.
 
-* `<STDOUT_REFRESHING_TIMER>`  
-Minimum time interval between which this will refresh the console display.
-
 * `<USERIP_ENABLED>`  
 Determine if you want or not to enable detections from the UserIP databases.
+
+* `<DISCORD_PRESENCE>`  
+Determine if you want or not to enable Discord presence.
 
 </details>
 

@@ -2,7 +2,7 @@
 
 ## Scanner is stuck
 
-When the scanner is stuck at `"Scanning IPs, refreshing display in x second ..."`, it typically indicates one of the following situations:
+When the scanner is stuck (no IPs detected), it typically indicates one of the following situations:
 
 - You are not currently in an online session with at least one other player.
 - The configuration for the script may not be set up correctly.  
@@ -39,9 +39,3 @@ For example:
 ```
 
 This capture and display filter serves as an example and demonstrates various ways to block an IP, multiple IPs, or an IP range/CIDR.
-
-## About Screen Refreshing
-
-Refreshing the display of the script positions your terminal's cursor at the very bottom of the script.  
-However, if you are using Windows Terminal, this issue is somewhat resolved because the view sticks to the top of the page by scrolling there initially.  
-I recommend using [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/) for an optimal experience.

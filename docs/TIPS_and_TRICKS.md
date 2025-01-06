@@ -2,6 +2,7 @@
 
 ## General Tips and Tricks
 
+- I recommend using [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/) for an optimal experience.
 - You can handily zoom in or out on your terminal's output by using the keyboard shortcut `[CTRL] + [Mouse_Scroll]` or `[CTRL] + [+]`, and `[CTRL] + [-]`.
 - You can pause your terminal's output by using the keyboard shortcut `[CTRL] + [S]` and resume it with `[CTRL] + [Q]`.
 
