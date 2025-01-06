@@ -54,9 +54,9 @@ However, it does allow for manual assignment using [UserIP INI databases Configu
 
 ## Requirements
 
-- **OS**: [Windows](https://www.microsoft.com/windows) 10 or 11 (x86/x64)
+- **OS**: [Windows](https://www.microsoft.com/windows) 10 or 11 (x64)
 - **Network Tools**:
-  - [Wireshark](https://www.wireshark.org/) v4.2.9
+  - [Wireshark](https://www.wireshark.org/) v4.2.9 (x64)
   - [Npcap](https://nmap.org/npcap/) or [Winpcap](https://www.winpcap.org/)
   - **Optional**: [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/)
 
