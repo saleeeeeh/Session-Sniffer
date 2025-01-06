@@ -225,7 +225,7 @@ Determine if you want or not to enable this UserIP database.
 * `<COLOR>`  
 Determine which color will be applied on the script's output for these users.
 Valid values are either one of the following colors:  
-`BLACK`, `RED`, `GREEN`, `YELLOW`, `BLUE`, `MAGENTA`, `CYAN`, `WHITE`
+[https://doc.qt.io/qtforpython-5/PySide2/QtGui/QColorConstants.html#svg-colors](https://doc.qt.io/qtforpython-5/PySide2/QtGui/QColorConstants.html#svg-colors)
 
 * `<NOTIFICATIONS>`  
 Determine if you want or not to display a notification when a user is detected.
@@ -270,7 +270,7 @@ You need to list the entries under the `[UserIP]` section of the INI file in thi
 ```
 [Settings]
 ENABLED=True
-COLOR=RED
+COLOR=red
 LOG=True
 NOTIFICATIONS=True
 VOICE_NOTIFICATIONS=Male
