@@ -6,12 +6,12 @@ prettytable==3.12.0
 psutil==6.1.0
 pypresence==4.3.0
 PyQt6==6.8.0
-pywin32==308
+pywin32==308; platform_system == "Windows"
 QDarkStyle==3.2.3
 requests==2.32.3
 rich==13.9.4
 urllib3==2.2.3
-WMI==1.5.1
+WMI==1.5.1; platform_system == "Windows"
 
 # Snyk security fixes (for reference: addresses known security issues in used packages)
 
