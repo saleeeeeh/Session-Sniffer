@@ -42,7 +42,7 @@ jobs:
           python -m venv --upgrade-deps "venv"
         working-directory: .github/workflows
 
-      - name: Install Python Dependencies
+      - name: Install Python Project Dependencies
         run: |
           venv\Scripts\pip install -r "..\..\requirements.txt"
           venv\Scripts\pip install pyinstaller
@@ -57,7 +57,7 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: Session_Sniffer
+          name: Session_Sniffer.exe
           path: .github/workflows/dist/Session_Sniffer.exe
 
   upload-release-artifact:
@@ -72,7 +72,7 @@ jobs:
         uses: actions/download-artifact@v4.1.8
         with:
           path: artifacts
-          name: Session_Sniffer
+          name: Session_Sniffer.exe
 
       - name: Upload Artifact to Release
         run: |
