@@ -12,4 +12,5 @@
 # Contributors
 
 [@Grub4K](https://github.com/Grub4K) - General help during the source code development.  
+[@Grub4K](https://github.com/Grub4K) - Helped me setting up my GitHub Action build workflow.  
 [@2jang](https://github.com/2jang) - Helped me fixing ARP parsing issues (https://github.com/BUZZARDGTA/Session-Sniffer/issues/7 and https://github.com/BUZZARDGTA/Session-Sniffer/pull/8)

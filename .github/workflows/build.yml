@@ -1,0 +1,84 @@
+name: Build New Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  handle-new-release:
+    runs-on: ubuntu-24.04
+    name: Process New Release
+    steps:
+      - name: Log Release Information
+        env:
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          echo "New $([[ $IS_PRERELEASE == 'true' ]] && echo 'Pre-release' || echo 'Stable release') created!"
+          echo "Release Name: $RELEASE_NAME"
+          echo "Release Tag: $RELEASE_TAG"
+
+  build:
+    needs: [handle-new-release]
+    runs-on: windows-latest
+    name: Build Windows x64
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Python for x64 Build
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: 3.x
+          architecture: x64
+
+      - name: Create a Python Virtual Environment
+        run: |
+          python -m venv --upgrade-deps "venv"
+        working-directory: .github/workflows
+
+      - name: Install Python Dependencies
+        run: |
+          venv\Scripts\pip install -r "..\..\requirements.txt"
+          venv\Scripts\pip install pyinstaller
+        working-directory: .github/workflows
+
+      - name: Build with PyInstaller
+        run: |
+          venv\Scripts\pyinstaller "Session_Sniffer.spec"
+        # Output will be in the `dist/` folder
+        working-directory: .github/workflows
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: Session_Sniffer
+          path: .github/workflows/dist/Session_Sniffer.exe
+
+  upload-release-artifact:
+    needs: [handle-new-release, build]
+    runs-on: ubuntu-24.04
+    name: Upload Release Artifact
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: artifacts
+          name: Session_Sniffer
+
+      - name: Upload Artifact to Release
+        run: |
+          # Authenticate using the GITHUB_TOKEN
+          gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
+
+          # Upload the artifact to the release
+          gh release upload ${{ github.event.release.tag_name }} \
+            'artifacts/Session_Sniffer.exe'
