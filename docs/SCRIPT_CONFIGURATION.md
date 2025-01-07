@@ -140,11 +140,6 @@ Valid values include any field names. For example: Last Seen
 The duration after which a player will be moved as disconnected on the console if no packets are received within this time.  
 Valid values include any number greater than or equal to 3.
 
-* `<GUI_DISCONNECTED_PLAYERS_COUNTER>`  
-The maximum number of players showing up in disconnected players list.  
-Valid values include any number greater than or equal to 0.  
-Setting it to 0 will make it unlimitted.
-
 * `<USERIP_ENABLED>`  
 Determine if you want or not to enable detections from the UserIP databases.
 
