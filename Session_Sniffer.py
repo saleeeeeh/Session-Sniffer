@@ -299,7 +299,6 @@ class DefaultSettings:
     GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY = "Last Rejoin"
     GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY = "Last Seen"
     GUI_DISCONNECTED_PLAYERS_TIMER = 10.0
-    USERIP_ENABLED = True
     DISCORD_PRESENCE = True
 
 class Settings(DefaultSettings):
@@ -574,11 +573,6 @@ class Settings(DefaultSettings):
                             Settings.GUI_DISCONNECTED_PLAYERS_TIMER = player_disconnected_timer
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "USERIP_ENABLED":
-                    try:
-                        Settings.USERIP_ENABLED, need_rewrite_current_setting = custom_str_to_bool(setting_value)
-                    except InvalidBooleanValueError:
-                        need_rewrite_settings = True
                 elif setting_name == "DISCORD_PRESENCE":
                     try:
                         Settings.DISCORD_PRESENCE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
@@ -2702,14 +2696,13 @@ def capture_core():
                     Player(target_ip, target_port, packet_datetime)
                 )
 
-            if Settings.USERIP_ENABLED:
-                if target_ip in UserIP_Databases.ips_set and not player.userip.detection.as_processed_userip_task:
-                    player.userip.detection.as_processed_userip_task = True
-                    player.userip.detection.type = "Static IP"
-                    player.userip.detection.time = packet_datetime.strftime("%H:%M:%S")
-                    player.userip.detection.date_time = packet_datetime.strftime("%Y-%m-%d_%H:%M:%S")
-                    if UserIP_Databases.update_player_userip_info(player):
-                        threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
+            if target_ip in UserIP_Databases.ips_set and not player.userip.detection.as_processed_userip_task:
+                player.userip.detection.as_processed_userip_task = True
+                player.userip.detection.type = "Static IP"
+                player.userip.detection.time = packet_datetime.strftime("%H:%M:%S")
+                player.userip.detection.date_time = packet_datetime.strftime("%Y-%m-%d_%H:%M:%S")
+                if UserIP_Databases.update_player_userip_info(player):
+                    threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
 
             if player.is_player_just_registered:
                 player.is_player_just_registered = False
@@ -2782,22 +2775,20 @@ def rendering_core():
             gui_connected_players_table__field_names = [
                 field_name
                 for field_name in Settings.gui_all_connected_fields
-                if (Settings.USERIP_ENABLED or field_name != "Usernames") and field_name not in GUIrenderingData.FIELDS_TO_HIDE
+                if field_name not in GUIrenderingData.FIELDS_TO_HIDE
             ]
             gui_disconnected_players_table__field_names = [
                 field_name
                 for field_name in Settings.gui_all_disconnected_fields
-                if (Settings.USERIP_ENABLED or field_name != "Usernames") and field_name not in GUIrenderingData.FIELDS_TO_HIDE
+                if field_name not in GUIrenderingData.FIELDS_TO_HIDE
             ]
             logging_connected_players_table__field_names = [
                 field_name
                 for field_name in Settings.gui_all_connected_fields
-                if (Settings.USERIP_ENABLED or field_name != "Usernames")
             ]
             logging_disconnected_players_table__field_names = [
                 field_name
                 for field_name in Settings.gui_all_disconnected_fields
-                if (Settings.USERIP_ENABLED or field_name != "Usernames")
             ]
 
             return (
@@ -3502,7 +3493,7 @@ def rendering_core():
             session_disconnected_table__compiled_colors: list[list[CellColor]] = []
 
             for player in session_connected_sorted:
-                if Settings.USERIP_ENABLED and player.userip.usernames:
+                if player.userip.usernames:
                     row_fg_color = QColor("white")
                     row_bg_color = player.userip.settings.COLOR
                 else:
@@ -3516,8 +3507,7 @@ def rendering_core():
                 ]
 
                 row_texts: list[str] = []
-                if Settings.USERIP_ENABLED:
-                    row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{player.rejoins}")
@@ -3584,7 +3574,7 @@ def rendering_core():
                 session_connected_table__compiled_colors.append(row_colors)
 
             for player in session_disconnected_sorted:
-                if Settings.USERIP_ENABLED and player.userip.usernames:
+                if player.userip.usernames:
                     row_fg_color = QColor("white")
                     row_bg_color = player.userip.settings.COLOR
                 else:
@@ -3595,8 +3585,7 @@ def rendering_core():
                 row_colors = [CellColor(foreground=row_fg_color, background=row_bg_color) for _ in range(GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS)]
 
                 row_texts: list[str] = []
-                if Settings.USERIP_ENABLED:
-                    row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_seen)}")
@@ -3847,9 +3836,8 @@ def rendering_core():
                                     if not username in modmenu__plugins__ip_to_usernames[ip]:
                                         modmenu__plugins__ip_to_usernames[ip].append(username)
 
-            if Settings.USERIP_ENABLED:
-                if last_userip_parse_time is None or time.perf_counter() - last_userip_parse_time >= 1.0:
-                    last_userip_parse_time = update_userip_databases(last_userip_parse_time)
+            if last_userip_parse_time is None or time.perf_counter() - last_userip_parse_time >= 1.0:
+                last_userip_parse_time = update_userip_databases(last_userip_parse_time)
 
             if Settings.GUI_SESSIONS_LOGGING:
                 session_connected__padding_country_name = 0
@@ -3858,11 +3846,10 @@ def rendering_core():
                 session_disconnected__padding_continent_name = 0
 
             for player in PlayersRegistry.iterate_players_from_registry():
-                if Settings.USERIP_ENABLED:
-                    if player.ip in UserIP_Databases.ips_set:
-                        UserIP_Databases.update_player_userip_info(player)
-                    else:
-                        player.userip.reset()
+                if player.ip in UserIP_Databases.ips_set:
+                    UserIP_Databases.update_player_userip_info(player)
+                else:
+                    player.userip.reset()
 
                 if modmenu__plugins__ip_to_usernames and player.ip in modmenu__plugins__ip_to_usernames:
                     for username in modmenu__plugins__ip_to_usernames[player.ip]:
@@ -3876,10 +3863,9 @@ def rendering_core():
                     and (datetime.now() - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
                 ):
                     player.datetime.left = player.datetime.last_seen
-                    if Settings.USERIP_ENABLED:
-                        if player.userip.detection.time:
-                            player.userip.detection.as_processed_userip_task = False
-                            threading.Thread(target=process_userip_task, args=(player, "disconnected"), daemon=True).start()
+                    if player.userip.detection.time:
+                        player.userip.detection.as_processed_userip_task = False
+                        threading.Thread(target=process_userip_task, args=(player, "disconnected"), daemon=True).start()
 
                 if not player.iplookup.maxmind.is_initialized:
                     player.iplookup.maxmind.country, player.iplookup.maxmind.country_code = get_country_info(player.ip)
