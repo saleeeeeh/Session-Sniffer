@@ -1098,6 +1098,7 @@ class UserIP_Databases:
     notified_settings_corrupted: set[Path] = set()
     notified_ip_invalid: set[str] = set()
     notified_ip_conflicts: set[str] = set()
+    update_userip_database_lock = threading.Lock()
 
     @staticmethod
     def _notify_conflict(initial_userip_entry: UserIP, conflicting_database_name: str, conflicting_username: str, conflicting_ip: str):
@@ -1135,14 +1136,16 @@ class UserIP_Databases:
             user_ips: A dictionary mapping usernames to lists of IPs.
         """
         if settings.ENABLED == True:
-            cls.userip_databases.append((database_name, settings, user_ips))
+            with cls.update_userip_database_lock:
+                cls.userip_databases.append((database_name, settings, user_ips))
 
     @classmethod
     def reset(cls):
         """
         Reset the userip_databases by clearing all entries.
         """
-        cls.userip_databases.clear()
+        with cls.update_userip_database_lock:
+            cls.userip_databases.clear()
 
     @classmethod
     def build(cls):
@@ -1150,38 +1153,39 @@ class UserIP_Databases:
         Build the userip_infos_by_ip dictionaries from the current databases.
         This method updates the dictionaries without clearing their content entirely, and avoids duplicates.
         """
-        userip_infos_by_ip: dict[str, UserIP] = {}
-        unresolved_conflicts: set[str] = set()
-        ips_set: set[str] = set()
+        with cls.update_userip_database_lock:
+            userip_infos_by_ip: dict[str, UserIP] = {}
+            unresolved_conflicts: set[str] = set()
+            ips_set: set[str] = set()
 
-        for database_name, settings, user_ips in cls.userip_databases:
-            for username, ips in user_ips.items():
-                for ip in ips:
-                    if ip not in userip_infos_by_ip:
-                        userip_infos_by_ip[ip] = UserIP(
-                            ip = ip,
-                            database_name = database_name,
-                            settings = settings,
-                            usernames = [username]
-                        )
-                        ips_set.add(ip)
+            for database_name, settings, user_ips in cls.userip_databases:
+                for username, ips in user_ips.items():
+                    for ip in ips:
+                        if ip not in userip_infos_by_ip:
+                            userip_infos_by_ip[ip] = UserIP(
+                                ip = ip,
+                                database_name = database_name,
+                                settings = settings,
+                                usernames = [username]
+                            )
+                            ips_set.add(ip)
 
-                    if not userip_infos_by_ip[ip].database_name == database_name:
-                        if ip not in cls.notified_ip_conflicts:
-                            cls._notify_conflict(userip_infos_by_ip[ip], database_name, username, ip)
-                            cls.notified_ip_conflicts.add(ip)
-                        unresolved_conflicts.add(ip)
-                        continue
+                        if not userip_infos_by_ip[ip].database_name == database_name:
+                            if ip not in cls.notified_ip_conflicts:
+                                cls._notify_conflict(userip_infos_by_ip[ip], database_name, username, ip)
+                                cls.notified_ip_conflicts.add(ip)
+                            unresolved_conflicts.add(ip)
+                            continue
 
-                    if username not in userip_infos_by_ip[ip].usernames:
-                        userip_infos_by_ip[ip].usernames.append(username)
+                        if username not in userip_infos_by_ip[ip].usernames:
+                            userip_infos_by_ip[ip].usernames.append(username)
 
-        resolved_conflicts = cls.notified_ip_conflicts - unresolved_conflicts
-        for resolved_ip in resolved_conflicts:
-            cls.notified_ip_conflicts.remove(resolved_ip)
+            resolved_conflicts = cls.notified_ip_conflicts - unresolved_conflicts
+            for resolved_ip in resolved_conflicts:
+                cls.notified_ip_conflicts.remove(resolved_ip)
 
-        cls.userip_infos_by_ip = userip_infos_by_ip
-        cls.ips_set = ips_set
+            cls.userip_infos_by_ip = userip_infos_by_ip
+            cls.ips_set = ips_set
 
     @classmethod
     def get_userip_info(cls, ip: str):
@@ -1189,17 +1193,17 @@ class UserIP_Databases:
         return cls.userip_infos_by_ip.get(ip)
 
     @classmethod
-    def update_player_userip_data(cls, player: Player):
+    def update_player_userip_info(cls, player: Player):
         """
         Updates the player's UserIP data using the information from UserIP_Databases.
 
         Args:
             player: The player object with 'ip' and 'userip' attributes.
         """
-        if userip_data := cls.get_userip_info(player.ip):
-            player.userip.database_name = userip_data.database_name
-            player.userip.settings = userip_data.settings
-            player.userip.usernames = userip_data.usernames
+        if userip_info := cls.get_userip_info(player.ip):
+            player.userip.database_name = userip_info.database_name
+            player.userip.settings = userip_info.settings
+            player.userip.usernames = userip_info.usernames
             return True
         return False
 
@@ -2704,7 +2708,7 @@ def capture_core():
                     player.userip.detection.type = "Static IP"
                     player.userip.detection.time = packet_datetime.strftime("%H:%M:%S")
                     player.userip.detection.date_time = packet_datetime.strftime("%Y-%m-%d_%H:%M:%S")
-                    if UserIP_Databases.update_player_userip_data(player):
+                    if UserIP_Databases.update_player_userip_info(player):
                         threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
 
             if player.is_player_just_registered:
@@ -3856,7 +3860,7 @@ def rendering_core():
             for player in PlayersRegistry.iterate_players_from_registry():
                 if Settings.USERIP_ENABLED:
                     if player.ip in UserIP_Databases.ips_set:
-                        UserIP_Databases.update_player_userip_data(player)
+                        UserIP_Databases.update_player_userip_info(player)
                     else:
                         player.userip.reset()
 
@@ -4417,7 +4421,7 @@ class SessionTableView(QTableView):
         QMessageBox.information(self, TITLE, msgbox_message)
 
     def userip_manager(self, ip_address: str, action: Literal["ADD", "MOVE", "DEL"], selected_db_name: Optional[str] = None):
-        userip_data = UserIP_Databases.get_userip_info(ip_address)
+        userip_info = UserIP_Databases.get_userip_info(ip_address)
 
         if action == "ADD":
             if not selected_db_name:
@@ -4453,8 +4457,8 @@ class SessionTableView(QTableView):
 
             # Iterate over each UserIP database
             for db_name, _, _ in UserIP_Databases.userip_databases:
-                db_name = f"{db_name}.ini"
-                db_path = Path("UserIP Databases") / db_name
+                db_filename = f"{db_name}.ini"
+                db_path = Path("UserIP Databases") / db_filename
 
                 # Read the database file
                 try:
@@ -4494,7 +4498,7 @@ class SessionTableView(QTableView):
                         f.writelines(lines_to_keep)
 
                     # Store the deleted entries for this database
-                    deleted_entries_by_db[db_name] = deleted_entries_in_this_db
+                    deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
 
                     # Move the deleted entries to the target database
                     with target_db_path.open("a", encoding="utf-8") as target_db_file:
@@ -4504,8 +4508,8 @@ class SessionTableView(QTableView):
             # After processing all databases, show a detailed report
             if deleted_entries_by_db:
                 report = f"<b>IP address {ip_address} moved from the following UserIP databases:</b><br><br><br>"
-                for db_name, deleted_entries in deleted_entries_by_db.items():
-                    report += f"<b>{db_name}:</b><br>"
+                for db_filename, deleted_entries in deleted_entries_by_db.items():
+                    report += f"<b>{db_filename}:</b><br>"
                     report += "<ul>"
                     for entry in deleted_entries:
                         report += f"<li>{entry}</li>"
@@ -4522,8 +4526,8 @@ class SessionTableView(QTableView):
 
             # Iterate over each UserIP database
             for db_name, _, _ in UserIP_Databases.userip_databases:
-                db_name = f"{db_name}.ini"
-                db_path = Path("UserIP Databases") / db_name
+                db_filename = f"{db_name}.ini"
+                db_path = Path("UserIP Databases") / db_filename
 
                 # Read the database file
                 try:
@@ -4563,13 +4567,13 @@ class SessionTableView(QTableView):
                         f.writelines(lines_to_keep)
 
                     # Store the deleted entries for this database
-                    deleted_entries_by_db[db_name] = deleted_entries_in_this_db
+                    deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
 
             # After processing all databases, show a detailed report
             if deleted_entries_by_db:
                 report = f"<b>IP address {ip_address} removed from the following UserIP databases:</b><br><br><br>"
-                for db_name, deleted_entries in deleted_entries_by_db.items():
-                    report += f"<b>{db_name}:</b><br>"
+                for db_filename, deleted_entries in deleted_entries_by_db.items():
+                    report += f"<b>{db_filename}:</b><br>"
                     report += "<ul>"
                     for entry in deleted_entries:
                         report += f"<li>{entry}</li>"
