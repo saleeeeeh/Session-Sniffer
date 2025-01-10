@@ -3449,7 +3449,7 @@ def rendering_core():
             if not SESSIONS_LOGGING_PATH.exists():
                 SESSIONS_LOGGING_PATH.touch()  # Create the file if it doesn't exist
 
-            write_lines_to_file(SESSIONS_LOGGING_PATH, "w", [logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string()])
+            SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string(), encoding="utf-8")
 
         def process_gui_session_tables_rendering():
             def format_player_gui_datetime(datetime_object: datetime):
@@ -4530,7 +4530,6 @@ class SessionTableView(QTableView):
 
         if ok and username:  # Only proceed if the user clicked 'OK' and provided a username
             db_path = Path("UserIP Databases") / selected_db_name
-            newline = "\n" if is_file_need_newline_ending(db_path) else ""
 
             # Append the username and associated IP(s) to the corresponding database file
             write_lines_to_file(db_path, "a", [f"{username}={ip}\n" for ip in ip_addresses])
