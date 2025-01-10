@@ -20,7 +20,6 @@ from pathlib import Path
 from operator import attrgetter
 from datetime import datetime, timedelta
 from traceback import TracebackException
-from json.decoder import JSONDecodeError
 from types import FrameType, TracebackType
 from typing import TypedDict, Optional, Literal, Union, Type, NamedTuple, Any
 from ipaddress import IPv4Address, AddressValueError
@@ -1014,9 +1013,9 @@ class IPLookup:
         return "not found"
 
 class SessionHost:
-    player = None
+    player: Optional[Player] = None
     search_player = False
-    players_pending_for_disconnection = []
+    players_pending_for_disconnection: list[Player] = []
 
     @staticmethod
     def get_host_player(session_connected: list[Player]):
@@ -1236,7 +1235,7 @@ def concat_lists_no_duplicates(*lists: list[Any]):
 
     return unique_list
 
-def plural(variable: int):
+def pluralize(variable: int):
     return "s" if variable > 1 else ""
 
 def hex_to_int(hex_string: str):
@@ -1446,7 +1445,7 @@ def update_and_initialize_geolite2_readers():
         try:
             with geolite2_version_file_path.open("r", encoding="utf-8") as f:
                 loaded_data = json.load(f)
-        except (FileNotFoundError, JSONDecodeError):
+        except FileNotFoundError:
             pass
         else:
             if isinstance(loaded_data, dict):
@@ -1481,7 +1480,7 @@ def update_and_initialize_geolite2_readers():
                     "download_url": asset["browser_download_url"]
                 })
 
-        failed_fetching_flag_list = []
+        failed_fetching_flag_list: list[str] = []
         for database_name, database_info in geolite2_databases.items():
             if database_info["last_version"]:
                 if not database_info["current_version"] == database_info["last_version"]:
@@ -1499,6 +1498,8 @@ def update_and_initialize_geolite2_readers():
                             "url": database_info["download_url"],
                             "http_code": response.status_code
                         }
+                    if not isinstance(response.content, bytes):
+                        raise TypeError(f'Expected "bytes" object, got "{type(response.content)}"')
 
                     GEOLITE2_DATABASES_FOLDER_PATH.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
                     file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
@@ -1512,10 +1513,10 @@ def update_and_initialize_geolite2_readers():
             msgbox_title = TITLE
             msgbox_message = textwrap.indent(textwrap.dedent(f"""
                 ERROR:
-                    Failed fetching MaxMind \"{'\", \"'.join(failed_fetching_flag_list)}\" database{plural(len(failed_fetching_flag_list))}.
+                    Failed fetching MaxMind \"{'\", \"'.join(failed_fetching_flag_list)}\" database{pluralize(len(failed_fetching_flag_list))}.
 
                 INFOS:
-                    These MaxMind GeoLite2 database{plural(len(failed_fetching_flag_list))} will not be updated.
+                    These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
 
                 DEBUG:
                     GITHUB_RELEASE_API__GEOLITE2={GITHUB_RELEASE_API__GEOLITE2}
@@ -1524,11 +1525,17 @@ def update_and_initialize_geolite2_readers():
             msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
             threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
-        with geolite2_version_file_path.open("w", encoding="utf-8") as f:
-            json.dump({
-                name: {"version": info["current_version"]}
-                for name, info in geolite2_databases.items()
-            }, f, indent=4)
+        # Create the data dictionary, where each name maps to its version info
+        data = {
+            name: {"version": info["current_version"]}
+            for name, info in geolite2_databases.items()
+        }
+
+        # Convert the data to a JSON formatted string with proper indentation
+        json_data = json.dumps(data, indent=4)
+
+        # Write the JSON formatted string to the GeoLite2 version file
+        geolite2_version_file_path.write_text(json_data, encoding="utf-8")
 
         return {
             "exception": None,
@@ -1658,6 +1665,34 @@ def is_file_need_newline_ending(file: Union[str, Path]):
         return False
 
     return not file.read_bytes().endswith(b"\n")
+
+def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[str]):
+    """
+    Writes or appends a list of lines to a file, ensuring proper newline handling.
+
+    Args:
+        file: The path to the file.
+        mode: The file mode ('w', 'a', etc.).
+        lines: A list of lines to write to the file.
+    """
+    # Copy the input lines to avoid modifying the original list
+    content = lines[:]
+
+    # Add a leading newline if appending to a file and a newline is needed
+    if mode == "a" and is_file_need_newline_ending(file):
+        content.insert(0, "")
+
+    # If the content list is empty, exit early without writing to the file
+    if not content:
+        return
+
+    # Ensure the last line ends with a newline character
+    if not content[-1].endswith("\n"):
+        content[-1] += "\n"
+
+    # Write content to the file
+    with file.open(mode, encoding="utf-8") as f:
+        f.writelines(content)
 
 def terminate_process_tree(pid: int = None):
     """Terminates the process with the given PID and all its child processes.
@@ -1813,7 +1848,7 @@ if not is_pyinstaller_compiled():
     print(f"\nChecking that your Python packages versions matches with file \"requirements.txt\" ...\n")
 
     def check_packages_version(third_party_packages: dict[str, str]):
-        outdated_packages = []
+        outdated_packages: list[tuple[str, str, str]] = []
 
         for package_name, required_version in third_party_packages.items():
             installed_version = importlib.metadata.version(package_name)
@@ -2354,16 +2389,14 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 return
 
             with userip_logging_file_write_lock:
-                with USERIP_LOGGING_PATH.open("a", encoding="utf-8") as f:
-                    newline = "\n" if is_file_need_newline_ending(USERIP_LOGGING_PATH) else ""
-                    f.write(
-                        f"{newline}"
-                        f"User{plural(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
-                        f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
-                        f"Time:{player.userip.detection.date_time} | Country:{player.iplookup.maxmind.compiled.country} | "
-                        f"Detection Type: {player.userip.detection.type} | "
-                        f"Database:{player.userip.database_name}\n"
-                    )
+                # Prepare the content for logging
+                write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
+                    f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
+                    f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
+                    f"Time:{player.userip.detection.date_time} | Country:{player.iplookup.maxmind.compiled.country} | "
+                    f"Detection Type: {player.userip.detection.type} | "
+                    f"Database:{player.userip.database_name}"
+                )])
 
             if player.userip.settings.NOTIFICATIONS:
                 while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
@@ -2376,9 +2409,9 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 msgbox_title = TITLE
                 msgbox_message = textwrap.indent(textwrap.dedent(f"""
                     #### UserIP detected at {player.userip.detection.time} ####
-                    User{plural(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
+                    User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
                     IP: {player.ip}
-                    Port{plural(len(player.ports.list))}: {', '.join(map(str, reversed(player.ports.list)))}
+                    Port{pluralize(len(player.ports.list))}: {', '.join(map(str, reversed(player.ports.list)))}
                     Country Code: {player.iplookup.maxmind.compiled.country_code}
                     Detection Type: {player.userip.detection.type}
                     Database: {player.userip.database_name}
@@ -2858,9 +2891,9 @@ def rendering_core():
             settings: dict[str, Union[bool, str, int, float]] = {}
             userip: dict[str, list[str]] = {}
             current_section = None
-            matched_settings = []
+            matched_settings: list[str] = []
             ini_data = ini_path.read_text("utf-8")
-            corrected_ini_data_lines = []
+            corrected_ini_data_lines: list[str] = []
 
             for line in map(process_ini_line_output, ini_data.splitlines(keepends=True)):
                 corrected_ini_data_lines.append(line)
@@ -3085,10 +3118,10 @@ def rendering_core():
                     msgbox_title = TITLE
                     msgbox_message = textwrap.indent(textwrap.dedent(f"""
                         ERROR:
-                            Missing setting{plural(number_of_settings_missing)} in UserIP Database File
+                            Missing setting{pluralize(number_of_settings_missing)} in UserIP Database File
 
                         INFOS:
-                            {number_of_settings_missing} missing setting{plural(number_of_settings_missing)} in UserIP database file:
+                            {number_of_settings_missing} missing setting{pluralize(number_of_settings_missing)} in UserIP database file:
                             \"{ini_path}\"
 
                             {"\n                ".join(f"<{setting.upper()}>" for setting in list_of_missing_settings)}
@@ -3328,7 +3361,7 @@ def rendering_core():
 
             logging_connected_players_table = PrettyTable()
             logging_connected_players_table.set_style(TableStyle.SINGLE_BORDER)
-            logging_connected_players_table.title = f"Player{plural(len(session_connected_sorted))} connected in your session ({len(session_connected_sorted)}):"
+            logging_connected_players_table.title = f"Player{pluralize(len(session_connected_sorted))} connected in your session ({len(session_connected_sorted)}):"
             logging_connected_players_table.field_names = logging_connected_players__field_names__with_down_arrow
             logging_connected_players_table.align = "l"
             for player in session_connected_sorted:
@@ -3368,7 +3401,7 @@ def rendering_core():
 
             logging_disconnected_players_table = PrettyTable()
             logging_disconnected_players_table.set_style(TableStyle.SINGLE_BORDER)
-            logging_disconnected_players_table.title = f"Player{plural(len(session_disconnected_sorted))} who've left your session ({len(session_disconnected_sorted)}):"
+            logging_disconnected_players_table.title = f"Player{pluralize(len(session_disconnected_sorted))} who've left your session ({len(session_disconnected_sorted)}):"
             logging_disconnected_players_table.field_names = logging_disconnected_players__field_names__with_down_arrow
             logging_disconnected_players_table.align = "l"
             for player in session_disconnected_sorted:
@@ -3416,8 +3449,7 @@ def rendering_core():
             if not SESSIONS_LOGGING_PATH.exists():
                 SESSIONS_LOGGING_PATH.touch()  # Create the file if it doesn't exist
 
-            with SESSIONS_LOGGING_PATH.open("w", encoding="utf-8") as f:
-                f.write(logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string())
+            write_lines_to_file(SESSIONS_LOGGING_PATH, "w", [logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string()])
 
         def process_gui_session_tables_rendering():
             def format_player_gui_datetime(datetime_object: datetime):
@@ -3445,15 +3477,15 @@ def rendering_core():
                     if Settings.GUI_DATE_FIELDS_SHOW_DATE is False and Settings.GUI_DATE_FIELDS_SHOW_TIME is False:
                         return formatted_elapsed
 
-                parts = []
+                parts: list[str] = []
                 if Settings.GUI_DATE_FIELDS_SHOW_DATE:
                     parts.append(datetime_object.strftime("%m/%d/%Y"))
                 if Settings.GUI_DATE_FIELDS_SHOW_TIME:
                     parts.append(datetime_object.strftime("%H:%M:%S.%f")[:-3])
+                if not parts:
+                    raise ValueError("Invalid settings: Both date and time are disabled.")
 
                 formatted_datetime = " ".join(parts)
-                if not formatted_datetime:
-                    raise ValueError("Invalid settings: Both date and time are disabled.")
 
                 if formatted_elapsed:
                     formatted_datetime += f" ({formatted_elapsed})"
@@ -3736,18 +3768,18 @@ def rendering_core():
                 The best FREE and Open─Source packet sniffer aka IP grabber, works WITHOUT mods.<br>
                 ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─<br>
                 Scanning using Tshark {tshark_version_color}v{extracted_tshark_version}</span> on interface:<span style="color: yellow;">{capture.interface}</span> at IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> (ARP:<span style="color: yellow;">{is_arp_enabled}</span>)<br>
-                Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{plural(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}<br>
+                Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}<br>
                 ─────────────────────────────────────────────────────────────────────────────────────────────────
             """.removeprefix("\n").removesuffix("\n"))
 
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
                 header += "<br>"
                 if invalid_ip_count:
-                    header += f"Number of invalid IP{plural(invalid_ip_count)} in UserIP file{plural(num_of_userip_files)}: <span style=\"color: red;\">{invalid_ip_count}</span><br>"
+                    header += f"Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{invalid_ip_count}</span><br>"
                 if conflict_ip_count:
-                    header += f"Number of conflicting IP{plural(conflict_ip_count)} in UserIP file{plural(num_of_userip_files)}: <span style=\"color: red;\">{conflict_ip_count}</span><br>"
+                    header += f"Number of conflicting IP{pluralize(conflict_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{conflict_ip_count}</span><br>"
                 if corrupted_settings_count:
-                    header += f"Number of corrupted setting(s) in UserIP file{plural(num_of_userip_files)}: <span style=\"color: red;\">{corrupted_settings_count}</span><br>"
+                    header += f"Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{corrupted_settings_count}</span><br>"
                 header += "─────────────────────────────────────────────────────────────────────────────────────────────────"
 
             return header, global_pps_t1, global_pps_rate
@@ -3780,24 +3812,6 @@ def rendering_core():
             discord_rpc_manager = DiscordRPCManager()
 
         modmenu__plugins__ip_to_usernames: dict[str, list[str]] = {}
-        # NOTE: The log file content is read only once because the plugin is no longer supported.
-        if TWO_TAKE_ONE__PLUGIN__LOG_PATH.exists() and TWO_TAKE_ONE__PLUGIN__LOG_PATH.is_file():
-            with TWO_TAKE_ONE__PLUGIN__LOG_PATH.open("r", encoding="utf-8") as f:
-                for line in f:
-                    match = RE_MODMENU_LOGS_USER_PATTERN.match(line)
-                    if match:
-                        username = match.group("username")
-                        if not isinstance(username, str):
-                            continue
-
-                        ip = match.group("ip")
-                        if not isinstance(ip, str):
-                            continue
-
-                        if ip not in modmenu__plugins__ip_to_usernames:
-                            modmenu__plugins__ip_to_usernames[ip] = []
-                        if not username in modmenu__plugins__ip_to_usernames[ip]:
-                            modmenu__plugins__ip_to_usernames[ip].append(username)
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
@@ -3817,24 +3831,28 @@ def rendering_core():
             if last_mod_menus_logs_parse_time is None or time.perf_counter() - last_mod_menus_logs_parse_time >= 1.0:
                 last_mod_menus_logs_parse_time = time.perf_counter()
 
-                for log_path in [STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH]:
-                    if log_path.exists() and log_path.is_file():
-                        with log_path.open("r", encoding="utf-8") as f:
-                            for line in f:
-                                match = RE_MODMENU_LOGS_USER_PATTERN.match(line)
-                                if match:
-                                    username = match.group("username")
-                                    if not isinstance(username, str):
-                                        continue
+                for log_path in [STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH]:
+                    if not (log_path.exists() and log_path.is_file()):
+                        continue
 
-                                    ip = match.group("ip")
-                                    if not isinstance(ip, str):
-                                        continue
+                    # Read the content and split it into lines
+                    for line in log_path.read_text(encoding="utf-8").splitlines():
+                        match = RE_MODMENU_LOGS_USER_PATTERN.match(line)
+                        if not match:
+                            continue
 
-                                    if ip not in modmenu__plugins__ip_to_usernames:
-                                        modmenu__plugins__ip_to_usernames[ip] = []
-                                    if not username in modmenu__plugins__ip_to_usernames[ip]:
-                                        modmenu__plugins__ip_to_usernames[ip].append(username)
+                        username = match.group("username")
+                        if not isinstance(username, str):
+                            continue
+
+                        ip = match.group("ip")
+                        if not isinstance(ip, str):
+                            continue
+
+                        if ip not in modmenu__plugins__ip_to_usernames:
+                            modmenu__plugins__ip_to_usernames[ip] = []
+                        if not username in modmenu__plugins__ip_to_usernames[ip]:
+                            modmenu__plugins__ip_to_usernames[ip].append(username)
 
             if last_userip_parse_time is None or time.perf_counter() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases(last_userip_parse_time)
@@ -3903,12 +3921,12 @@ def rendering_core():
                 if SessionHost.players_pending_for_disconnection and all(player.datetime.left for player in SessionHost.players_pending_for_disconnection):
                     SessionHost.player = None
                     SessionHost.search_player = True
-                    SessionHost.players_pending_for_disconnection = []
+                    SessionHost.players_pending_for_disconnection.clear()
 
                 if len(session_connected) == 0:
                     SessionHost.player = None
                     SessionHost.search_player = True
-                    SessionHost.players_pending_for_disconnection = []
+                    SessionHost.players_pending_for_disconnection.clear()
                 elif len(session_connected) >= 1 and all(not player.pps.is_first_calculation and player.pps.rate == 0 for player in session_connected):
                     SessionHost.players_pending_for_disconnection = session_connected
                 else:
@@ -3931,7 +3949,7 @@ def rendering_core():
                 last_session_logging_processing_time = time.perf_counter()
 
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.perf_counter() - discord_rpc_manager.last_update_time) >= 3.0):
-                discord_rpc_manager.update(f"{len(session_connected_sorted)} player{plural(len(session_connected_sorted))} connected in the session.")
+                discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected in the session.")
 
             GUIrenderingData.header_text, global_pps_t1, global_pps_rate = generate_gui_header_text(global_pps_t1, global_pps_rate)
             (
@@ -4211,6 +4229,35 @@ class SessionTableView(QTableView):
         """
         from Modules.constants.standard import CUSTOM_CONTEXT_MENU_STYLESHEET
 
+        def add_action(menu: QMenu, label: str, shortcut: Optional[str] = None, tooltip: Optional[str] = None, handler = None, enabled: Optional[bool] = None):
+            """Helper to create and configure a QAction."""
+            action = menu.addAction(label)
+            if action is None:
+                raise TypeError(f'Expected "QAction", got "None"')
+
+            if shortcut:
+                action.setShortcut(shortcut)
+            if tooltip:
+                action.setToolTip(tooltip)
+            if enabled is False:
+                action.setEnabled(enabled)
+            else:
+                if handler:
+                    action.triggered.connect(handler)
+
+            return action
+
+        def add_menu(parent_menu: QMenu, label: str, tooltip: Optional[str] = None):
+            """Helper to create and configure a QMenu."""
+            menu = parent_menu.addMenu(label)
+            if menu is None:
+                raise TypeError(f'Expected "QMenu", got "None"')
+
+            if tooltip:
+                menu.setToolTip(tooltip)
+
+            return menu
+
         # Determine the index at the clicked position
         index = self.indexAt(pos)
 
@@ -4225,55 +4272,61 @@ class SessionTableView(QTableView):
         context_menu.setToolTipsVisible(True)
         context_menu.hovered.connect(self.handleMenuHovered)
 
-        # Copy action
-        copy_action = context_menu.addAction("Copy Selection")
-        copy_action.setShortcut("Ctrl+C")
-        copy_action.setToolTip("Copy selected cells to your clipboard.")
-        copy_action.triggered.connect(lambda: self.copy_selected_cells(selected_indexes))
-        context_menu.addAction(copy_action)
-
+        # Add "Copy Selection" action
+        add_action(
+            context_menu,
+            "Copy Selection",
+            shortcut="Ctrl+C",
+            tooltip="Copy selected cells to your clipboard.",
+            handler=lambda: self.copy_selected_cells(selected_indexes),
+        )
         context_menu.addSeparator()
 
         # "Select" submenu
-        select_menu = context_menu.addMenu("Select")
-
-        select_all_action = select_menu.addAction("Select All")
-        select_all_action.setShortcut("Ctrl+A")
-        select_all_action.setToolTip("Select all cells in the table.")
-        select_all_action.triggered.connect(self.select_all_cells)
-        select_menu.addAction(select_all_action)
-
-        select_row_action = select_menu.addAction("Select Row")
-        select_row_action.setToolTip("Select all cells in this row.")
-        select_row_action.triggered.connect(lambda: self.select_row_cells(index.row()))
-        select_menu.addAction(select_row_action)
-
-        select_column_action = select_menu.addAction("Select Column")
-        select_column_action.setToolTip("Select all cells in this column.")
-        select_column_action.triggered.connect(lambda: self.select_column_cells(index.column()))
-        select_menu.addAction(select_column_action)
+        select_menu = add_menu(context_menu, "Select  ")
+        add_action(
+            select_menu,
+            "Select All",
+            shortcut="Ctrl+A",
+            tooltip="Select all cells in the table.",
+            handler=self.select_all_cells,
+        )
+        add_action(
+            select_menu,
+            "Select Row",
+            tooltip="Select all cells in this row.",
+            handler=lambda: self.select_row_cells(index.row()),
+        )
+        add_action(
+            select_menu,
+            "Select Column",
+            tooltip="Select all cells in this column.",
+            handler=lambda: self.select_column_cells(index.column()),
+        )
 
         # "Unselect" submenu
-        unselect_menu = context_menu.addMenu("Unselect")
-
-        unselect_all_action = unselect_menu.addAction("Unselect All")
-        unselect_all_action.setToolTip("Unselect all cells in the table.")
-        unselect_all_action.triggered.connect(lambda: self.select_all_cells(unselect=True))
-        unselect_menu.addAction(unselect_all_action)
-
-        unselect_row_action = unselect_menu.addAction("Unselect Row")
-        unselect_row_action.setToolTip("Unselect all cells in this row.")
-        unselect_row_action.triggered.connect(lambda: self.select_row_cells(index.row(), unselect=True))
-        unselect_menu.addAction(unselect_row_action)
-
-        unselect_column_action = unselect_menu.addAction("Unselect Column")
-        unselect_column_action.setToolTip("Unselect all cells in this column.")
-        unselect_column_action.triggered.connect(lambda: self.select_column_cells(index.column(), unselect=True))
-        unselect_menu.addAction(unselect_column_action)
-
+        unselect_menu = add_menu(context_menu, "Unselect")
+        add_action(
+            unselect_menu,
+            "Unselect All",
+            tooltip="Unselect all cells in the table.",
+            handler=lambda: self.select_all_cells(unselect=True),
+        )
+        add_action(
+            unselect_menu,
+            "Unselect Row",
+            tooltip="Unselect all cells in this row.",
+            handler=lambda: self.select_row_cells(index.row(), unselect=True),
+        )
+        add_action(
+            unselect_menu,
+            "Unselect Column",
+            tooltip="Unselect all cells in this column.",
+            handler=lambda: self.select_column_cells(index.column(), unselect=True),
+        )
         context_menu.addSeparator()
 
-        # Ensure only one cell is selected
+        # Process if one cell is selected
         if len(selected_indexes) == 1:
             selected_column = selected_indexes[0].column()
             column_name = self.model().headerData(selected_column, Qt.Orientation.Horizontal)
@@ -4285,49 +4338,106 @@ class SessionTableView(QTableView):
                 ip_address = self.model().data(selected_indexes[0], Qt.ItemDataRole.DisplayRole)
                 if not isinstance(ip_address, str):
                     raise TypeError(f'Expected "str", got "{type(ip_address)}"')
-                if ip_address.endswith(" 👑"):
-                    ip_address = ip_address.removesuffix(" 👑")
+                ip_address = ip_address.removesuffix(" 👑")
 
-                userip_databases = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
-                userip_data = UserIP_Databases.get_userip_info(ip_address)
+                userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
 
-                # IP Lookup action
-                ip_lookup_action = context_menu.addAction("IP Lookup Details")
-                ip_lookup_action.setToolTip("Displays a notification with a detailed IP lookup report for this player.")
-                ip_lookup_action.triggered.connect(lambda: self.show_detailed_ip_lookup_player_cell(ip_address))
-                context_menu.addAction(ip_lookup_action)
+                add_action(
+                    context_menu,
+                    "IP Lookup Details",
+                    tooltip="Displays a notification with a detailed IP lookup report for this player.",
+                    handler=lambda: self.show_detailed_ip_lookup_player_cell(ip_address),
+                )
 
-                # "UserIP" submenu
-                userip_menu = context_menu.addMenu("UserIP")
+                userip_menu = add_menu(context_menu, "UserIP  ")
 
                 if ip_address not in UserIP_Databases.ips_set:
-                    # "Add" submenu
-                    add_userip_menu = userip_menu.addMenu("Add     ") # Extra spaces for alignment
-                    add_userip_menu.setToolTip("Add this IP address to UserIP database (you will be prompted to associate it with a username).")
-
-                    # Add a button for each database in the "Add" menu
-                    for db_name in userip_databases:
-                        add_action = add_userip_menu.addAction(db_name)
-                        add_action.setToolTip(f'Add this IP address to the "{db_name}" UserIP database.')
-                        add_action.triggered.connect(lambda _, db_name=db_name: self.userip_manager(ip_address, "ADD", db_name))
+                    add_userip_menu = add_menu(userip_menu, "Add     ", "Add this IP address to UserIP database.") # Extra spaces for alignment
+                    for db_filename in userip_database_filenames:
+                        add_action(
+                            add_userip_menu,
+                            db_filename,
+                            tooltip=f'Add this IP address to the "{db_filename}" UserIP database.',
+                            handler=lambda _, db_filename=db_filename: self.userip_manager__add([ip_address], db_filename),
+                        )
                 else:
-                    # "Move" submenu
-                    move_userip_menu = userip_menu.addMenu("Move    ") # Extra spaces for alignment
-                    move_userip_menu.setToolTip("Move this IP address and its associated username(s) to another UserIP database.")
+                    userip_info = UserIP_Databases.get_userip_info(ip_address)
+                    if userip_info is None:
+                        raise TypeError(f'Expected "UserIP", got "None"')
 
-                    # Add a button for each database in the "Move" menu
-                    for db_name in userip_databases:
-                        move_action = move_userip_menu.addAction(db_name)
-                        move_action.setToolTip(f'Move this IP address and its associated username(s) to the "{db_name}" UserIP database.')
-                        if userip_data.database_name == db_name.removesuffix(".ini"):
-                            move_action.setEnabled(False)
-                        else:
-                            move_action.triggered.connect(lambda _, db_name=db_name: self.userip_manager(ip_address, "MOVE", db_name))
+                    add_action(
+                        userip_menu,
+                        "Rename  ", # Extra spaces for alignment
+                        tooltip="Rename this IP address from UserIP databases.",
+                        handler=lambda: self.userip_manager__rename([ip_address]),
+                    )
+                    move_userip_menu = add_menu(userip_menu, "Move    ", "Move this IP address to another database.")
+                    for db_filename in userip_database_filenames:
+                        add_action(
+                            move_userip_menu,
+                            db_filename,
+                            tooltip=f'Move this IP address to the "{db_filename}" UserIP database.',
+                            handler=lambda _, db_filename=db_filename: self.userip_manager__move([ip_address], db_filename),
+                            enabled=userip_info.database_name != db_filename.removesuffix(".ini"),
+                        )
+                    add_action(
+                        userip_menu,
+                        "Delete  ", # Extra spaces for alignment
+                        tooltip="Delete this IP address from UserIP databases.",
+                        handler=lambda: self.userip_manager__del([ip_address]),
+                    )
+        else:
+            # Check if all selected cells are in the "IP Address" column
+            if all(
+                self.model().headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
+                for index in selected_indexes
+            ):
+                all_ip_addresses: list[str] = []
 
-                    # "Delete" action
-                    del_userip_action = userip_menu.addAction("Delete  ") # Extra spaces for alignment
-                    del_userip_action.setToolTip("Delete this IP address and its associated username(s) from UserIP database.")
-                    del_userip_action.triggered.connect(lambda: self.userip_manager(ip_address, "DEL"))
+                # Get the IP addreses from the selected cells
+                for index in selected_indexes:
+                    ip_address = self.model().data(index, Qt.ItemDataRole.DisplayRole)
+                    if not isinstance(ip_address, str):
+                        raise TypeError(f'Expected "str", got "{type(ip_address)}"')
+                    ip_address = ip_address.removesuffix(" 👑")
+                    all_ip_addresses.append(ip_address)
+
+                if all(ip not in UserIP_Databases.ips_set for ip in all_ip_addresses):
+                    userip_menu = add_menu(context_menu, "UserIP  ")
+                    add_userip_menu = add_menu(userip_menu, "Add Selected")
+                    userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
+                    for db_filename in userip_database_filenames:
+                        add_action(
+                            add_userip_menu,
+                            db_filename,
+                            tooltip=f'Add these IP addresses to the "{db_filename}" database.',
+                            handler=lambda _, db_filename=db_filename: self.userip_manager__add(all_ip_addresses, db_filename),
+                        )
+                elif all(ip in UserIP_Databases.ips_set for ip in all_ip_addresses):
+                    userip_menu = add_menu(context_menu, "UserIP  ")
+
+                    add_action(
+                        userip_menu,
+                        "Rename Selected", # Extra spaces for alignment
+                        tooltip="Rename these IP addresses from UserIP databases.",
+                        handler=lambda: self.userip_manager__rename([ip_address]),
+                    )
+
+                    move_userip_menu = add_menu(userip_menu, "Move Selected")
+                    userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
+                    for db_filename in userip_database_filenames:
+                        add_action(
+                            move_userip_menu,
+                            db_filename,
+                            tooltip=f'Move these IP addresses to the "{db_filename}" database.',
+                            handler=lambda _, db_filename=db_filename: self.userip_manager__move(all_ip_addresses, db_filename),
+                        )
+                    add_action(
+                        userip_menu,
+                        "Delete Selected", # Extra spaces for alignment
+                        tooltip="Delete these IP addresses from UserIP databases.",
+                        handler=lambda: self.userip_manager__del(all_ip_addresses),
+                    )
 
         # Execute the context menu at the right-click position
         context_menu.exec(self.mapToGlobal(pos))
@@ -4375,10 +4485,10 @@ class SessionTableView(QTableView):
         msgbox_message = textwrap.dedent(f"""
             ############# Player Infos ##############
             IP Address: {player.ip}
-            Username{plural(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
+            Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
             Is in UserIP database: {player.userip.detection.as_processed_userip_task and f'Yes: \"{player.userip.database_name}.ini\"' or "No"}
             Last Port: {player.ports.last}
-            Intermediate Port{plural(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
+            Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
             First Port: {player.ports.first}
 
             ########### IP Lookup Details ###########
@@ -4406,167 +4516,143 @@ class SessionTableView(QTableView):
         """).removeprefix("\n").removesuffix("\n")
         QMessageBox.information(self, TITLE, msgbox_message)
 
-    def userip_manager(self, ip_address: str, action: Literal["ADD", "MOVE", "DEL"], selected_db_name: Optional[str] = None):
-        userip_info = UserIP_Databases.get_userip_info(ip_address)
+    def userip_manager__rename(self, ip_addresses: list[str]):
+        # Prompt the user for the new username
+        new_username, ok = QInputDialog.getText(self, "Input New Username", F"Please enter the new username to associate with the selected IP{pluralize(len(ip_addresses))}:")
 
-        if action == "ADD":
-            if not selected_db_name:
-                return
+        if ok and new_username:
+            # TODO:
+            pass
 
-            # If not, prompt the user for a username
-            username, ok = QInputDialog.getText(self, "Input Username", "Please enter the username to associate with the IP address:")
+    def userip_manager__add(self, ip_addresses: list[str], selected_db_name: str):
+        # Prompt the user for a username
+        username, ok = QInputDialog.getText(self, "Input Username", f"Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:")
 
-            if ok and username:  # Only proceed if the user clicked 'OK' and provided a username
-                db_path = Path("UserIP Databases") / selected_db_name
-                newline = "\n" if is_file_need_newline_ending(db_path) else ""
+        if ok and username:  # Only proceed if the user clicked 'OK' and provided a username
+            db_path = Path("UserIP Databases") / selected_db_name
+            newline = "\n" if is_file_need_newline_ending(db_path) else ""
 
-                # Append the IP and username to the corresponding database file
-                with db_path.open("a", encoding="utf-8") as f:
-                    f.write(f"{newline}{username}={ip_address}\n")
+            # Append the username and associated IP(s) to the corresponding database file
+            write_lines_to_file(db_path, "a", [f"{username}={ip}\n" for ip in ip_addresses])
 
-                QMessageBox.information(self, TITLE, f"IP address {ip_address} has been added with username {username}.")
-            else:
-                # If the user canceled or left the input empty, show an error
-                QMessageBox.warning(self, TITLE, "ERROR:\nNo username was provided.")
+            QMessageBox.information(self, TITLE, f'Selected IP{pluralize(len(ip_addresses))} {ip_addresses} has been added with username "{username}" to UserIP database "{selected_db_name}".')
+        else:
+            # If the user canceled or left the input empty, show an error
+            QMessageBox.warning(self, TITLE, "ERROR:\nNo username was provided.")
 
-        elif action == "MOVE":
-            from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
+    def userip_manager__move(self, ip_addresses: list[str], selected_db_name: str):
+        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
 
-            if not selected_db_name:
-                return
+        # Dictionary to store removed entries by database
+        deleted_entries_by_db: dict[str, list[str]] = {}
 
-            # Dictionary to store removed entries by database
-            deleted_entries_by_db: dict[str, list[str]] = {}
+        # Path to the target database where entries should be moved
+        target_db_path = Path("UserIP Databases") / selected_db_name
 
-            # Path to the target database where entries should be moved
-            target_db_path = Path("UserIP Databases") / selected_db_name
+        # Iterate over each UserIP database
+        for db_name, _, _ in UserIP_Databases.userip_databases:
+            db_filename = f"{db_name}.ini"
+            db_path = Path("UserIP Databases") / db_filename
 
-            # Iterate over each UserIP database
-            for db_name, _, _ in UserIP_Databases.userip_databases:
-                db_filename = f"{db_name}.ini"
-                db_path = Path("UserIP Databases") / db_filename
+            # Read the database file
+            lines = db_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not lines:
+                continue
 
-                # Read the database file
-                try:
-                    with db_path.open("r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                except FileNotFoundError:
-                    continue
+            # List to store deleted entries in this particular database
+            deleted_entries_in_this_db: list[str] = []
 
-                if not lines:
-                    continue
+            # Remove any lines containing the IP address
+            lines_to_keep: list[str] = []
+            for line in lines:
+                match = RE_USERIP_INI_PARSER_PATTERN.search(line)
+                if match:
+                    # Extract username and ip using named groups
+                    username, ip = match.group("username").strip(), match.group("ip").strip()
 
-                # List to store deleted entries in this particular database
-                deleted_entries_in_this_db: list[str] = []
+                    # Ensure both username and ip are non-empty strings
+                    if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
+                        deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
+                        continue
 
-                # Remove any lines containing the IP address
-                lines_to_keep: list[str] = []
-                for line in lines:
-                    match = RE_USERIP_INI_PARSER_PATTERN.search(line)
-                    if match:
-                        # Extract username and ip using named groups
-                        username, ip = match.group("username").strip(), match.group("ip").strip()
+                lines_to_keep.append(line)
 
-                        # Ensure both username and ip are non-empty strings
-                        if isinstance(username, str) and isinstance(ip, str) and ip == ip_address:
-                            deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
-                            continue
-
-                    lines_to_keep.append(line)
-
+            if deleted_entries_in_this_db:
                 # Only update the database file if there were any deletions
-                if deleted_entries_in_this_db:
-                    # Ensure the last character is a newline
-                    if lines_to_keep and not lines_to_keep[-1].endswith("\n"):
-                        lines_to_keep.append("\n")
+                write_lines_to_file(db_path, "w", lines_to_keep)
 
-                    with db_path.open("w", encoding="utf-8") as f:
-                        f.writelines(lines_to_keep)
+                # Store the deleted entries for this database
+                deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
 
-                    # Store the deleted entries for this database
-                    deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
+                # Move the deleted entries to the target database
+                write_lines_to_file(target_db_path, "a", [f"{entry}\n" for entry in deleted_entries_in_this_db])
 
-                    # Move the deleted entries to the target database
-                    with target_db_path.open("a", encoding="utf-8") as target_db_file:
-                        for entry in deleted_entries_in_this_db:
-                            target_db_file.write(f"{entry}\n")
+        # After processing all databases, show a detailed report
+        if deleted_entries_by_db:
+            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} moved from the following UserIP database{pluralize(len(deleted_entries_by_db))} to UserIP database "{selected_db_name}":</b><br><br><br>'
+            for db_filename, deleted_entries in deleted_entries_by_db.items():
+                report += f"<b>{db_filename}:</b><br>"
+                report += "<ul>"
+                for entry in deleted_entries:
+                    report += f"<li>{entry}</li>"
+                report += "</ul><br>"
+            report = report.removesuffix("<br>")
 
-            # After processing all databases, show a detailed report
-            if deleted_entries_by_db:
-                report = f"<b>IP address {ip_address} moved from the following UserIP databases:</b><br><br><br>"
-                for db_filename, deleted_entries in deleted_entries_by_db.items():
-                    report += f"<b>{db_filename}:</b><br>"
-                    report += "<ul>"
-                    for entry in deleted_entries:
-                        report += f"<li>{entry}</li>"
-                    report += "</ul><br>"
-                report = report.removesuffix("<br>")
+            QMessageBox.information(self, TITLE, report)
 
-                QMessageBox.information(self, TITLE, report)
+    def userip_manager__del(self, ip_addresses: list[str]):
+        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
 
-        elif action == "DEL":
-            from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
+        # Dictionary to store removed entries by database
+        deleted_entries_by_db: dict[str, list[str]] = {}
 
-            # Dictionary to store removed entries by database
-            deleted_entries_by_db: dict[str, list[str]] = {}
+        # Iterate over each UserIP database
+        for db_name, _, _ in UserIP_Databases.userip_databases:
+            db_filename = f"{db_name}.ini"
+            db_path = Path("UserIP Databases") / db_filename
 
-            # Iterate over each UserIP database
-            for db_name, _, _ in UserIP_Databases.userip_databases:
-                db_filename = f"{db_name}.ini"
-                db_path = Path("UserIP Databases") / db_filename
+            # Read the database file
+            lines = db_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not lines:
+                continue
 
-                # Read the database file
-                try:
-                    with db_path.open("r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                except FileNotFoundError:
-                    continue
+            # List to store deleted entries in this particular database
+            deleted_entries_in_this_db: list[str] = []
 
-                if not lines:
-                    continue
+            # Remove any lines containing the IP address
+            lines_to_keep: list[str] = []
+            for line in lines:
+                match = RE_USERIP_INI_PARSER_PATTERN.search(line)
+                if match:
+                    # Extract username and ip using named groups
+                    username, ip = match.group("username").strip(), match.group("ip").strip()
 
-                # List to store deleted entries in this particular database
-                deleted_entries_in_this_db: list[str] = []
+                    # Ensure both username and ip are non-empty strings
+                    if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
+                        deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
+                        continue
 
-                # Remove any lines containing the IP address
-                lines_to_keep: list[str] = []
-                for line in lines:
-                    match = RE_USERIP_INI_PARSER_PATTERN.search(line)
-                    if match:
-                        # Extract username and ip using named groups
-                        username, ip = match.group("username").strip(), match.group("ip").strip()
+                lines_to_keep.append(line)
 
-                        # Ensure both username and ip are non-empty strings
-                        if isinstance(username, str) and isinstance(ip, str) and ip == ip_address:
-                            deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
-                            continue
-
-                    lines_to_keep.append(line)
-
+            if deleted_entries_in_this_db:
                 # Only update the database file if there were any deletions
-                if deleted_entries_in_this_db:
-                    # Ensure the last character is a newline
-                    if lines_to_keep and not lines_to_keep[-1].endswith("\n"):
-                        lines_to_keep.append("\n")
+                write_lines_to_file(db_path, "w", lines_to_keep)
 
-                    with db_path.open("w", encoding="utf-8") as f:
-                        f.writelines(lines_to_keep)
+                # Store the deleted entries for this database
+                deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
 
-                    # Store the deleted entries for this database
-                    deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
+        # After processing all databases, show a detailed report
+        if deleted_entries_by_db:
+            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_db))}:</b><br><br><br>'
+            for db_filename, deleted_entries in deleted_entries_by_db.items():
+                report += f"<b>{db_filename}:</b><br>"
+                report += "<ul>"
+                for entry in deleted_entries:
+                    report += f"<li>{entry}</li>"
+                report += "</ul><br>"
+            report = report.removesuffix("<br>")
 
-            # After processing all databases, show a detailed report
-            if deleted_entries_by_db:
-                report = f"<b>IP address {ip_address} removed from the following UserIP databases:</b><br><br><br>"
-                for db_filename, deleted_entries in deleted_entries_by_db.items():
-                    report += f"<b>{db_filename}:</b><br>"
-                    report += "<ul>"
-                    for entry in deleted_entries:
-                        report += f"<li>{entry}</li>"
-                    report += "</ul><br>"
-                report = report.removesuffix("<br>")
-
-                QMessageBox.information(self, TITLE, report)
+            QMessageBox.information(self, TITLE, report)
 
     def select_all_cells(self, unselect: bool = False):
         """
