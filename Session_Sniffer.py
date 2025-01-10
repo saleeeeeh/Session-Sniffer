@@ -1672,7 +1672,7 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
 
     Args:
         file: The path to the file.
-        mode: The file mode ('w', 'a', etc.).
+        mode: The file mode ('w', 'x' or 'a').
         lines: A list of lines to write to the file.
     """
     # Copy the input lines to avoid modifying the original list
