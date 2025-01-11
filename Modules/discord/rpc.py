@@ -4,7 +4,7 @@ from pypresence import Presence
 from pypresence.exceptions import DiscordNotFound, PipeClosed, ResponseTimeout
 
 DISCORD_PRESENCE_CLIENT_ID = 1313304495958261781
-DISCORD_RPC_TITLE = "Sniffin' my babies IPs."
+DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
 DISCORD_RPC_BUTTONS = [
     {
         "label": "GitHub Repo",

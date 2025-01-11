@@ -3980,7 +3980,7 @@ def rendering_core():
                 last_session_logging_processing_time = time.perf_counter()
 
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.perf_counter() - discord_rpc_manager.last_update_time) >= 3.0):
-                discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected in the session.")
+                discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected")
 
             GUIrenderingData.header_text, global_pps_t1, global_pps_rate = generate_gui_header_text(global_pps_t1, global_pps_rate)
             (
