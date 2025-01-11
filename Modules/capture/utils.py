@@ -130,7 +130,7 @@ def get_tshark_path(tshark_path: Path = None):
         tshark_version = None
         is_valid = False
 
-        if possible_tshark_path.exists() and possible_tshark_path.is_file():
+        if possible_tshark_path.is_file():
             if (tshark_version := get_tshark_version(possible_tshark_path)) is not None:
                 if tshark_version != WIRESHARK_RECOMMENDED_FULL_VERSION:
                     raise InvalidTSharkVersionException(possible_tshark_path, tshark_version)

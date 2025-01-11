@@ -1518,7 +1518,7 @@ def update_and_initialize_geolite2_readers():
                     destination_file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
 
                     # [Bug-Fix]: https://github.com/BUZZARDGTA/Session-Sniffer/issues/28
-                    if destination_file_path.exists() and destination_file_path.is_file():
+                    if destination_file_path.is_file():
                         if hashlib.sha256(destination_file_path.read_bytes()).hexdigest() == hashlib.sha256(response.content).hexdigest():
                             geolite2_databases[database_name]["current_version"] = database_info["last_version"]
                         else:
@@ -1530,7 +1530,7 @@ def update_and_initialize_geolite2_readers():
                             except OSError as e:
                                 # The file is currently open and in use by another process. Abort updating this db.
                                 if e.winerror == 1224:  # https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-
-                                    if temp_path.exists() and temp_path.is_file():
+                                    if temp_path.is_file():
                                         temp_path.unlink()
                                     geolite2_databases[database_name]["current_version"] = database_info["current_version"]
                     else:
@@ -1635,8 +1635,7 @@ def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "l
         return line.rstrip("\n")
 
     if not ini_path.exists():
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
-                                str(ini_path.absolute()))
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
     if not ini_path.is_file():
         raise InvalidFileError(str(ini_path.absolute()))
 
@@ -1708,13 +1707,17 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
     # Copy the input lines to avoid modifying the original list
     content = lines[:]
 
-    # Add a leading newline if appending to a file and a newline is needed
-    if mode == "a" and is_file_need_newline_ending(file):
-        content.insert(0, "")
-
     # If the content list is empty, exit early without writing to the file
     if not content:
         return
+
+    # If appending to a file, ensure a leading newline is added if the file exists, otherwise creates it.
+    if mode == "a":
+        if file.is_file():
+            if is_file_need_newline_ending(file):
+                content.insert(0, "")
+        else:
+            file.touch()
 
     # Ensure the last line ends with a newline character
     if not content[-1].endswith("\n"):
@@ -2912,8 +2915,7 @@ def rendering_core():
             from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
 
             if not ini_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
-                                        str(ini_path.absolute()))
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
             if not ini_path.is_file():
                 raise InvalidFileError(str(ini_path.absolute()))
 
@@ -3273,7 +3275,7 @@ def rendering_core():
             USERIP_DATABASES_PATH.mkdir(parents=True, exist_ok=True)
 
             for userip_path, settings in DEFAULT_USERIP_FILES_SETTINGS.items():
-                if not userip_path.exists():
+                if not userip_path.is_file():
                     file_content = f"{DEFAULT_USERIP_FILE_HEADER}\n\n{settings}\n\n{DEFAULT_USERIP_FILE_FOOTER}"
                     userip_path.write_text(file_content, encoding="utf-8")
 
@@ -3281,9 +3283,9 @@ def rendering_core():
             # TODO:
             # I should also warn again on another error, but it'd probably require a DICT then.
             # I have things more important to code atm.
-            for path in set(UserIP_Databases.notified_settings_corrupted):
-                if not path.exists() or not path.is_file():
-                    UserIP_Databases.notified_settings_corrupted.remove(path)
+            for file_path in set(UserIP_Databases.notified_settings_corrupted):
+                if not file_path.is_file():
+                    UserIP_Databases.notified_settings_corrupted.remove(file_path)
 
             UserIP_Databases.reset()
 
@@ -3471,11 +3473,11 @@ def rendering_core():
             from Modules.constants.standard import SESSIONS_LOGGING_PATH
 
             # Check if the directories exist, if not create them
-            if not SESSIONS_LOGGING_PATH.parent.exists():
+            if not SESSIONS_LOGGING_PATH.parent.is_dir():
                 SESSIONS_LOGGING_PATH.parent.mkdir(parents=True)  # Create the directories if they don't exist
 
             # Check if the file exists, if not create it
-            if not SESSIONS_LOGGING_PATH.exists():
+            if not SESSIONS_LOGGING_PATH.is_file():
                 SESSIONS_LOGGING_PATH.touch()  # Create the file if it doesn't exist
 
             SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string(), encoding="utf-8")
@@ -3861,7 +3863,7 @@ def rendering_core():
                 last_mod_menus_logs_parse_time = time.perf_counter()
 
                 for log_path in [STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH]:
-                    if not (log_path.exists() and log_path.is_file()):
+                    if not log_path.is_file():
                         continue
 
                     # Read the content and split it into lines
