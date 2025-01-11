@@ -10,8 +10,11 @@ import time
 import enum
 import errno
 import signal
+import shutil
 import logging
+import hashlib
 import textwrap
+import tempfile
 import winsound
 import threading
 import subprocess
@@ -1433,7 +1436,7 @@ def update_and_initialize_geolite2_readers():
         from Modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / "version.json"
-        geolite2_databases: dict[str, dict[str, None | str]] = {
+        geolite2_databases: dict[str, dict[str, Optional[str]]] = {
             f"GeoLite2-{db}.mmdb": {
                 "current_version": None,
                 "last_version": None,
@@ -1450,11 +1453,14 @@ def update_and_initialize_geolite2_readers():
         else:
             if isinstance(loaded_data, dict):
                 for database_name, database_info in loaded_data.items():
+                    if not isinstance(database_name, str):
+                        continue
                     if not isinstance(database_info, dict):
                         continue
+                    if not database_name in geolite2_databases:
+                        continue
 
-                    if database_name in geolite2_databases:
-                        geolite2_databases[database_name]["current_version"] = database_info.get("version", None)
+                    geolite2_databases[database_name]["current_version"] = database_info.get("version", None)
 
         try:
             response = s.get(GITHUB_RELEASE_API__GEOLITE2)
@@ -1472,13 +1478,20 @@ def update_and_initialize_geolite2_readers():
             }
 
         release_data = response.json()
+        if not isinstance(release_data, dict):
+            raise TypeError(f'Expected "dict" object, got "{type(release_data)}"')
+
         for asset in release_data["assets"]:
             asset_name = asset["name"]
-            if asset_name in geolite2_databases:
-                geolite2_databases[asset_name].update({
-                    "last_version": asset["updated_at"],
-                    "download_url": asset["browser_download_url"]
-                })
+            if not isinstance(asset_name, str):
+                continue
+            if not asset_name in geolite2_databases:
+                continue
+
+            geolite2_databases[asset_name].update({
+                "last_version": asset["updated_at"],
+                "download_url": asset["browser_download_url"]
+            })
 
         failed_fetching_flag_list: list[str] = []
         for database_name, database_info in geolite2_databases.items():
@@ -1502,10 +1515,27 @@ def update_and_initialize_geolite2_readers():
                         raise TypeError(f'Expected "bytes" object, got "{type(response.content)}"')
 
                     GEOLITE2_DATABASES_FOLDER_PATH.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
-                    file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
-                    file_path.write_bytes(response.content)
+                    destination_file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
 
-                    geolite2_databases[database_name]["current_version"] = database_info["last_version"]
+                    # [Bug-Fix]: https://github.com/BUZZARDGTA/Session-Sniffer/issues/28
+                    if destination_file_path.exists() and destination_file_path.is_file():
+                        if hashlib.sha256(destination_file_path.read_bytes()).hexdigest() == hashlib.sha256(response.content).hexdigest():
+                            geolite2_databases[database_name]["current_version"] = database_info["last_version"]
+                        else:
+                            temp_path = Path(tempfile.gettempdir()) / database_name
+                            temp_path.write_bytes(response.content)
+
+                            try:
+                                shutil.move(temp_path, destination_file_path)
+                            except OSError as e:
+                                # The file is currently open and in use by another process. Abort updating this db.
+                                if e.winerror == 1224:  # https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-
+                                    if temp_path.exists() and temp_path.is_file():
+                                        temp_path.unlink()
+                                    geolite2_databases[database_name]["current_version"] = database_info["current_version"]
+                    else:
+                        destination_file_path.write_bytes(response.content)
+                        geolite2_databases[database_name]["current_version"] = database_info["last_version"]
             else:
                 failed_fetching_flag_list.append(database_name)
 
@@ -2389,7 +2419,6 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 return
 
             with userip_logging_file_write_lock:
-                # Prepare the content for logging
                 write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
                     f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
