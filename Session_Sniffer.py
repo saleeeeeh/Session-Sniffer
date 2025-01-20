@@ -4011,7 +4011,7 @@ capture_core__thread = threading.Thread(target=capture_core, daemon=True)
 capture_core__thread.start()
 
 class SessionTableModel(QAbstractTableModel):
-    def __init__(self, headers: list[str]):
+    def __init__(self, headers: list[str], sort_column: int, sort_order: Qt.SortOrder):
         super().__init__()
         self._headers = headers  # The column headers
         self._data: list[list[str]] = []  # The data to be displayed in the table
@@ -4019,8 +4019,7 @@ class SessionTableModel(QAbstractTableModel):
         # Custom Variables
         self._view: Optional[SessionTableView] = None  # Initially, no view is attached
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
-        self._num_rows = 0  # Default number of rows, initially 0
-        self._num_cols = 0  # Default number of columns, initially 0
+        self._IP_COLUMN_INDEX = self._headers.index("IP Address")
 
     def rowCount(self, parent=None):
         return len(self._data)  # The number of rows in the model
@@ -4035,6 +4034,10 @@ class SessionTableModel(QAbstractTableModel):
 
         row_idx = index.row()
         col_idx = index.column()
+
+        # Check bounds
+        if row_idx >= len(self._data) or col_idx >= len(self._data[row_idx]):
+            return None  # Return None for invalid index
 
         if role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
@@ -4056,7 +4059,10 @@ class SessionTableModel(QAbstractTableModel):
                 return None
 
             # Get the column resize mode
-            resize_mode = self._view.horizontalHeader().sectionResizeMode(index.column())
+            header = self._view.horizontalHeader()
+            if not isinstance(header, QHeaderView):
+                raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+            resize_mode = header.sectionResizeMode(index.column())
 
             # Return None if the column resize mode isn't set to Stretch, as it shouldn't be truncated
             if resize_mode != QHeaderView.ResizeMode.Stretch:
@@ -4103,50 +4109,255 @@ class SessionTableModel(QAbstractTableModel):
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
+    def sort(self, column, order):
+        """
+        Sort the table by a specific column.
+
+        Args:
+            column: The column index to sort by.
+            order: The order (ascending/descending) to sort in.
+        """
+        if not self._data:
+            if self._compiled_colors:
+                raise ValueError("Inconsistent state: It's not possible to have colors if there's no data.")
+            return  # No data to process, exit early.
+
+        if not self._compiled_colors:
+            raise ValueError("Inconsistent state: It's not possible to have data without colors.")
+
+        self.layoutAboutToBeChanged.emit()
+
+        sorted_column_name = self._headers[column]
+        # Combine data and colors for sorting
+        combined = list(zip(self._data, self._compiled_colors))
+        if not combined:
+            raise ValueError("Inconsistent state: 'combined' is unexpectedly empty at this point.")
+        sort_order_bool = order == Qt.SortOrder.DescendingOrder
+
+        if sorted_column_name == "IP Address":
+            import ipaddress
+
+            # Sort by IP address
+            combined.sort(
+                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
+                reverse=sort_order_bool
+            )
+        elif sorted_column_name in ["First Seen", "Last Rejoin", "Last Seen"]:
+            # Retrieve the player datetime object from the IP column
+            def extract_datetime_for_ip(ip: str):
+                """
+                Extracts a datetime object for a given IP address.
+                """
+                player = PlayersRegistry.get_player(ip)
+                if not isinstance(player, Player):
+                    raise TypeError(f'Expected "Player", got "{type(player)}"')
+
+                # Retrieve the player datetime attribute name for the selected column
+                # Mapping column names to player datetime attributes
+                datetime_attribute = {
+                    "First Seen": "first_seen",
+                    "Last Rejoin": "last_rejoin",
+                    "Last Seen": "last_seen"
+                }.get(self._headers[column], None)
+                if not isinstance(datetime_attribute, str):
+                    raise TypeError(f'Expected "str", got "{type(datetime_attribute)}"')
+
+                # Safely retrieve the attribute using `getattr`
+                return getattr(player.datetime, datetime_attribute)
+
+            combined.sort(
+                key=lambda row: extract_datetime_for_ip(row[0][self._IP_COLUMN_INDEX].removesuffix(" 👑")),
+                reverse=not sort_order_bool
+            )
+        else:
+            # Sort by other columns: numerically if the strings represent numbers, otherwise case-insensitively
+            combined.sort(
+                key=lambda row: (
+                    float(row[0][column]) if row[0][column].replace('.', '', 1).isdigit() else row[0][column].lower()
+                ),
+                reverse=sort_order_bool
+            )
+
+        # Unpack the sorted data
+        self._data, self._compiled_colors = zip(*combined)
+        self._data, self._compiled_colors = list(self._data), list(self._compiled_colors)
+
+        self.layoutChanged.emit()
+
     # Custom Methods:
 
     def set_view(self, view: "SessionTableView"):
         self._view = view
 
-    def update_table(self, num_cols: int, num_rows: int, new_data: list[list[str]], compiled_colors: list[list[CellColor]]):
-        """Update the table size, data, and colors in one operation to avoid flickers."""
-        # Check if the data, layout, or colors have actually changed
-        if num_rows != self._num_rows or num_cols != self._num_cols or new_data != self._data or compiled_colors != self._compiled_colors:
-            # Only emit layout changes if rows, columns, or data have changed
-            self.layoutAboutToBeChanged.emit()  # Notify that the layout will change
+    def get_column_index(self, column_name: str):
+        """
+        Get the table index of a specified column.
 
-            # Update the table size, data, and colors
-            self._num_cols = num_cols
-            self._num_rows = num_rows
-            self._data = new_data
-            self._compiled_colors = compiled_colors  # Store the compiled colors for future rendering
+        Args:
+            column_name: The column name to look for.
 
-            # Emit layoutChanged since the layout/data/colors have changed
-            self.layoutChanged.emit()  # Notify that the layout has changed
+        Returns:
+            The table column index.
+        """
+        column_index = self._headers.index(column_name)
 
-            # Emit dataChanged for the entire table (to update the display)
-            if self._num_rows > 0 and self._num_cols > 0:
-                top_left = self.index(0, 0)
-                bottom_right = self.index(self._num_rows - 1, self._num_cols - 1)
-                self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.ForegroundRole])
+        return column_index
+
+    def get_row_index_by_ip(self, ip_address: str):
+        """
+        Finds the row index for the given IP address.
+
+        Args:
+            ip_address: The IP address to search for.
+
+        Returns:
+            The index of the row containing the IP address, or None if not found.
+        """
+        for row_index, row_data in enumerate(self._data):
+            if row_data[self._IP_COLUMN_INDEX].removesuffix(" 👑") == ip_address:
+                return row_index
+        return None
+
+    def sort_current_column(self):
+        """
+        Calls the sort method with the current column index and order.
+        Ensures sorting reflects the current state of the header.
+        """
+        if not self._view:
+            return
+
+        # Retrieve the current sort column and order
+        header = self._view.horizontalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+        sort_column = header.sortIndicatorSection()
+        sort_order = header.sortIndicatorOrder()
+
+        # Call the sort function with the retrieved arguments
+        self.sort(sort_column, sort_order)
+
+    def add_row_without_refresh(self, row_data: list[str], row_colors: list[CellColor]):
+        """
+        Adds a new row to the model without notifying the view in real time.
+
+        Args:
+            row_data: The data for the new row.
+            row_colors: A list of `CellColor` objects corresponding to the row's colors.
+        """
+        # Only update internal data without triggering signals
+        self._data.append(row_data)
+        self._compiled_colors.append(row_colors)
+
+    def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]):
+        """
+        Updates an existing row in the model with new data and colors without notifying the view in real time.
+
+        Args:
+            row_index: The index of the row to update.
+            row_data: The new data for the row.
+            row_colors: A list of `CellColor` objects corresponding to the row's colors.
+        """
+        if 0 <= row_index < self.rowCount():
+            self._data[row_index] = row_data
+            self._compiled_colors[row_index] = row_colors
+
+    def delete_row(self, row_index: int):
+        """
+        Deletes a row from the model along with its associated colors.
+        If any items are selected under this row, their selection moves one row up.
+
+        Args:
+            row_index: The index of the row to delete.
+        """
+        if 0 <= row_index < self.rowCount():
+            # Access the selection model from the view if it's available
+            if self._view:
+                selection_model = self._view.selectionModel()
+                if not isinstance(selection_model, QItemSelectionModel):
+                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+
+            # Adjust selection for the deleted row
+            for index in selection_model.selection().indexes():
+                if index.row() == row_index:  # Row to be deleted
+                    # Deselect the row because it's about to be deleted
+                    # Select the row to be deleted
+                    selection = QItemSelection(
+                        self.index(index.row(), index.column()),
+                        self.index(index.row(), index.column())
+                    )
+                    selection_model.select(selection, QItemSelectionModel.SelectionFlag.Deselect)
+
+            # Notify the view that rows are about to be removed
+            self.beginRemoveRows(self.index(row_index, 0), row_index, row_index)
+
+            # Remove the data and compiled colors at the specified index
+            self._data.pop(row_index)
+            self._compiled_colors.pop(row_index)
+
+            # Adjust selection for rows below the deleted one
+            for index in selection_model.selection().indexes():
+                if index.row() > row_index:  # Items below the deleted row
+                    # Deselect the original row
+                    selection_to_deselect = QItemSelection(
+                        self.index(index.row(), index.column()),  # Original row
+                        self.index(index.row(), index.column())
+                    )
+                    selection_model.select(selection_to_deselect, QItemSelectionModel.SelectionFlag.Deselect)
+
+                    # Move the selection up by one row
+                    selection_to_select = QItemSelection(
+                        self.index(index.row() - 1, index.column()),  # New row after deletion
+                        self.index(index.row() - 1, index.column())
+                    )
+                    selection_model.select(selection_to_select, QItemSelectionModel.SelectionFlag.Select)
+
+            # Notify the view that the rows have been removed
+            self.endRemoveRows()
+
+            # NOTE: Fixes a weird UI bug that when someone leaves, it makes it an empty row
+            if not self._data:
+                # Begin resetting the model to indicate it's empty
+                self.beginResetModel()
+                self._data = []
+                self._compiled_colors = []
+                # End reset and notify the view that the model has been reset
+                self.endResetModel()
+
+            ## Ensure the view resizes properly after a row is removed
+            #if self._view:
+            #    self._view.resizeRowsToContents()
+            #    self._view.viewport().update()
+
+    def refresh_view(self):
+        """
+        Notifies the view to refresh and reflect all changes made to the model.
+        """
+        self.layoutAboutToBeChanged.emit()
+        self.layoutChanged.emit()
 
 class SessionTableView(QTableView):
-    def __init__(self, model: SessionTableModel):
+    def __init__(self, model: SessionTableModel, sort_column: int, sort_order: Qt.SortOrder):
         super().__init__()
         self.setModel(model)
         self._is_dragging = False  # Track if the mouse is being dragged with Ctrl key
+        self._previous_sort_section_index: Optional[int] = None
 
         # Configure table view settings
         self.verticalHeader().setVisible(False)  # Hide row index
         self.setAlternatingRowColors(True)
-        self.setSortingEnabled(False)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.horizontalHeader().setSectionsClickable(True)
+        self.horizontalHeader().sectionClicked.connect(self.on_section_clicked)
         self.horizontalHeader().setSectionsMovable(True)
         self.setSelectionMode(QTableView.SelectionMode.NoSelection)
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectItems)
         self.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+        # Set the sort indicator for the specified column
+        self.setSortingEnabled(False)
+        self.horizontalHeader().setSortIndicator(sort_column, sort_order)
+        self.horizontalHeader().setSortIndicatorShown(True)
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
@@ -4162,7 +4373,17 @@ class SessionTableView(QTableView):
                 if event.key() == Qt.Key.Key_A:
                     self.select_all_cells()
                 elif event.key() == Qt.Key.Key_C:
-                    self.copy_selected_cells()
+                    selected_model = self.model()
+                    if not isinstance(selected_model, SessionTableModel):
+                        raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+
+                    selection_model = self.selectionModel()
+                    if not isinstance(selection_model, QItemSelectionModel):
+                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+
+                    selected_indexes = selection_model.selectedIndexes()
+
+                    self.copy_selected_cells(selected_model, selected_indexes)
                 return
 
         # Fall back to default behavior
@@ -4254,6 +4475,84 @@ class SessionTableView(QTableView):
 
     # Custom Methods:
 
+    def adjust_table_column_widths(self):
+        """Adjust the column widths of a QTableView to fit content."""
+        model = self.model()
+        if not isinstance(model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+
+        header = self.horizontalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+
+        for column in range(model.columnCount()):
+            # Get the header label for the column
+            header_label = model.headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+
+            if header_label == "Usernames":
+                # Check if the column contains any data other than "N/A"
+                contains_non_na = any(
+                    model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole) != "N/A"
+                    for row in range(model.rowCount())
+                )
+
+                if contains_non_na:
+                    header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+                else:
+                    header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+            elif header_label in ["First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting"]:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+            else:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+
+    def get_sorted_column(self):
+        """Get the currently sorted column and its order for this table view."""
+        model = self.model()
+        if not isinstance(model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+
+        header = self.horizontalHeader()
+        if header is None:
+            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+
+        # Get the index of the currently sorted column
+        sorted_column_index = header.sortIndicatorSection()
+
+        # Get the sort order (ascending or descending)
+        sort_order = header.sortIndicatorOrder()
+
+        # Get the name of the sorted column from the model
+        sorted_column_name = model.headerData(
+            sorted_column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
+        )
+        if not isinstance(sorted_column_name, str):
+            raise TypeError(f'Expected "str", got "{type(sorted_column_name)}"')
+
+        return sorted_column_name, sort_order
+
+    def on_section_clicked(self, section_index: int):
+        model = self.model()
+        if not isinstance(model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+
+        header = self.horizontalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+
+        # Clear selections when a header section is clicked
+        # TODO: We can uses the "IP Address" field to store previous selections and their indexes and apply them back after sorting.
+        self.selectionModel().clearSelection()
+
+        # If it's the first click or sorting is being toggled
+        if self._previous_sort_section_index is None or self._previous_sort_section_index != section_index:
+            # TODO: If it's a string column, sort in AscendingOrder
+            header.setSortIndicator(section_index, Qt.SortOrder.DescendingOrder)
+
+        # Sort the model
+        model.sort(section_index, header.sortIndicatorOrder())
+        self._previous_sort_section_index = section_index
+
+
     def show_context_menu(self, pos: QPoint):
         """
         Show the context menu at the specified position with options to interact with the table's content.
@@ -4291,11 +4590,18 @@ class SessionTableView(QTableView):
 
         # Determine the index at the clicked position
         index = self.indexAt(pos)
-
         if not index.isValid():
             return  # Do nothing if the click is outside valid cells
 
-        selected_indexes = self.selectionModel().selectedIndexes()
+        selected_model = self.model()
+        if not isinstance(selected_model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+
+        selection_model = self.selectionModel()
+        if not isinstance(selection_model, QItemSelectionModel):
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+
+        selected_indexes = selection_model.selectedIndexes()
 
         # Create the main context menu
         context_menu = QMenu(self)
@@ -4309,7 +4615,7 @@ class SessionTableView(QTableView):
             "Copy Selection",
             shortcut="Ctrl+C",
             tooltip="Copy selected cells to your clipboard.",
-            handler=lambda: self.copy_selected_cells(selected_indexes),
+            handler=lambda: self.copy_selected_cells(selected_model, selected_indexes),
         )
         context_menu.addSeparator()
 
@@ -4360,13 +4666,14 @@ class SessionTableView(QTableView):
         # Process if one cell is selected
         if len(selected_indexes) == 1:
             selected_column = selected_indexes[0].column()
-            column_name = self.model().headerData(selected_column, Qt.Orientation.Horizontal)
+
+            column_name = selected_model.headerData(selected_column, Qt.Orientation.Horizontal)
             if not isinstance(column_name, str):
                 raise TypeError(f'Expected "str", got "{type(column_name)}"')
 
             if column_name == "IP Address":
                 # Get the IP address from the selected cell
-                ip_address = self.model().data(selected_indexes[0], Qt.ItemDataRole.DisplayRole)
+                ip_address = selected_model.data(selected_indexes[0], Qt.ItemDataRole.DisplayRole)
                 if not isinstance(ip_address, str):
                     raise TypeError(f'Expected "str", got "{type(ip_address)}"')
                 ip_address = ip_address.removesuffix(" 👑")
@@ -4396,12 +4703,13 @@ class SessionTableView(QTableView):
                     if userip_info is None:
                         raise TypeError(f'Expected "UserIP", got "None"')
 
-                    add_action(
-                        userip_menu,
-                        "Rename  ", # Extra spaces for alignment
-                        tooltip="Rename this IP address from UserIP databases.",
-                        handler=lambda: self.userip_manager__rename([ip_address]),
-                    )
+                    # TODO:
+                    #add_action(
+                    #    userip_menu,
+                    #    "Rename  ", # Extra spaces for alignment
+                    #    tooltip="Rename this IP address from UserIP databases.",
+                    #    handler=lambda: self.userip_manager__rename([ip_address]),
+                    #)
                     move_userip_menu = add_menu(userip_menu, "Move    ", "Move this IP address to another database.")
                     for db_filename in userip_database_filenames:
                         add_action(
@@ -4420,14 +4728,14 @@ class SessionTableView(QTableView):
         else:
             # Check if all selected cells are in the "IP Address" column
             if all(
-                self.model().headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
+                selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
                 for index in selected_indexes
             ):
                 all_ip_addresses: list[str] = []
 
                 # Get the IP addreses from the selected cells
                 for index in selected_indexes:
-                    ip_address = self.model().data(index, Qt.ItemDataRole.DisplayRole)
+                    ip_address = selected_model.data(index, Qt.ItemDataRole.DisplayRole)
                     if not isinstance(ip_address, str):
                         raise TypeError(f'Expected "str", got "{type(ip_address)}"')
                     ip_address = ip_address.removesuffix(" 👑")
@@ -4447,12 +4755,13 @@ class SessionTableView(QTableView):
                 elif all(ip in UserIP_Databases.ips_set for ip in all_ip_addresses):
                     userip_menu = add_menu(context_menu, "UserIP  ")
 
-                    add_action(
-                        userip_menu,
-                        "Rename Selected", # Extra spaces for alignment
-                        tooltip="Rename these IP addresses from UserIP databases.",
-                        handler=lambda: self.userip_manager__rename([ip_address]),
-                    )
+                    # TODO:
+                    #add_action(
+                    #    userip_menu,
+                    #    "Rename Selected", # Extra spaces for alignment
+                    #    tooltip="Rename these IP addresses from UserIP databases.",
+                    #    handler=lambda: self.userip_manager__rename([ip_address]),
+                    #)
 
                     move_userip_menu = add_menu(userip_menu, "Move Selected")
                     userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
@@ -4473,14 +4782,10 @@ class SessionTableView(QTableView):
         # Execute the context menu at the right-click position
         context_menu.exec(self.mapToGlobal(pos))
 
-    def copy_selected_cells(self, selected_indexes: Optional[list[QModelIndex]] = None):
+    def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: Optional[list[QModelIndex]] = None):
         """
         Copy the selected cells data from the table to the clipboard.
         """
-        selected_model = self.model()
-        if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
-
         # Access the system clipboard
         clipboard = QApplication.clipboard()
         if not isinstance(clipboard, QClipboard):
@@ -4490,8 +4795,6 @@ class SessionTableView(QTableView):
         selected_texts: list[str] = []
 
         # Iterate over each selected index and retrieve its display data
-        if selected_indexes is None:
-            selected_indexes = self.selectionModel().selectedIndexes()
         for index in selected_indexes:
             cell_text = selected_model.data(index, Qt.ItemDataRole.DisplayRole)
             if not isinstance(cell_text, str):
@@ -4514,7 +4817,7 @@ class SessionTableView(QTableView):
             raise TypeError(f'Expected "Player", got "{type(player)}"')
 
         msgbox_message = textwrap.dedent(f"""
-            ############# Player Infos ##############
+            ############ Player Infos #############
             IP Address: {player.ip}
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
             Is in UserIP database: {player.userip.detection.as_processed_userip_task and f'Yes: \"{player.userip.database_name}.ini\"' or "No"}
@@ -4522,7 +4825,7 @@ class SessionTableView(QTableView):
             Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
             First Port: {player.ports.first}
 
-            ########### IP Lookup Details ###########
+            ########## IP Lookup Details ##########
             Continent: {player.iplookup.ipapi.compiled.continent}
             Country: {player.iplookup.maxmind.compiled.country}
             Country Code: {player.iplookup.maxmind.compiled.country_code}
@@ -4547,13 +4850,14 @@ class SessionTableView(QTableView):
         """).removeprefix("\n").removesuffix("\n")
         QMessageBox.information(self, TITLE, msgbox_message)
 
-    def userip_manager__rename(self, ip_addresses: list[str]):
-        # Prompt the user for the new username
-        new_username, ok = QInputDialog.getText(self, "Input New Username", F"Please enter the new username to associate with the selected IP{pluralize(len(ip_addresses))}:")
-
-        if ok and new_username:
-            # TODO:
-            pass
+    # TODO:
+    #def userip_manager__rename(self, ip_addresses: list[str]):
+    #    # Prompt the user for the new username
+    #    new_username, ok = QInputDialog.getText(self, "Input New Username", F"Please enter the new username to associate with the selected IP{pluralize(len(ip_addresses))}:")
+    #
+    #    if ok and new_username:
+    #        # TODO:
+    #        pass
 
     def userip_manager__add(self, ip_addresses: list[str], selected_db_name: str):
         # Prompt the user for a username
@@ -4771,123 +5075,74 @@ class SessionTableView(QTableView):
         selection_model.select(selection, flag)
 
 class GUIWorkerThread(QThread):
-    update_signal = pyqtSignal(str, int, int, list, list, int, int, list, list)  # Signal to send updated table data and new size
+    update_signal = pyqtSignal(
+        str,
+        list,
+        list,
+        int,
+        list,
+        list,
+        int
+    )  # Signal to send updated table data and new size
 
-    def __init__(self, gui_closed_event: threading.Event, user_requested_sorting_by_field: threading.Event, connected_table_view: SessionTableView, disconnected_table_view: SessionTableView):
+    def __init__(self,
+        gui_closed_event: threading.Event,
+        connected_table_model: SessionTableModel,
+        connected_table_view: SessionTableView,
+        disconnected_table_model: SessionTableModel,
+        disconnected_table_view: SessionTableView
+    ):
         super().__init__()
+
         self.gui_closed_event = gui_closed_event
-        self.user_requested_sorting_by_field = user_requested_sorting_by_field
+        self.connected_table_model = connected_table_model
         self.connected_table_view = connected_table_view
+        self.disconnected_table_model = disconnected_table_model
         self.disconnected_table_view = disconnected_table_view
 
     def run(self):
-        def get_table_sorted_column(table: SessionTableView):
-            """Get the currently sorted column and its order from a specific SessionTableView."""
-            # Ensure we are fetching from the correct header of the provided table
-            header = table.horizontalHeader()
-            if header is None:
-                raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
-
-            # Get the index of the currently sorted column
-            sorted_column_index = header.sortIndicatorSection()
-
-            # Get the sort order (ascending or descending)
-            sort_order = header.sortIndicatorOrder()
-
-            # Get the name of the sorted column
-            sorted_column_name = table.model().headerData(sorted_column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
-            if not isinstance(sorted_column_name, str):
-                raise TypeError(f'Expected "str", got "{type(sorted_column_name)}"')
-
-            return sorted_column_name, sort_order
-
+        # While the GUI is not closed, we repeat this loop
         while not self.gui_closed_event.is_set():
-            GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = get_table_sorted_column(self.connected_table_view)
-            GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = get_table_sorted_column(self.disconnected_table_view)
+            # Retrieve the sorted column for both tables
+            GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = self.connected_table_view.get_sorted_column()
+            GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = self.disconnected_table_view.get_sorted_column()
 
-            # I can do much simpler by just using wait() instead of using a loop with sleep() and a timeout.
-            start_time = time.perf_counter()
-            while not GUIrenderingData.gui_rendering_ready_event.is_set():
-                if time.perf_counter() - start_time >= 1:
-                    break
+            # Wait for the gui_rendering data to be ready (timeout of 1 second)
+            # If the event is not set within the timeout, just continue
+            if not GUIrenderingData.gui_rendering_ready_event.wait(timeout=0.1):
+                continue
+            GUIrenderingData.gui_rendering_ready_event.clear()
 
-                if self.user_requested_sorting_by_field.is_set():
-                    self.user_requested_sorting_by_field.clear()
-                    break
-
-                self.msleep(100)
-
-            if GUIrenderingData.gui_rendering_ready_event.is_set():
-                GUIrenderingData.gui_rendering_ready_event.clear()
-                self.update_signal.emit(
-                    GUIrenderingData.header_text,
-                    GUIrenderingData.SESSION_CONNECTED_TABLE__NUM_COLS,
-                    GUIrenderingData.session_connected_table__num_rows,
-                    GUIrenderingData.session_connected_table__processed_data,
-                    GUIrenderingData.session_connected_table__compiled_colors,
-                    GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS,
-                    GUIrenderingData.session_disconnected_table__num_rows,
-                    GUIrenderingData.session_disconnected_table__processed_data,
-                    GUIrenderingData.session_disconnected_table__compiled_colors
-                )
+            self.update_signal.emit(
+                GUIrenderingData.header_text,
+                GUIrenderingData.session_connected_table__processed_data,
+                GUIrenderingData.session_connected_table__compiled_colors,
+                GUIrenderingData.session_connected_table__num_rows,
+                GUIrenderingData.session_disconnected_table__processed_data,
+                GUIrenderingData.session_disconnected_table__compiled_colors,
+                GUIrenderingData.session_disconnected_table__num_rows,
+            )
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
-        def initialize_table_sort_indicator_by_field(table_name: Literal["connected_table", "disconnected_table"], table_view: QTableView, field_name: str):
-            """
-            Set the sort indicator for the given field name in the table view.
-
-            Args:
-                table_name: The name of the table to set the sort indicator for.
-                table_view: The table view to set the sort indicator for.
-                field_name: The field name to set the sort indicator for.
-            """
-            # Find the column index for the given field name
-            table_view_model = table_view.model()
-            if not isinstance(table_view_model, SessionTableModel):
-                raise TypeError(f'Expected "QAbstractItemModel", got "{type(table_view_model)}"')
-
-            column_count = table_view_model.columnCount()
-            column_index = None
-
-            # Search for the field_name in the header and get the column index
-            for column in range(column_count):
-                header_item: str = table_view_model.headerData(column, Qt.Orientation.Horizontal)
-                if not isinstance(header_item, str):
-                    raise TypeError(f'Expected "str", got "{type(header_item)}"')
-                if header_item == field_name:
-                    column_index = column
-                    break
-
-            if column_index is None:
-                return
-
-            # Determine the sort order based on the field name
-            if table_name == "disconnected_table" and field_name in ["Last Rejoin", "Last Seen"]:
-                sort_order = Qt.SortOrder.AscendingOrder
-            else:
-                sort_order = Qt.SortOrder.DescendingOrder
-
-            # Set the sort indicator for the column
-            table_view.horizontalHeader().setSortIndicator(column_index, sort_order)
-            table_view.horizontalHeader().setSortIndicatorShown(True)
-
         # Custom variables
         self.gui_closed_event = threading.Event()
-        self.user_requested_sorting_by_field = threading.Event()
 
         # Set up the window
         self.setWindowTitle(TITLE)
         self.adjust_gui_size()
+
+        # Layout
+        self.main_layout = QVBoxLayout()
 
         # Header text
         self.header_text = QLabel()
         self.header_text.setTextFormat(Qt.TextFormat.RichText)
         self.header_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.header_text.setWordWrap(True)
-        self.header_text.setFont(QFont("Courier", 12, QFont.Weight.Bold))
+        self.header_text.setFont(QFont("Courier", 10, QFont.Weight.Bold))
 
         # Custom header for the Session Connected table with matching background as first column
         self.session_connected_header = QLabel(f"Players connected in your session (0):")
@@ -4897,13 +5152,13 @@ class MainWindow(QWidget):
         self.session_connected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
 
         # Create the table model and view
-        self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.connected_table_view = SessionTableView(self.connected_table_model)
-        self.connected_table_view.horizontalHeader().sectionClicked.connect(self.on_header_click)
+        ## Determine the sort order
+        _sort_column = GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY)
+        _sort_order = Qt.SortOrder.DescendingOrder
+        self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, _sort_column, _sort_order)
+        self.connected_table_view = SessionTableView(self.connected_table_model, _sort_column, _sort_order)
+        del _sort_column, _sort_order
         self.connected_table_model.set_view(self.connected_table_view)
-
-        # Set default sort column and order
-        initialize_table_sort_indicator_by_field("connected_table", self.connected_table_view, Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY)
 
         # Add a horizontal line separator
         self.tables_separator = QFrame(self)
@@ -4918,16 +5173,18 @@ class MainWindow(QWidget):
         self.session_disconnected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
 
         # Create the table model and view
-        self.disconnected_table_model = SessionTableModel(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.disconnected_table_view = SessionTableView(self.disconnected_table_model)
-        self.disconnected_table_view.horizontalHeader().sectionClicked.connect(self.on_header_click)
+        ## Determine the sort order
+        _sort_column = GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
+        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in ["Last Rejoin", "Last Seen"]:
+            _sort_order = Qt.SortOrder.AscendingOrder
+        else:
+            _sort_order = Qt.SortOrder.DescendingOrder
+        self.disconnected_table_model = SessionTableModel(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, _sort_column, _sort_order)
+        self.disconnected_table_view = SessionTableView(self.disconnected_table_model, _sort_column, _sort_order)
+        del _sort_column, _sort_order
         self.disconnected_table_model.set_view(self.disconnected_table_view)
 
-        # Set default sort column and order
-        initialize_table_sort_indicator_by_field("disconnected_table", self.disconnected_table_view, Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
-
         # Layout to organize the widgets
-        self.main_layout = QVBoxLayout()
         self.main_layout.addWidget(self.header_text)
         self.main_layout.addWidget(self.session_connected_header)
         self.main_layout.addWidget(self.connected_table_view)
@@ -4939,56 +5196,62 @@ class MainWindow(QWidget):
         self.setLayout(self.main_layout)
 
         # Create the worker thread for table updates
-        self.worker_thread = GUIWorkerThread(self.gui_closed_event, self.user_requested_sorting_by_field, self.connected_table_view, self.disconnected_table_view)
+        self.worker_thread = GUIWorkerThread(
+            self.gui_closed_event,
+            self.connected_table_model,
+            self.connected_table_view,
+            self.disconnected_table_model,
+            self.disconnected_table_view
+
+        )
         self.worker_thread.update_signal.connect(self.update_gui)
         self.worker_thread.start()
 
     def update_gui(self,
         header_text: str,
-        session_connected_table__num_cols: int,
-        session_connected_table__num_rows: int,
         session_connected_table__processed_data: list[list[str]],
         session_connected_table__compiled_colors: list[list[CellColor]],
-        session_disconnected_table__num_cols: int,
-        session_disconnected_table__num_rows: int,
+        session_connected_table__num_rows: int,
         session_disconnected_table__processed_data: list[list[str]],
-        session_disconnected_table__compiled_colors: list[list[CellColor]]
+        session_disconnected_table__compiled_colors: list[list[CellColor]],
+        session_disconnected_table__num_rows: int
     ):
-        """This method updates the header text and calls update_table for both tables, along with their respective header texts."""
-        def adjust_table_column_widths(view: QTableView):
-            """Adjust the column widths of a QTableView to fit content."""
-            header = view.horizontalHeader()
-            model = view.model()  # The table model assigned to the QTableView
-
-            for column in range(model.columnCount()):
-                # Get the header label for the column
-                header_label = model.headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
-
-                if header_label == "Usernames":
-                    # Check if the column contains any data other than "N/A"
-                    contains_non_na = any(
-                        model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole) != "N/A"
-                        for row in range(model.rowCount())
-                    )
-
-                    if contains_non_na:
-                        header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-                    else:
-                        header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-                elif header_label in ["First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting"]:
-                    header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-                else:
-                    header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-
+        """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
+        for processed_data, compiled_colors in zip(session_connected_table__processed_data, session_connected_table__compiled_colors):
+            ip_address = processed_data[self.connected_table_model._IP_COLUMN_INDEX].removesuffix(" 👑")
+
+            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip_address)
+            if disconnected_row_index is not None:
+                self.disconnected_table_model.delete_row(disconnected_row_index)
+
+            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip_address)
+            if connected_row_index is None:
+                self.connected_table_model.add_row_without_refresh(processed_data, compiled_colors)
+            else:
+                self.connected_table_model.update_row_without_refresh(connected_row_index, processed_data, compiled_colors)
+
         self.session_connected_header.setText(f"Players connected in your session ({session_connected_table__num_rows}):")
-        self.connected_table_model.update_table(session_connected_table__num_cols, session_connected_table__num_rows, session_connected_table__processed_data, session_connected_table__compiled_colors)
-        adjust_table_column_widths(self.connected_table_view)
+        self.connected_table_model.sort_current_column()
+        self.connected_table_view.adjust_table_column_widths()
+
+        for processed_data, compiled_colors in zip(session_disconnected_table__processed_data, session_disconnected_table__compiled_colors):
+            ip_address = processed_data[self.disconnected_table_model._IP_COLUMN_INDEX].removesuffix(" 👑")
+
+            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip_address)
+            if connected_row_index is not None:
+                self.connected_table_model.delete_row(connected_row_index)
+
+            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip_address)
+            if disconnected_row_index is None:
+                self.disconnected_table_model.add_row_without_refresh(processed_data, compiled_colors)
+            else:
+                self.disconnected_table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
 
         self.session_disconnected_header.setText(f"Players who've left your session ({session_disconnected_table__num_rows}):")
-        self.disconnected_table_model.update_table(session_disconnected_table__num_cols, session_disconnected_table__num_rows, session_disconnected_table__processed_data, session_disconnected_table__compiled_colors)
-        adjust_table_column_widths(self.disconnected_table_view)
+        self.disconnected_table_model.sort_current_column()
+        self.disconnected_table_view.adjust_table_column_widths()
 
     def closeEvent(self, event: QCloseEvent):
         self.gui_closed_event.set()  # Signal the thread to stop
@@ -4998,9 +5261,6 @@ class MainWindow(QWidget):
 
         time.sleep(1) # Gives a second for Windows processes to closes properly
         terminate_script("EXIT")
-
-    def on_header_click(self):
-        self.user_requested_sorting_by_field.set()
 
     def adjust_gui_size(self):
         def get_screen_size():
