@@ -4,6 +4,10 @@ import textwrap
 from pathlib import Path
 from datetime import datetime
 
+EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
+    "Adapter for loopback traffic capture",
+    "Event Tracing for Windows (ETW) reader"
+}
 SETTINGS_PATH = Path("Settings.ini")
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")

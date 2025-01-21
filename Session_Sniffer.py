@@ -1306,12 +1306,24 @@ def get_mac_address_organization_name(mac_address: Optional[str]):
     return None
 
 def get_tshark_interfaces():
+    """
+    Retrieves a list of available TShark interfaces.
+
+    Returns:
+        A list of tuples containing:
+        - Index (str)
+        - Device name (str)
+        - Interface name (str)
+    """
     def process_stdout(stdout: str):
         return stdout.strip().split(" ", maxsplit=2)
 
     stdout = subprocess.check_output([
         Settings.CAPTURE_TSHARK_PATH, "-D"
     ], text=True, encoding="utf-8")
+
+    if not isinstance(stdout, str):
+        raise TypeError(f'Expected "str", got "{type(stdout)}"')
 
     interfaces: list[tuple[str, str, str]] = []
     for parts in map(process_stdout, stdout.splitlines()):
@@ -1322,6 +1334,18 @@ def get_tshark_interfaces():
             interfaces.append((index, device_name, name))
 
     return interfaces
+
+def instantiate_interfaces():
+    """
+    Filters and instantiates interfaces based on a list of exclusions.
+    """
+    from Modules.constants.standard import EXCLUDED_CAPTURE_NETWORK_INTERFACES
+
+    for _, _, name in get_tshark_interfaces():
+        if name in EXCLUDED_CAPTURE_NETWORK_INTERFACES:
+            continue
+
+        Interface(name)
 
 def get_and_parse_arp_cache():
     stdout = subprocess.check_output([
@@ -2015,8 +2039,7 @@ wmi_namespace: _wmi_namespace = wmi.WMI()
 if not isinstance(wmi_namespace, _wmi_namespace):
     raise TypeError(f'Expected "_wmi_namespace" object, got "{type(wmi_namespace)}"')
 
-for _, _, name in get_tshark_interfaces():
-    Interface(name)
+instantiate_interfaces()
 
 net_io_stats = psutil.net_io_counters(pernic=True)
 for interface_name, interface_stats in net_io_stats.items():
@@ -2242,7 +2265,7 @@ if not user_interface_selection:
 
     while True:
         try:
-            user_interface_selection = int(input(f"\nSelect your desired capture network interface ({Fore.YELLOW}1{Fore.RESET}-{Fore.YELLOW}{len(interfaces_options)}{Fore.RESET}): {Fore.YELLOW}"))
+            user_interface_selection = int(input(f"\nSelect your desired capture network interface ({Fore.YELLOW}1{Fore.RESET}-{Fore.YELLOW}{len(interfaces_options)}{Fore.RESET}) and press {Fore.YELLOW}ENTER{Fore.RESET}: {Fore.YELLOW}"))
         except ValueError:
             print(f"{Fore.RED}ERROR{Fore.RESET}: You didn't provide a number.")
         else:
