@@ -2265,7 +2265,7 @@ if not user_interface_selection:
 
     while True:
         try:
-            user_interface_selection = int(input(f"\nSelect your desired capture network interface ({Fore.YELLOW}1{Fore.RESET}-{Fore.YELLOW}{len(interfaces_options)}{Fore.RESET}) and press {Fore.YELLOW}ENTER{Fore.RESET}: {Fore.YELLOW}"))
+            user_interface_selection = int(input(f"\nType the number of the network interface you want to sniff ({Fore.YELLOW}1{Fore.RESET}-{Fore.YELLOW}{len(interfaces_options)}{Fore.RESET}) and press {Fore.YELLOW}ENTER{Fore.RESET}: {Fore.YELLOW}"))
         except ValueError:
             print(f"{Fore.RED}ERROR{Fore.RESET}: You didn't provide a number.")
         else:
