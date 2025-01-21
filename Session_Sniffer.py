@@ -51,7 +51,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 # -----------------------------------------------------
 # 📚 Local Python Libraries (Included with Project) 📚
 # -----------------------------------------------------
-from Modules.constants.standalone import TITLE, VERSION
+from Modules.constants.standalone import TITLE, VERSION, WIRESHARK_REQUIRED_DL, WIRESHARK_RECOMMENDED_FULL_VERSION, WIRESHARK_RECOMMENDED_VERSION_NUMBER
 from Modules.constants.standard import SETTINGS_PATH
 from Modules.utils import Version
 from Modules.oui_lookup.oui_lookup import MacLookup
@@ -374,7 +374,7 @@ class Settings(DefaultSettings):
         print("\nCorrect reconstruction of \"Settings.ini\" ...")
         text = textwrap.dedent(f"""
             ;;-----------------------------------------------------------------------------
-            ;; Session Sniffer Configuration Settings
+            ;; {TITLE} Configuration Settings
             ;;-----------------------------------------------------------------------------
             ;; Lines starting with \";\" or \"#\" symbols are commented lines.
             ;;
@@ -1982,9 +1982,8 @@ print("\nApplying your custom settings from \"Settings.ini\" ...\n")
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 cls()
-title(f"Checking that \"Tshark (Wireshark) v4.2.9\" is installed on your system - {TITLE}")
-print("\nChecking that \"Tshark (Wireshark) v4.2.9\" is installed on your system ...\n")
-from Modules.constants.standalone import WIRESHARK_REQUIRED_DL, WIRESHARK_RECOMMENDED_FULL_VERSION
+title(f"Checking that \"Tshark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" is installed on your system - {TITLE}")
+print(f"\nChecking that \"Tshark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" is installed on your system ...\n")
 
 while True:
     try:
@@ -3216,9 +3215,9 @@ def rendering_core():
         def update_userip_databases(last_userip_parse_time: Optional[float]):
             from Modules.constants.standard import USERIP_DATABASES_PATH
 
-            DEFAULT_USERIP_FILE_HEADER = textwrap.dedent("""
+            DEFAULT_USERIP_FILE_HEADER = textwrap.dedent(f"""
                 ;;-----------------------------------------------------------------------------
-                ;; Session Sniffer User IP default database file
+                ;; {TITLE} User IP default database file
                 ;;-----------------------------------------------------------------------------
                 ;; Lines starting with \";\" or \"#\" symbols are commented lines.
                 ;;
@@ -3745,7 +3744,6 @@ def rendering_core():
             )
 
         def generate_gui_header_text(global_pps_t1: float, global_pps_rate: int):
-            from Modules.constants.standalone import WIRESHARK_RECOMMENDED_VERSION_NUMBER
             from Modules.constants.standard import WIRESHARK_VERSION_PATTERN
 
             global global_pps_counter, tshark_packets_latencies
@@ -3816,26 +3814,34 @@ def rendering_core():
             conflict_ip_count = len(UserIP_Databases.notified_ip_conflicts)
             corrupted_settings_count = len(UserIP_Databases.notified_settings_corrupted)
 
-            header = textwrap.dedent(f"""
-                ─────────────────────────────────────────────────────────────────────────────────────────────────<br>
-                Welcome in {TITLE} {VERSION}<br>
-                The best FREE and Open─Source packet sniffer aka IP grabber, works WITHOUT mods.<br>
-                ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─   ─<br>
-                Scanning using Tshark {tshark_version_color}v{extracted_tshark_version}</span> on interface:<span style="color: yellow;">{capture.interface}</span> at IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> (ARP:<span style="color: yellow;">{is_arp_enabled}</span>)<br>
-                Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}<br>
-                ─────────────────────────────────────────────────────────────────────────────────────────────────
-            """.removeprefix("\n").removesuffix("\n"))
+            header = f"""
+            <div style="background: linear-gradient(90deg, #2e3440, #4c566a); color: white; padding: 20px; border: 2px solid #88c0d0; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);">
+                <div>
+                    <span style="font-size: 24px; color: #88c0d0">Welcome to {TITLE}</span>&nbsp;&nbsp;<span style="font-size: 14px; color: #aaa">{VERSION}</span>
+                </div>
+                <p style="font-size: 16px; margin: 5px 0;">
+                    The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
+                </p>
+                <p style="font-size: 14px; margin: 5px 0;">
+                    <b>Scanning using TShark {tshark_version_color}v{extracted_tshark_version}</span></b> on Interface <span style="color: yellow;">{capture.interface}</span> at IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> (ARP:<span style="color: yellow;">{is_arp_enabled}</span>)
+                </p>
+                <p style="font-size: 14px; margin: 5px 0;">
+                    Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}
+                </p>
+            </div>
+            """
+
+
 
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
-                header += "<br>"
+                header += "───────────────────────────────────────────────────────────────────────────────────────────────────<br>"
                 if invalid_ip_count:
                     header += f"Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{invalid_ip_count}</span><br>"
                 if conflict_ip_count:
                     header += f"Number of conflicting IP{pluralize(conflict_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{conflict_ip_count}</span><br>"
                 if corrupted_settings_count:
                     header += f"Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{corrupted_settings_count}</span><br>"
-                header += "─────────────────────────────────────────────────────────────────────────────────────────────────"
-
+                header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
             return header, global_pps_t1, global_pps_rate
 
         from Modules.constants.standard import TWO_TAKE_ONE__PLUGIN__LOG_PATH, STAND__PLUGIN__LOG_PATH, RE_MODMENU_LOGS_USER_PATTERN
@@ -4019,7 +4025,7 @@ def rendering_core():
             time.sleep(1)
 
 cls()
-title(TITLE)
+title(f"{TITLE} - DEBUG CONSOLE")
 
 tshark_restarted_times = 0
 global_pps_counter = 0
@@ -5154,7 +5160,7 @@ class MainWindow(QWidget):
         self.gui_closed_event = threading.Event()
 
         # Set up the window
-        self.setWindowTitle(TITLE)
+        self.setWindowTitle(f"{TITLE}")
         self.adjust_gui_size()
 
         # Layout
