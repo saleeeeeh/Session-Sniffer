@@ -45,7 +45,7 @@ from rich.text import Text
 from rich.console import Console
 from rich.traceback import Traceback
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex
-from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMessageBox
+from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox
 from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction
 
 # -----------------------------------------------------
@@ -143,7 +143,12 @@ def terminate_script(
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
         time.sleep(1)
 
-    time.sleep(3)
+    # If the termination method is "EXIT", do not sleep unless crash messages are present
+    need_sleep = True
+    if terminate_method == "EXIT" and msgbox_crash_text is None and stdout_crash_text is None:
+        need_sleep = False
+    if need_sleep:
+        time.sleep(3)
 
     if should_terminate_gracefully():
         if force_terminate_errorlevel is False:
@@ -643,17 +648,19 @@ class Settings(DefaultSettings):
 
 class Adapter_Properties:
     def __init__(self,
+        name            = "N/A",
         interface_index = "N/A",
         manufacturer    = "N/A"
     ):
+        self.Name: Union[Literal["N/A"], str] = name
         self.InterfaceIndex: Union[Literal["N/A"], int] = interface_index
         self.Manufacturer  : Union[Literal["N/A"], str] = manufacturer
 
 class Interface:
     all_interfaces: list["Interface"] = []
 
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, interface_name: str):
+        self.interface_name = interface_name
 
         self.ip_addresses     : list[str]                       = []
         self.mac_address      : Union[Literal["N/A"], str]      = "N/A"
@@ -685,17 +692,32 @@ class Interface:
 
     @classmethod
     def get_interface_by_name(cls, interface_name: str):
-        for interface in cls.all_interfaces:
-            if interface.name == interface_name:
+        for interface in cls.iterate_safely():
+            if interface.interface_name == interface_name:
                 return interface
         return None
 
     @classmethod
     def get_interface_by_id(cls, interface_index: int):
-        for interface in cls.all_interfaces:
+        for interface in cls.iterate_safely():
             if interface.adapter_properties.InterfaceIndex == interface_index:
                 return interface
         return None
+
+    @classmethod
+    def delete_interface(cls, interface: "Interface"):
+        """
+        Delete an interface.
+        """
+        cls.all_interfaces.remove(interface)
+
+    @classmethod
+    def iterate_safely(cls):
+        """
+        Safely iterate over all_interfaces, allowing modifications during iteration.
+        """
+        for interface in cls.all_interfaces[:]:  # Iterate over a copy of the list
+            yield interface
 
 class InterfaceOptionData(TypedDict):
     is_arp: bool
@@ -1305,9 +1327,9 @@ def get_mac_address_organization_name(mac_address: Optional[str]):
 
     return None
 
-def get_tshark_interfaces():
+def get_filtered_tshark_interfaces():
     """
-    Retrieves a list of available TShark interfaces.
+    Retrieves a list of available TShark interfaces, excluding a list of exclusions.
 
     Returns:
         A list of tuples containing:
@@ -1315,6 +1337,8 @@ def get_tshark_interfaces():
         - Device name (str)
         - Interface name (str)
     """
+    from Modules.constants.standard import EXCLUDED_CAPTURE_NETWORK_INTERFACES
+
     def process_stdout(stdout: str):
         return stdout.strip().split(" ", maxsplit=2)
 
@@ -1331,21 +1355,13 @@ def get_tshark_interfaces():
             index = parts[0].removesuffix(".")
             device_name = parts[1]
             name = parts[2].removeprefix("(").removesuffix(")")
+
+            if name in EXCLUDED_CAPTURE_NETWORK_INTERFACES:
+                continue
+
             interfaces.append((index, device_name, name))
 
     return interfaces
-
-def instantiate_interfaces():
-    """
-    Filters and instantiates interfaces based on a list of exclusions.
-    """
-    from Modules.constants.standard import EXCLUDED_CAPTURE_NETWORK_INTERFACES
-
-    for _, _, name in get_tshark_interfaces():
-        if name in EXCLUDED_CAPTURE_NETWORK_INTERFACES:
-            continue
-
-        Interface(name)
 
 def get_and_parse_arp_cache():
     stdout = subprocess.check_output([
@@ -1445,7 +1461,7 @@ def show_error__tshark_not_detected():
 
     msgbox_title = TITLE
     msgbox_message = textwrap.dedent(f"""
-        ERROR: Could not detect \"TShark (Wireshark) v4.2.9\" installed on your system.
+        ERROR: Could not detect \"TShark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" installed on your system.
 
         Opening the \"Wireshark\" project download page for you.
         You can then download and install it from there and press \"Retry\".
@@ -2038,7 +2054,8 @@ wmi_namespace: _wmi_namespace = wmi.WMI()
 if not isinstance(wmi_namespace, _wmi_namespace):
     raise TypeError(f'Expected "_wmi_namespace" object, got "{type(wmi_namespace)}"')
 
-instantiate_interfaces()
+for _, _, name in get_filtered_tshark_interfaces():
+    Interface(name)
 
 net_io_stats = psutil.net_io_counters(pernic=True)
 for interface_name, interface_stats in net_io_stats.items():
@@ -2054,6 +2071,11 @@ for config in iterate_network_adapter_details():
     if not i:
         continue
 
+    # Filter out interfaces that are not enabled
+    if not config.NetEnabled:
+        Interface.delete_interface(i)
+        continue
+
     if config.MACAddress is not None:
         if not isinstance(config.MACAddress, str):
             raise TypeError(f'Expected "str" object, got "{type(config.MACAddress)}"')
@@ -2067,7 +2089,7 @@ for config in iterate_network_adapter_details():
                     mac address for a given interface.
 
                 DEBUG:
-                    i.name: {i.name}
+                    i.interface_name: {i.interface_name}
                     i.mac_address: {i.mac_address}
                     config.MACAddress: {config.MACAddress}
             """.removeprefix("\n").removesuffix("\n"))
@@ -2091,12 +2113,16 @@ for config in iterate_network_adapter_details():
                     index for a given interface.
 
                 DEBUG:
-                    i.name: {i.name}
-                    i.InterfaceIndex: {i.InterfaceIndex}
+                    i.interface_name: {i.interface_name}
                     config.InterfaceIndex: {config.InterfaceIndex}
             """.removeprefix("\n").removesuffix("\n"))
             terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
         i.adapter_properties.InterfaceIndex = config.InterfaceIndex
+
+    if config.Name is not None:
+        if not isinstance(config.Name, str):
+            raise TypeError(f'Expected "str" object, got "{type(config.Name)}"')
+        i.adapter_properties.Name = config.Name
 
     if config.Manufacturer is not None:
         if not isinstance(config.Manufacturer, str):
@@ -2106,6 +2132,11 @@ for config in iterate_network_adapter_details():
 for config in iterate_network_ip_details():
     i = Interface.get_interface_by_id(config.InterfaceIndex)
     if not i:
+        continue
+
+    # Filter out interfaces that are not enabled
+    if not config.IPEnabled:
+        Interface.delete_interface(i)
         continue
 
     if config.IPAddress is not None:
@@ -2131,7 +2162,7 @@ for config in iterate_network_ip_details():
                     An interface IP address has multiple MAC addresses.
 
                 DEBUG:
-                    i.name: {i.name}
+                    i.interface_name: {i.interface_name}
                     i.mac_address: {i.mac_address}
                     config.MACAddress: {config.MACAddress}
             """.removeprefix("\n").removesuffix("\n"))
@@ -2168,27 +2199,33 @@ if Settings.CAPTURE_ARP:
         if arp_infos:
             i.add_arp_infos(arp_interface_info["interface_ip_address"], arp_infos)
 
-table = PrettyTable()
-table.field_names = ["#", "Interface", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"]
-table.align["#"] = "c"
-table.align["Interface"] = "l"
-table.align["Packets Sent"] = "c"
-table.align["Packets Received"] = "c"
-table.align["IP Address"] = "l"
-table.align["MAC Address"] = "c"
-table.align["Manufacturer"] = "c"
+from Modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
 
-interfaces_options: dict[int, InterfaceOptionData] = {}
-counter = 0
+def get_screen_size(app: QApplication):
+    screen = app.primaryScreen()
+    size = screen.size()
+    return size.width(), size.height()
 
-for i in Interface.all_interfaces:
+# Create a QApplication instance
+app = QApplication([])  # Passing an empty list for application arguments
+app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt6())
+screen_width, screen_height = get_screen_size(app)
+
+interfaces_selection_data: list[InterfaceSelectionData] = []
+
+for i in Interface.iterate_safely():
     if (
         Settings.CAPTURE_INTERFACE_NAME is not None
-        and Settings.CAPTURE_INTERFACE_NAME.lower() == i.name.lower()
-        and not Settings.CAPTURE_INTERFACE_NAME == i.name
+        and Settings.CAPTURE_INTERFACE_NAME.lower() == i.interface_name.lower()
+        and not Settings.CAPTURE_INTERFACE_NAME == i.interface_name
     ):
-        Settings.CAPTURE_INTERFACE_NAME = i.name
+        Settings.CAPTURE_INTERFACE_NAME = i.interface_name
         Settings.reconstruct_settings()
+
+    # Filter out interfaces that are not enabled
+    if i.packets_sent == "N/A" and i.packets_recv == "N/A" and not i.ip_addresses and i.mac_address == "N/A" and i.adapter_properties.Name == "N/A" and i.adapter_properties.Manufacturer == "N/A":
+        Interface.delete_interface(i)
+        continue
 
     if i.adapter_properties.Manufacturer == "N/A":
         manufacturer_or_organization_name = i.organization_name
@@ -2197,25 +2234,9 @@ for i in Interface.all_interfaces:
 
     if i.ip_addresses:
         for ip_address in i.ip_addresses:
-            counter += 1
-            interfaces_options[counter] = {
-                "is_arp": False,
-                "interface": i.name,
-                "ip_address": ip_address,
-                "mac_address": i.mac_address
-            }
-
-            table.add_row([f"{Fore.YELLOW}{counter}{Fore.RESET}", i.name, i.packets_sent, i.packets_recv, ip_address, i.mac_address, manufacturer_or_organization_name])
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.packets_sent, i.packets_recv, ip_address, i.mac_address, i.adapter_properties.Name, manufacturer_or_organization_name))
     else:
-        counter += 1
-        interfaces_options[counter] = {
-            "is_arp": False,
-            "interface": i.name,
-            "ip_address": "N/A",
-            "mac_address": i.mac_address
-        }
-
-        table.add_row([f"{Fore.YELLOW}{counter}{Fore.RESET}", i.name, i.packets_sent, i.packets_recv, "N/A", i.mac_address, manufacturer_or_organization_name])
+        interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.packets_sent, i.packets_recv, "N/A", i.mac_address, i.adapter_properties.Name, manufacturer_or_organization_name))
 
     if Settings.CAPTURE_ARP:
         for ip in i.ip_addresses:
@@ -2224,70 +2245,62 @@ for i in Interface.all_interfaces:
                 continue
 
             for arp_info in arp_infos:
-                counter += 1
-                interfaces_options[counter] = {
-                    "is_arp": True,
-                    "interface": i.name,
-                    "ip_address": arp_info["ip_address"],
-                    "mac_address": arp_info["mac_address"]
-                }
-
-                table.add_row([f"{Fore.YELLOW}{counter}{Fore.RESET}", f"{i.name} (ARP)", "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], arp_info["organization_name"]])
+                interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), f"{i.interface_name} (ARP)", "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], i.adapter_properties.Name, arp_info["organization_name"], True))
 
 user_interface_selection = None
 
 if (
+    # Check if the network interface prompt is disabled
     not Settings.CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT
+    # Check if any capture setting is defined
     and any(setting is not None for setting in [Settings.CAPTURE_INTERFACE_NAME, Settings.CAPTURE_MAC_ADDRESS, Settings.CAPTURE_IP_ADDRESS])
 ):
     max_priority = 0
 
-    for interface_counter, interface_options in interfaces_options.items():
+    for interface in interfaces_selection_data:
         priority = 0
 
         if Settings.CAPTURE_INTERFACE_NAME is not None:
-            if Settings.CAPTURE_INTERFACE_NAME == interface_options["interface"]:
+            if Settings.CAPTURE_INTERFACE_NAME == interface.interface_name:
                 priority += 1
-        if Settings.CAPTURE_MAC_ADDRESS == interface_options["mac_address"]:
-            priority += 1
-        if Settings.CAPTURE_IP_ADDRESS == interface_options["ip_address"]:
-            priority += 1
+        if Settings.CAPTURE_MAC_ADDRESS is not None:
+            if Settings.CAPTURE_MAC_ADDRESS == interface.mac_address:
+                priority += 1
+        #else:
+        #    if interface.mac_address == "N/A":
+        #        priority += 1
+        if Settings.CAPTURE_IP_ADDRESS is not None:
+            if Settings.CAPTURE_IP_ADDRESS == interface.ip_address:
+                priority += 1
+        #else:
+        #    if interface.ip_address == "N/A":
+        #        priority += 1
 
         if priority == max_priority: # If multiple matches on the same priority are found we search for the next bigger priority else we prompt the user.
             user_interface_selection = None
         elif priority > max_priority:
             max_priority = priority
-            user_interface_selection = interface_counter
+            user_interface_selection = interface.index
 
-if not user_interface_selection:
-    print(table)
-
-    while True:
-        try:
-            user_interface_selection = int(input(f"\nType the number of the network interface you want to sniff ({Fore.YELLOW}1{Fore.RESET}-{Fore.YELLOW}{len(interfaces_options)}{Fore.RESET}) and press {Fore.YELLOW}ENTER{Fore.RESET}: {Fore.YELLOW}"))
-        except ValueError:
-            print(f"{Fore.RED}ERROR{Fore.RESET}: You didn't provide a number.")
-        else:
-            if (
-                user_interface_selection >= 1
-                and user_interface_selection <= len(interfaces_options)
-            ):
-                print(end=Fore.RESET)
-                break
-            print(f"{Fore.RED}ERROR{Fore.RESET}: The number you provided is not matching with the available network interfaces.")
+if user_interface_selection is None:
+    selected_interface_data = show_interface_selection_dialog(screen_width, screen_height, interfaces_selection_data)
+    if selected_interface_data is None:
+        terminate_script("EXIT")
+        sys.exit(0) # This is just a hack to fix following VSCode type hinting.
+    user_interface_selection = selected_interface_data.index
 
 cls()
 title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
 print(f"\nInitializing addresses and establishing connection to your PC / Console ...\n")
 need_rewrite_settings = False
-fixed__capture_mac_address = interfaces_options[user_interface_selection]["mac_address"] if interfaces_options[user_interface_selection]["mac_address"] != "N/A" else None
-fixed__capture_ip_address = interfaces_options[user_interface_selection]["ip_address"] if interfaces_options[user_interface_selection]["ip_address"] != "N/A" else None
+fixed__capture_mac_address = interfaces_selection_data[user_interface_selection].mac_address if interfaces_selection_data[user_interface_selection].mac_address != "N/A" else None
+fixed__capture_ip_address = interfaces_selection_data[user_interface_selection].ip_address if interfaces_selection_data[user_interface_selection].ip_address != "N/A" else None
 
 if Settings.CAPTURE_INTERFACE_NAME is None:
-    Settings.CAPTURE_INTERFACE_NAME = interfaces_options[user_interface_selection]["interface"]
+    Settings.CAPTURE_INTERFACE_NAME = interfaces_selection_data[user_interface_selection].interface_name
     need_rewrite_settings = True
-elif not Settings.CAPTURE_INTERFACE_NAME == interfaces_options[user_interface_selection]["interface"]:
-    Settings.CAPTURE_INTERFACE_NAME = interfaces_options[user_interface_selection]["interface"]
+elif not Settings.CAPTURE_INTERFACE_NAME == interfaces_selection_data[user_interface_selection].interface_name:
+    Settings.CAPTURE_INTERFACE_NAME = interfaces_selection_data[user_interface_selection].interface_name
     need_rewrite_settings = True
 
 if not Settings.CAPTURE_MAC_ADDRESS == fixed__capture_mac_address:
@@ -2388,7 +2401,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
             process.suspend()
 
             if isinstance(duration_or_mode, (int, float)):
-                time.sleep(duration_or_mode)
+                gui_closed__event.wait(duration_or_mode)
                 process.resume()
                 return
 
@@ -2396,7 +2409,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 return
             elif duration_or_mode == "Auto":
                 while not player.datetime.left:
-                    time.sleep(0.1)
+                    gui_closed__event.wait(0.1)
                 process.resume()
                 return
 
@@ -2439,7 +2452,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
             while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
                 if player.userip.usernames and player.iplookup.maxmind.is_initialized:
                     break
-                time.sleep(0.1)
+                gui_closed__event.wait(0.1)
             else:
                 return
 
@@ -2456,7 +2469,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
                     if player.iplookup.ipapi.is_initialized:
                         break
-                    time.sleep(0.1)
+                    gui_closed__event.wait(0.1)
                 else:
                     return
 
@@ -2489,13 +2502,13 @@ def iplookup_core():
     with Threads_ExceptionHandler():
         def throttle_until():
             requests_remaining = int(response.headers["X-Rl"])
-            throttle_until = int(response.headers["X-Ttl"])
+            throttle_time = int(response.headers["X-Ttl"])
 
-            if requests_remaining <= 1:
-                time.sleep(throttle_until)
-            else:
-                time.sleep(throttle_until / requests_remaining)  # We sleep x seconds (just in case) to avoid triggering a "429" status code.
+            # Calculate sleep time only if there are remaining requests
+            sleep_time = throttle_time / requests_remaining if requests_remaining > 0 else throttle_time
 
+            # We sleep x seconds (just in case) to avoid triggering a "429" status code.
+            gui_closed__event.wait(sleep_time)
 
         # Following values taken from https://ip-api.com/docs/api:batch the 03/04/2024.
         MAX_REQUESTS = 15
@@ -2541,7 +2554,7 @@ def iplookup_core():
             # Ensure the final list is no longer than 100 elements
             ips_to_lookup = ips_to_lookup[:MAX_BATCH_IP_API_IPS]
             if len(ips_to_lookup) == 0:
-                time.sleep(1) # If there are no new players to lookup, sleep for 1 second to reduce CPU usage.
+                gui_closed__event.wait(1) # If there are no new players to lookup, sleep for 1 second to reduce CPU usage.
                 continue
 
             try:
@@ -2820,9 +2833,9 @@ def capture_core():
         while not gui_closed__event.is_set():
             try:
                 capture.apply_on_packets(callback=packet_callback)
-            except TSharkCrashException: # IDK why it's not working :/
-                if gui_closed__event.is_set():
-                    return
+            except TSharkCrashException:
+                if gui_closed__event.wait(3):
+                    break
                 raise
             except PacketCaptureOverflow:
                 continue
@@ -2833,21 +2846,38 @@ class CellColor(NamedTuple):
     foreground: QColor
     background: QColor
 
-@dataclass
-class GUIrenderingData:
-    FIELDS_TO_HIDE: list[str]
-    GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES: list[str]
-    GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES: list[str]
+class ThreadSafeMeta(type):
+    """Metaclass that ensures thread-safe access to class attributes."""
 
-    header_text: str
-    SESSION_CONNECTED_TABLE__NUM_COLS: int
-    session_connected_table__num_rows: int
-    session_connected_table__processed_data: list[list[str]]
-    session_connected_table__compiled_colors: list[list[CellColor]]
-    SESSION_DISCONNECTED_TABLE__NUM_COLS: int
-    session_disconnected_table__num_rows: int
-    session_disconnected_table__processed_data: list[list[str]]
-    session_disconnected_table__compiled_colors: list[list[CellColor]]
+    # Define a lock for the metaclass itself to be shared across all instances of classes using this metaclass.
+    _lock = threading.Lock()
+
+    def __getattr__(cls, name: str):
+        """Thread-safe getter for attributes."""
+        with cls._lock:
+            if hasattr(cls, name):
+                return getattr(cls, name)
+            raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'")
+
+    def __setattr__(cls, name: str, value):
+        """Thread-safe setter for attributes."""
+        with cls._lock:
+            super().__setattr__(name, value)
+
+class GUIrenderingData(metaclass=ThreadSafeMeta):
+    FIELDS_TO_HIDE: list[str] = []
+    GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES: list[str] = []
+    GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES: list[str] = []
+
+    header_text: str = ""
+    SESSION_CONNECTED_TABLE__NUM_COLS: int = 0
+    session_connected_table__num_rows: int = 0
+    session_connected_table__processed_data: list[list[str]] = [[]]
+    session_connected_table__compiled_colors: list[list['CellColor']] = [[]]
+    SESSION_DISCONNECTED_TABLE__NUM_COLS: int = 0
+    session_disconnected_table__num_rows: int = 0
+    session_disconnected_table__processed_data: list[list[str]] = [[]]
+    session_disconnected_table__compiled_colors: list[list['CellColor']] = [[]]
 
     session_connected_sorted_column_name: Optional[str] = None
     session_connected_sort_order: Optional[Qt.SortOrder] = None
@@ -3325,7 +3355,7 @@ def rendering_core():
 
             UserIP_Databases.build()
 
-            last_userip_parse_time = time.perf_counter()
+            last_userip_parse_time = time.monotonic()
             return last_userip_parse_time
 
         def get_country_info(ip_address: str):
@@ -3785,11 +3815,11 @@ def rendering_core():
             else:
                 latency_color = '<span style="color: green;">'
 
-            seconds_elapsed = time.perf_counter() - global_pps_t1
+            seconds_elapsed = time.monotonic() - global_pps_t1
             if seconds_elapsed >= 1:
                 global_pps_rate = round(global_pps_counter / seconds_elapsed)
                 global_pps_counter = 0
-                global_pps_t1 = time.perf_counter()
+                global_pps_t1 = time.monotonic()
 
             # For reference, in a GTA Online session, the packets per second (PPS) typically range from 0 (solo session) to 1500 (public session, 32 players).
             # If the packet rate exceeds these ranges, we flag them with yellow or red color to indicate potential issues (such as scanning unwanted packets outside of the GTA game).
@@ -3801,11 +3831,15 @@ def rendering_core():
             else:
                 pps_color = '<span style="color: green;">'
 
-            is_arp_enabled = "Enabled" if interfaces_options[user_interface_selection]["is_arp"] else "Disabled"
+            # NOTE: Hack for stupid VSCode type hinting
+            if user_interface_selection is None:
+                raise TypeError(f'Expected "int", got "NoneType"')
+
+            is_arp_enabled = "Enabled" if interfaces_selection_data[user_interface_selection].is_arp else "Disabled"
             displayed_capture_ip_address = Settings.CAPTURE_IP_ADDRESS if Settings.CAPTURE_IP_ADDRESS else "N/A"
             color_tshark_restarted_time = '<span style="color: green;">' if tshark_restarted_times == 0 else '<span style="color: red;">'
             if Settings.DISCORD_PRESENCE:
-                rpc_message = f' RPC:<span style="color: green;">Connected</span>' if discord_rpc_manager.is_connected else f' RPC:<span style="color: yellow;">Waiting for Discord</span>'
+                rpc_message = f' RPC:<span style="color: green;">Connected</span>' if discord_rpc_manager.connection_status.is_set() else f' RPC:<span style="color: yellow;">Waiting for Discord</span>'
             else:
                 rpc_message = ""
 
@@ -3830,8 +3864,6 @@ def rendering_core():
                 </p>
             </div>
             """
-
-
 
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────<br>"
@@ -3860,16 +3892,17 @@ def rendering_core():
         CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
         #DISCONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
 
-        global_pps_t1 = time.perf_counter()
+        global_pps_t1 = time.monotonic()
         global_pps_rate = 0
         last_userip_parse_time = None
         last_mod_menus_logs_parse_time = None
         last_session_logging_processing_time = None
 
         if Settings.DISCORD_PRESENCE:
-            from Modules.discord.rpc import DiscordRPCManager
+            from Modules.discord.rpc import DiscordRPC
+            from Modules.constants.standalone import DISCORD_APPLICATION_ID
 
-            discord_rpc_manager = DiscordRPCManager()
+            discord_rpc_manager = DiscordRPC(client_id=DISCORD_APPLICATION_ID)
 
         modmenu__plugins__ip_to_usernames: dict[str, list[str]] = {}
 
@@ -3882,14 +3915,14 @@ def rendering_core():
                 GUIrenderingData.session_disconnected_sorted_column_name is None or \
                 GUIrenderingData.session_disconnected_sort_order is None or \
                 GUIrenderingData.session_connected_sort_order is None:
-                time.sleep(0.1)
+                gui_closed__event.wait(0.1)
                 continue
 
             session_connected: list[Player] = []
             session_disconnected: list[Player] = []
 
-            if last_mod_menus_logs_parse_time is None or time.perf_counter() - last_mod_menus_logs_parse_time >= 1.0:
-                last_mod_menus_logs_parse_time = time.perf_counter()
+            if last_mod_menus_logs_parse_time is None or time.monotonic() - last_mod_menus_logs_parse_time >= 1.0:
+                last_mod_menus_logs_parse_time = time.monotonic()
 
                 for log_path in [STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH]:
                     if not log_path.is_file():
@@ -3914,7 +3947,7 @@ def rendering_core():
                         if not username in modmenu__plugins__ip_to_usernames[ip]:
                             modmenu__plugins__ip_to_usernames[ip].append(username)
 
-            if last_userip_parse_time is None or time.perf_counter() - last_userip_parse_time >= 1.0:
+            if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases(last_userip_parse_time)
 
             if Settings.GUI_SESSIONS_LOGGING:
@@ -4004,11 +4037,11 @@ def rendering_core():
                 GUIrenderingData.session_disconnected_sort_order
             )
 
-            if Settings.GUI_SESSIONS_LOGGING and (last_session_logging_processing_time is None or (time.perf_counter() - last_session_logging_processing_time) >= 1.0):
+            if Settings.GUI_SESSIONS_LOGGING and (last_session_logging_processing_time is None or (time.monotonic() - last_session_logging_processing_time) >= 1.0):
                 process_session_logging()
-                last_session_logging_processing_time = time.perf_counter()
+                last_session_logging_processing_time = time.monotonic()
 
-            if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.perf_counter() - discord_rpc_manager.last_update_time) >= 3.0):
+            if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):
                 discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected")
 
             GUIrenderingData.header_text, global_pps_t1, global_pps_rate = generate_gui_header_text(global_pps_t1, global_pps_rate)
@@ -4022,10 +4055,10 @@ def rendering_core():
             ) = process_gui_session_tables_rendering()
             GUIrenderingData.gui_rendering_ready_event.set()
 
-            time.sleep(1)
+            gui_closed__event.wait(1)
 
 cls()
-title(f"{TITLE} - DEBUG CONSOLE")
+title(f"DEBUG CONSOLE - {TITLE}")
 
 tshark_restarted_times = 0
 global_pps_counter = 0
@@ -5115,7 +5148,6 @@ class GUIWorkerThread(QThread):
     )  # Signal to send updated table data and new size
 
     def __init__(self,
-        gui_closed_event: threading.Event,
         connected_table_model: SessionTableModel,
         connected_table_view: SessionTableView,
         disconnected_table_model: SessionTableModel,
@@ -5123,7 +5155,6 @@ class GUIWorkerThread(QThread):
     ):
         super().__init__()
 
-        self.gui_closed_event = gui_closed_event
         self.connected_table_model = connected_table_model
         self.connected_table_view = connected_table_view
         self.disconnected_table_model = disconnected_table_model
@@ -5131,7 +5162,7 @@ class GUIWorkerThread(QThread):
 
     def run(self):
         # While the GUI is not closed, we repeat this loop
-        while not self.gui_closed_event.is_set():
+        while not gui_closed__event.is_set():
             # Retrieve the sorted column for both tables
             GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = self.connected_table_view.get_sorted_column()
             GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = self.disconnected_table_view.get_sorted_column()
@@ -5152,19 +5183,26 @@ class GUIWorkerThread(QThread):
                 GUIrenderingData.session_disconnected_table__num_rows,
             )
 
-class MainWindow(QWidget):
-    def __init__(self):
+class MainWindow(QMainWindow):
+    def __init__(self, screen_width: int, screen_height: int):
         super().__init__()
-
-        # Custom variables
-        self.gui_closed_event = threading.Event()
 
         # Set up the window
         self.setWindowTitle(f"{TITLE}")
-        self.adjust_gui_size()
+        # Set a minimum size for the window
+        self.setMinimumSize(800, 600)
+        self.resize_window_for_screen(screen_width, screen_height)
 
-        # Layout
-        self.main_layout = QVBoxLayout()
+        # Raise and activate window to ensure it gets focus
+        self.raise_()
+        self.activateWindow()
+
+        # Central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        # Layout for the central widget
+        self.main_layout = QVBoxLayout(central_widget)
 
         # Header text
         self.header_text = QLabel()
@@ -5182,6 +5220,8 @@ class MainWindow(QWidget):
 
         # Create the table model and view
         ## Determine the sort order
+        while not GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
+            gui_closed__event.wait(0.1)
         _sort_column = GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY)
         _sort_order = Qt.SortOrder.DescendingOrder
         self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, _sort_column, _sort_order)
@@ -5203,6 +5243,8 @@ class MainWindow(QWidget):
 
         # Create the table model and view
         ## Determine the sort order
+        while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
+            gui_closed__event.wait(0.1)
         _sort_column = GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
         if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in ["Last Rejoin", "Last Seen"]:
             _sort_order = Qt.SortOrder.AscendingOrder
@@ -5221,20 +5263,34 @@ class MainWindow(QWidget):
         self.main_layout.addWidget(self.session_disconnected_header)
         self.main_layout.addWidget(self.disconnected_table_view)
 
-        # Set the layout for the window
-        self.setLayout(self.main_layout)
-
         # Create the worker thread for table updates
         self.worker_thread = GUIWorkerThread(
-            self.gui_closed_event,
             self.connected_table_model,
             self.connected_table_view,
             self.disconnected_table_model,
             self.disconnected_table_view
-
         )
         self.worker_thread.update_signal.connect(self.update_gui)
         self.worker_thread.start()
+
+    def closeEvent(self, event: QCloseEvent):
+        gui_closed__event.set()  # Signal the thread to stop
+        self.worker_thread.quit()  # Stop the QThread
+        self.worker_thread.wait()  # Wait for the thread to finish
+        event.accept()  # Accept the close event
+
+        terminate_script("EXIT")
+
+    # Custom Methods:
+
+    def resize_window_for_screen(self, screen_width: int, screen_height: int):
+        # Resize the window based on screen size
+        if screen_width >= 2560 and screen_height >= 1440:
+            self.resize(1400, 900)
+        elif screen_width >= 1920 and screen_height >= 1080:
+            self.resize(1200, 720)
+        elif screen_width >= 1024 and screen_height >= 768:
+            self.resize(940, 680)
 
     def update_gui(self,
         header_text: str,
@@ -5247,6 +5303,8 @@ class MainWindow(QWidget):
     ):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
+
+        self.session_connected_header.setText(f"Players connected in your session ({session_connected_table__num_rows}):")
 
         for processed_data, compiled_colors in zip(session_connected_table__processed_data, session_connected_table__compiled_colors):
             ip_address = processed_data[self.connected_table_model._IP_COLUMN_INDEX].removesuffix(" 👑")
@@ -5261,9 +5319,10 @@ class MainWindow(QWidget):
             else:
                 self.connected_table_model.update_row_without_refresh(connected_row_index, processed_data, compiled_colors)
 
-        self.session_connected_header.setText(f"Players connected in your session ({session_connected_table__num_rows}):")
         self.connected_table_model.sort_current_column()
         self.connected_table_view.adjust_table_column_widths()
+
+        self.session_disconnected_header.setText(f"Players who've left your session ({session_disconnected_table__num_rows}):")
 
         for processed_data, compiled_colors in zip(session_disconnected_table__processed_data, session_disconnected_table__compiled_colors):
             ip_address = processed_data[self.disconnected_table_model._IP_COLUMN_INDEX].removesuffix(" 👑")
@@ -5278,44 +5337,12 @@ class MainWindow(QWidget):
             else:
                 self.disconnected_table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
 
-        self.session_disconnected_header.setText(f"Players who've left your session ({session_disconnected_table__num_rows}):")
         self.disconnected_table_model.sort_current_column()
         self.disconnected_table_view.adjust_table_column_widths()
 
-    def closeEvent(self, event: QCloseEvent):
-        self.gui_closed_event.set()  # Signal the thread to stop
-        self.worker_thread.quit()  # Stop the QThread
-        self.worker_thread.wait()  # Wait for the thread to finish
-        event.accept()  # Accept the close event
-
-        time.sleep(1) # Gives a second for Windows processes to closes properly
-        terminate_script("EXIT")
-
-    def adjust_gui_size(self):
-        def get_screen_size():
-            screen = app.primaryScreen()
-            size = screen.size()
-            return size.width(), size.height()
-
-        screen_width, screen_height = get_screen_size()
-
-        # Set a minimum size for the window
-        self.setMinimumSize(800, 600)
-
-        # Resize the window based on screen size
-        if screen_width >= 2560 and screen_height >= 1440:
-            self.resize(1400, 900)
-        elif screen_width >= 1920 and screen_height >= 1080:
-            self.resize(1200, 720)
-        elif screen_width >= 1024 and screen_height >= 768:
-            self.resize(940, 680)
-
 
 if __name__ == "__main__":
-    app = QApplication([])
-    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt6())
-
-    window = MainWindow()
+    window = MainWindow(screen_width, screen_height)
     window.show()
 
     sys.exit(app.exec())

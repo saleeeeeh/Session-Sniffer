@@ -4,7 +4,7 @@
 
 Before proceeding, ensure you are using Windows 10 or above.
 
-Additionally, make sure you have [Wireshark](https://www.wireshark.org/) (v4.2.9) installed on your system.
+Additionally, make sure you have [Wireshark](https://www.wireshark.org/) (v4.2.10) installed on your system.
 
 Furthermore, for packet sniffing functionality, you'll require either [Npcap](https://nmap.org/npcap/) or [Winpcap](https://www.winpcap.org/).  
 It's worth noting that this step can be omitted as [Npcap](https://nmap.org/npcap/) is already included by default within the [Wireshark](https://www.wireshark.org/) installation.
@@ -37,7 +37,6 @@ GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY=Last Rejoin
 GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY=Last Seen
 GUI_DISCONNECTED_PLAYERS_TIMER=10.0
 GUI_DISCONNECTED_PLAYERS_COUNTER=6
-USERIP_ENABLED=True
 DISCORD_PRESENCE=True
 ```
 
@@ -139,9 +138,6 @@ Valid values include any field names. For example: Last Seen
 * `<GUI_DISCONNECTED_PLAYERS_TIMER>`  
 The duration after which a player will be moved as disconnected on the console if no packets are received within this time.  
 Valid values include any number greater than or equal to 3.
-
-* `<USERIP_ENABLED>`  
-Determine if you want or not to enable detections from the UserIP databases.
 
 * `<DISCORD_PRESENCE>`  
 Determine if you want or not to enable Discord presence.

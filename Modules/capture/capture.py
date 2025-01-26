@@ -85,10 +85,10 @@ class PacketCapture:
         stdout_thread = threading.Thread(target=read_packets, daemon=True)
         stdout_thread.start()
 
-        start_time = time.time()
+        start_time = time.monotonic()
 
         while True:
-            time_elapsed = time.time() - start_time
+            time_elapsed = time.monotonic() - start_time
             if time_elapsed >= timeout:
                 if packets_queue.empty():
                     # NOTE: I don't use this code anyways, but returning `None` here seems like an issue to fix.
@@ -98,7 +98,7 @@ class PacketCapture:
                         packet = packets_queue.get()
                         callback(packet)
 
-                start_time = time.time()
+                start_time = time.monotonic()
 
             time.sleep(0.1)
 

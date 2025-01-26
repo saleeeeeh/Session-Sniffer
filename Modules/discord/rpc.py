@@ -1,66 +1,93 @@
+# External/Third-party Python Libraries
+from pypresence import Presence, DiscordNotFound, PipeClosed, ResponseTimeout, exceptions
+
+# Standard Python Libraries
 import time
-from typing import Optional
-from pypresence import Presence
-from pypresence.exceptions import DiscordNotFound, PipeClosed, ResponseTimeout
+import queue
+import threading
+from typing import Union
 
-DISCORD_PRESENCE_CLIENT_ID = 1313304495958261781
-DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
-DISCORD_RPC_BUTTONS = [
-    {
-        "label": "GitHub Repo",
-        "url": "https://github.com/BUZZARDGTA/Session-Sniffer"
-    }
-]
 
-class DiscordRPCManager:
+QueueHint = queue.SimpleQueue[Union[str, None, "ShutdownSignal"]]
+
+
+class ShutdownSignal(object):
+    """A unique type to represent the shutdown signal."""
+    pass
+
+
+_SHUT_DOWN = ShutdownSignal()
+
+
+class DiscordRPC:
     """Manages Discord Rich Presence updates and connection."""
 
-    def __init__(self):
-        self.discord_rpc = Presence(DISCORD_PRESENCE_CLIENT_ID)
-        self.is_connected = False
-        self.start_time: Optional[int] = None
-        self.last_update_time: Optional[float] = None
+    def __init__(self, client_id: int):
+        self._RPC = Presence(client_id)
+        self._closed = False
+        self._queue: QueueHint = queue.SimpleQueue()
 
-    def connect(self):
-        """Attempts to connect to Discord RPC."""
-        if self.is_connected:
-            return True
+        self.connection_status = threading.Event()
 
-        try:
-            self.discord_rpc.connect()
-            self.is_connected = True
-        except DiscordNotFound:
-            self.is_connected = False
+        self._thread = threading.Thread(target=_run, args=(self._RPC, self._queue, self.connection_status))
+        self._thread.start()
 
-        return self.is_connected
+        self.last_update_time: float | None = None
 
-    def update(self, state_message: Optional[str] = None):
+    def update(self, state_message: str | None = None):
         """
         Attempts to update the Discord Rich Presence.
 
         Args:
             state_message (optional): If provided, the state message to display in Discord presence.
         """
-        if not self.connect():
-            self.last_update_time = time.perf_counter()
+        if self._closed:
             return
 
-        if self.start_time is None:
-            self.start_time = int(time.time())
+        self.last_update_time = time.monotonic()
+
+        if self._thread.is_alive():
+            self._queue.put(state_message)
+
+    def close(self):
+        """Remove the Discord Rich Presence."""
+        if self._closed:
+            return
+
+        self._closed = True
+        self._queue.put(_SHUT_DOWN)
+        self._thread.join(timeout=3)
+
+
+def _run(RPC: Presence, queue: QueueHint, connection_status: threading.Event):
+    DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
+    START_TIME = time.time()
+    DISCORD_RPC_BUTTONS = [
+        {"label": "GitHub Repo", "url": "https://github.com/BUZZARDGTA/Session-Sniffer"},
+    ]
+
+    while True:
+        status_message = queue.get()
+        if status_message is _SHUT_DOWN:
+            if connection_status.is_set():
+                RPC.clear()
+                RPC.close()
+            return
+
+        if not connection_status.is_set():
+            try:
+                RPC.connect()
+            except (DiscordNotFound, exceptions.DiscordError):
+                continue
+            else:
+                connection_status.set()
 
         try:
-            self.discord_rpc.update(
-                **({} if state_message is None else {"state": state_message}),
-                details = DISCORD_RPC_TITLE,
-                start = self.start_time,
-                #large_image = "image_name",  # Name of the uploaded image in Discord app assets
-                #large_text = "Hover text for large image",  # Tooltip for the large image
-                #small_image = "image_name_small",  # Optional small image
-                #small_text = "Hover text for small image",  # Tooltip for the small image
-                buttons = DISCORD_RPC_BUTTONS
+            RPC.update(
+                state=status_message or None,
+                details=DISCORD_RPC_TITLE,
+                start=START_TIME,
+                buttons=DISCORD_RPC_BUTTONS,
             )
         except (PipeClosed, ResponseTimeout):
-            self.is_connected = False
-            self.start_time = None
-
-        self.last_update_time = time.perf_counter()
+            connection_status.clear()
