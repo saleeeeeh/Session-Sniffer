@@ -2245,7 +2245,7 @@ for i in Interface.iterate_safely():
                 continue
 
             for arp_info in arp_infos:
-                interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), f"{i.interface_name} (ARP)", "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], i.adapter_properties.Name, arp_info["organization_name"], True))
+                interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], i.adapter_properties.Name, arp_info["organization_name"], is_arp=True))
 
 user_interface_selection = None
 

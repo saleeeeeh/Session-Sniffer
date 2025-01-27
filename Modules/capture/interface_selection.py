@@ -79,7 +79,7 @@ class InterfaceSelectionDialog(QDialog):
         for idx, interface in enumerate(self.interfaces):
             self.table.insertRow(idx)
 
-            item = QTableWidgetItem(interface.interface_name)
+            item = QTableWidgetItem(interface.interface_name if not interface.is_arp else f"{interface.interface_name} (ARP)")
             self.table.setItem(idx, 0, item)
 
             item = QTableWidgetItem(str(interface.packets_sent))
