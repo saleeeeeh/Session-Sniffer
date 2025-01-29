@@ -842,7 +842,6 @@ class IPAPI_Compiled:
         self.proxy          = "..."
         self.hosting        = "..."
 
-
 class IPAPI:
     def __init__(self):
         self.is_initialized = False
@@ -2321,8 +2320,16 @@ excluded_protocols: list[str] = []
 if Settings.CAPTURE_IP_ADDRESS:
     capture_filter.append(f"((src host {Settings.CAPTURE_IP_ADDRESS} and (not (dst net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))) or (dst host {Settings.CAPTURE_IP_ADDRESS} and (not (src net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))))")
 
+force_enable_capture_vpn_mode = False
 if not Settings.CAPTURE_VPN_MODE:
-    capture_filter.append("not (broadcast or multicast)")
+    from Modules.capture.check_tshark_filters import check_broadcast_multicast_support
+
+    result = check_broadcast_multicast_support(Settings.CAPTURE_TSHARK_PATH, Settings.CAPTURE_INTERFACE_NAME)
+    if result.broadcast_supported and result.multicast_supported:
+        capture_filter.append("not (broadcast or multicast)")
+    else:
+        force_enable_capture_vpn_mode = True
+
 capture_filter.append("not (portrange 0-1023 or port 5353)")
 
 if Settings.CAPTURE_PROGRAM_PRESET:
@@ -2960,11 +2967,11 @@ def rendering_core():
                 )
 
         def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]):
-            def process_ini_line_output(line: str):
-                return line.strip()
-
             from Modules.constants.standalone import USERIP_INI_SETTINGS_LIST
             from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
+
+            def process_ini_line_output(line: str):
+                return line.strip()
 
             if not ini_path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
@@ -3835,6 +3842,7 @@ def rendering_core():
             if user_interface_selection is None:
                 raise TypeError(f'Expected "int", got "NoneType"')
 
+            is_vpn_mode_enabled = "Enabled" if Settings.CAPTURE_VPN_MODE or force_enable_capture_vpn_mode else "Disabled"
             is_arp_enabled = "Enabled" if interfaces_selection_data[user_interface_selection].is_arp else "Disabled"
             displayed_capture_ip_address = Settings.CAPTURE_IP_ADDRESS if Settings.CAPTURE_IP_ADDRESS else "N/A"
             color_tshark_restarted_time = '<span style="color: green;">' if tshark_restarted_times == 0 else '<span style="color: red;">'
@@ -3857,7 +3865,7 @@ def rendering_core():
                     The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
-                    <b>Scanning using TShark {tshark_version_color}v{extracted_tshark_version}</span></b> on Interface <span style="color: yellow;">{capture.interface}</span> at IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> (ARP:<span style="color: yellow;">{is_arp_enabled}</span>)
+                    Scanning with TShark {tshark_version_color}v{extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span>
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}
