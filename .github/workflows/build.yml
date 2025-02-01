@@ -15,9 +15,9 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          echo "New $([[ $IS_PRERELEASE == 'true' ]] && echo 'Pre-release' || echo 'Stable release') created!"
           echo "Release Name: $RELEASE_NAME"
           echo "Release Tag: $RELEASE_TAG"
+          echo "Is Pre-Release: $IS_PRERELEASE"
 
   build:
     needs: [handle-new-release]
@@ -26,7 +26,6 @@ jobs:
     defaults:
       run:
         shell: cmd
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4.2.2
@@ -61,7 +60,7 @@ jobs:
           path: .github/workflows/dist/Session_Sniffer.exe
 
   upload-release-artifact:
-    needs: [handle-new-release, build]
+    needs: [build]
     runs-on: ubuntu-24.04
     name: Upload Release Artifact
     steps:
@@ -75,10 +74,46 @@ jobs:
           name: Session_Sniffer.exe
 
       - name: Upload Artifact to Release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Authenticate using the GITHUB_TOKEN
-          gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
+          echo "Uploading release artifact..."
+          gh release upload "$RELEASE_TAG" \
+            "artifacts/Session_Sniffer.exe"
 
-          # Upload the artifact to the release
-          gh release upload ${{ github.event.release.tag_name }} \
-            'artifacts/Session_Sniffer.exe'
+  update-version-info:
+    needs: [upload-release-artifact]
+    runs-on: ubuntu-24.04
+    name: Update Version Info
+    steps:
+      - name: Checkout Version Branch
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: version
+
+      - name: Update versions.json
+        env:
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+        run: |
+          # Update the versions.json file with the appropriate release name
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            release_version=$(echo "$RELEASE_NAME" | sed 's/(Alpha) //')
+            echo Pre-release detected.
+            updated_json=$(jq --arg release_version "$release_version" '.Alpha = $release_version' versions.json)
+          else
+            release_version=$(echo "$RELEASE_NAME" | sed 's/(Stable) //')
+            echo Stable release detected.
+            updated_json=$(jq --arg release_version "$release_version" '.Stable = $release_version' versions.json)
+          fi
+          echo "$updated_json" > versions.json
+
+      - name: Commit and Push Changes
+        run: |
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions.json
+          git commit -m "Update versions.json"
+          git push origin version
