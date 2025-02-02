@@ -103,10 +103,10 @@ jobs:
 
           # Set variables for release type (pre-release or stable) and prepare/update
           if [[ "$IS_PRERELEASE" == "true" ]]; then
-            release_version=$(echo "$RELEASE_NAME" | sed 's/(Alpha) //')
+            release_version=$(echo "$RELEASE_NAME" | sed 's/(Alpha) //I')
             updated_json=$(jq --arg release_version "$release_version" '.Alpha = $release_version' "versions.json")
           else
-            release_version=$(echo "$RELEASE_NAME" | sed 's/(Stable) //')
+            release_version=$(echo "$RELEASE_NAME" | sed 's/(Stable) //I')
             updated_json=$(jq --arg release_version "$release_version" '.Stable = $release_version' "versions.json")
 
             # For backward compatibility, update the "version.txt" file with the new version (only stores stable releases)
