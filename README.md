@@ -62,13 +62,9 @@ However, it does allow for manual assignment using [UserIP INI databases Configu
 
 ---
 
-## Essential Guides / Project Resources
+## Learn More
 
-📖 **[Documentation](docs/README.md)**  
-⚙️ **[Configuration Guide](docs/SCRIPT_CONFIGURATION.md)**  
-💡 **[Tips and Tricks](docs/TIPS_and_TRICKS.md)**  
-🚑 **[Troubleshooting](docs/TROUBLESHOOTING.md)**  
-👥 **[Credits & Contributors](docs/CREDITS_and_CONTRIBUTORS.md)**  
+📖 For more detailed information, check out the [**Project Wiki**](https://github.com/BUZZARDGTA/Session-Sniffer/wiki).
 
 ---
 
