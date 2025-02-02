@@ -6,6 +6,8 @@ from datetime import datetime
 
 class Version:
     def __init__(self, version: str):
+        version = version.strip()
+
         self.major, self.minor, self.patch = map(int, version[1:6:2])
         self.date = datetime.strptime(version[9:19], "%d/%m/%Y").date().strftime("%d/%m/%Y")
 

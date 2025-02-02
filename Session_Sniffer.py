@@ -307,6 +307,7 @@ class DefaultSettings:
     GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY = "Last Seen"
     GUI_DISCONNECTED_PLAYERS_TIMER = 10.0
     DISCORD_PRESENCE = True
+    UPDATER_CHANNEL = "Stable"
 
 class Settings(DefaultSettings):
     gui_fields_mapping = {
@@ -585,6 +586,17 @@ class Settings(DefaultSettings):
                         Settings.DISCORD_PRESENCE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
+                elif setting_name == "UPDATER_CHANNEL":
+                    try:
+                        Settings.UPDATER_CHANNEL, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
+                    except InvalidNoneTypeValueError:
+                        case_insensitive_match, case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ["Stable", "Alpha"])
+                        if case_insensitive_match:
+                            Settings.UPDATER_CHANNEL = normalized_match
+                            if not case_sensitive_match:
+                                need_rewrite_current_setting = True
+                        else:
+                            need_rewrite_settings = True
 
                 if need_rewrite_current_setting:
                     need_rewrite_settings = True
@@ -1868,50 +1880,6 @@ else:
     SCRIPT_DIR = Path(__file__).resolve().parent
 os.chdir(SCRIPT_DIR)
 
-
-cls()
-title(f"Searching for a new update - {TITLE}")
-print("\nSearching for a new update ...\n")
-error_updating__flag = False
-try:
-    response = s.get("https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/version.txt")
-except:
-    error_updating__flag = True
-else:
-    if response.status_code == 200:
-        current_version = Version(VERSION)
-        latest_version = Version(response.text.strip().rstrip())
-        if Updater(current_version).check_for_update(latest_version):
-            msgbox_title = TITLE
-            msgbox_message = textwrap.dedent(f"""
-                New version found. Do you want to update ?
-
-                Current version: {current_version}
-                Latest version: {latest_version}
-            """.removeprefix("\n").removesuffix("\n"))
-            msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Question | MsgBox.Style.MsgBoxSetForeground
-            errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-            if errorlevel == MsgBox.ReturnValues.IDYES:
-                webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer")
-                terminate_script("EXIT")
-    else:
-        error_updating__flag = True
-
-if error_updating__flag:
-    msgbox_title = TITLE
-    msgbox_message = textwrap.dedent(f"""
-        ERROR: Failed to check for updates.
-
-        Do you want to open the \"{TITLE}\" project download page ?
-        You can then download and run the latest version from there.
-    """.removeprefix("\n").removesuffix("\n"))
-    msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
-    errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-    if errorlevel == MsgBox.ReturnValues.IDYES:
-        webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer")
-        terminate_script("EXIT")
-
-
 if not is_pyinstaller_compiled():
     import importlib.metadata
 
@@ -1965,14 +1933,64 @@ if not is_pyinstaller_compiled():
             terminate_script("EXIT")
 
 cls()
-title(f"Initializing the script for your Windows version - {TITLE}")
-print("\nInitializing the script for your Windows version ...\n")
-if sys.getwindowsversion().major >= 10:
-    UNDERLINE = "\033[4m"
-    UNDERLINE_RESET = "\033[24m"
+title(f"Applying your custom settings from \"Settings.ini\" - {TITLE}")
+print("\nApplying your custom settings from \"Settings.ini\" ...\n")
+Settings.load_from_settings_file(SETTINGS_PATH)
+
+cls()
+title(f"Searching for a new update - {TITLE}")
+print("\nSearching for a new update ...\n")
+CURRENT_VERSION = Version(VERSION)
+
+try:
+    response = s.get("https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/versions.json")
+    response.raise_for_status()
+except:
+    msgbox_title = TITLE
+    msgbox_message = textwrap.dedent(f"""
+        ERROR: Failed to check for updates.
+
+        Do you want to open the \"{TITLE}\" project download page ?
+        You can then download and run the latest version from there.
+    """.removeprefix("\n").removesuffix("\n"))
+    msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
+    errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+    if errorlevel == MsgBox.ReturnValues.IDYES:
+        webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer/releases")
+        terminate_script("EXIT")
 else:
-    UNDERLINE = ""
-    UNDERLINE_RESET = ""
+    versions_json: dict[str, str] = response.json()
+    if not isinstance(versions_json, dict):
+        raise TypeError(f'Expected "dict" object, got "{type(versions_json)}"')
+
+    # Get versions from the response
+    latest_stable_version = Version(versions_json["Stable"])
+    latest_alpha_version = Version(versions_json["Alpha"])
+
+    # Check for updates based on the current version
+    updater = Updater(CURRENT_VERSION)
+    is_new_stable_version_available = updater.check_for_update(latest_stable_version)
+    is_new_alpha_version_available = updater.check_for_update(latest_alpha_version)
+
+    # Determine which version to display based on the user's channel setting
+    if is_new_stable_version_available or (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available):
+        update_channel = "alpha" if (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available) else "stable"
+        latest_version = latest_alpha_version if (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available) else latest_stable_version
+
+        msgbox_title = TITLE
+        msgbox_message = textwrap.dedent(f"""
+            New {update_channel} version found. Do you want to update?
+
+            Current version: {CURRENT_VERSION}
+            Latest version: {latest_version}
+        """.removeprefix("\n").removesuffix("\n"))
+
+        msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Question | MsgBox.Style.MsgBoxSetForeground
+        errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+
+        if errorlevel == MsgBox.ReturnValues.IDYES:
+            webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer/releases")
+            terminate_script("EXIT")
 
 cls()
 title(f"Checking that \"Npcap\" or \"WinpCap\" driver is installed on your system - {TITLE}")
