@@ -2525,7 +2525,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
 
 def iplookup_core():
     with Threads_ExceptionHandler():
-        def throttle_until():
+        def throttle_until(response: requests.Response):
             requests_remaining = int(response.headers["X-Rl"])
             throttle_time = int(response.headers["X-Ttl"])
 
@@ -2589,14 +2589,17 @@ def iplookup_core():
                     json=ips_to_lookup,
                     timeout=3
                 )
+                response.raise_for_status()
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
+                gui_closed__event.wait(1)
                 continue
+            except requests.exceptions.HTTPError as e:
+                if isinstance(e.response, requests.Response) and e.response.status_code == 429:  # Handle rate limiting
+                    throttle_until(e.response)
+                    continue
+                raise  # Re-raise other HTTP errors
 
-            if response.status_code != 200:
-                throttle_until()
-                continue
-
-            iplookup_results = response.json()
+            iplookup_results: list[dict[str]] = response.json()
 
             if not isinstance(iplookup_results, list):
                 raise TypeError(f'Expected "list" object, got "{type(iplookup_results)}"')
@@ -2605,7 +2608,7 @@ def iplookup_core():
                 if not isinstance(iplookup, dict):
                     raise TypeError(f'Expected "dict" object, got "{type(iplookup)}"')
 
-                player_ip_looked_up = iplookup.get("query", None)
+                player_ip_looked_up = iplookup.get("query")
                 if not isinstance(player_ip_looked_up, str):
                     raise TypeError(f'Expected "str" object, got "{type(player_ip_looked_up)}"')
 
@@ -2727,7 +2730,7 @@ def iplookup_core():
                 if isinstance(player_to_update, Player):
                     player_to_update.iplookup.ipapi = ip_api_instance
 
-            throttle_until()
+            throttle_until(response)
 
 def capture_core():
     with Threads_ExceptionHandler():
