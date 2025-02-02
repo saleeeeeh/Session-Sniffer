@@ -78,5 +78,3 @@ Or privately:
 - **Email**: BUZZARDGTA@protonmail.com  
 - **Discord**: waitingforharukatoaddme  
 - **Telegram**: [@waitingforharukatoaddme](https://t.me/waitingforharukatoaddme)  
-
----
