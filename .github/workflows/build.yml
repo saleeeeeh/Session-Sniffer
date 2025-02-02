@@ -92,7 +92,7 @@ jobs:
         with:
           ref: version
 
-      - name: Update versions.json and version.txt
+      - name: Update Files, Commit, and Push
         env:
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
           RELEASE_NAME: ${{ github.event.release.name }}
@@ -100,29 +100,21 @@ jobs:
           # Set variables for release type (pre-release or stable) and prepare/update
           if [[ "$IS_PRERELEASE" == "true" ]]; then
             release_version=$(echo "$RELEASE_NAME" | sed 's/(Alpha) //')
-            echo "Pre-release detected."
             updated_json=$(jq --arg release_version "$release_version" '.Alpha = $release_version' "versions.json")
           else
             release_version=$(echo "$RELEASE_NAME" | sed 's/(Stable) //')
-            echo "Stable release detected."
             updated_json=$(jq --arg release_version "$release_version" '.Stable = $release_version' "versions.json")
 
             # For backward compatibility, update the "version.txt" file with the new version (only stores stable releases)
             echo "$release_version" > "version.txt"
+            git add "version.txt"
+            git commit -m "Update version.txt"
           fi
 
           # Update the "versions.json" file with the new version
           echo "$updated_json" > "versions.json"
+          git add "versions.json"
+          git commit -m "Update versions.json"
 
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Check if version.txt has changed and commit if necessary
-          git diff --exit-code "version.txt" || (git add "version.txt" && git commit -m "Update version.txt")
-
-          # Check if "versions.json" has changed and commit if necessary
-          git diff --exit-code "versions.json" || (git add "versions.json" && git commit -m "Update versions.json")
-
+          # Push Changes
           git push origin version
