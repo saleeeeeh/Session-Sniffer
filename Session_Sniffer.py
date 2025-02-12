@@ -679,28 +679,25 @@ class Interface:
         self.organization_name: Union[Literal["N/A"], str]      = "N/A"
         self.packets_sent     : Union[Literal["N/A"], int]      = "N/A"
         self.packets_recv     : Union[Literal["N/A"], int]      = "N/A"
-        self.arp_infos        : dict[str, list[dict[str, str]]] = {}
+        self.arp_infos        : list[dict[str, str]] = []
 
         self.adapter_properties = Adapter_Properties()
 
         Interface.all_interfaces.append(self)
 
-    def add_arp_infos(self, ip_address: str, arp_infos: list[dict[str, str]]):
+    def add_arp_infos(self, arp_infos: list[dict[str, str]]):
         """
-        Add ARP informations for the given interface IP address.
+        Add ARP informations for the given interface.
         """
-        if self.arp_infos.get(ip_address) is None:
-            self.arp_infos[ip_address] = []
-
         for arp_info in arp_infos:
-            if arp_info not in self.arp_infos[ip_address]:
-                self.arp_infos[ip_address].append(arp_info)
+            if arp_info not in self.arp_infos:
+                self.arp_infos.append(arp_info)
 
-    def get_arp_infos(self, ip_address: str):
+    def get_arp_infos(self):
         """
-        Get ARP informations for the given interface IP address.
+        Get ARP informations for the given interface.
         """
-        return self.arp_infos.get(ip_address)
+        return self.arp_infos
 
     @classmethod
     def get_interface_by_name(cls, interface_name: str):
@@ -1383,7 +1380,7 @@ def get_arp_table():
     if not isinstance(arp_entries, CDispatch):
         raise TypeError(f'Expected "CDispatch", got "{type(mac_address)}"')
 
-    cached_arp_dict: dict[int, dict[str, list[dict[str, str]]]] = {}
+    cached_arp_dict: dict[int, list[dict[str, str]]] = {}
 
     for entry in arp_entries:
         if not isinstance(entry, CDispatch):
@@ -1399,18 +1396,11 @@ def get_arp_table():
         if not isinstance(mac_address, str):
             raise TypeError(f'Expected "str", got "{type(mac_address)}"')
 
-
         if not ip_address or not mac_address or not interface_index:
             continue
 
-        # Initialize interface entry if not already done
-        if interface_index not in cached_arp_dict:
-            cached_arp_dict[interface_index] = {
-                "arp_infos": []
-            }
-
-        # Append the new entry
-        cached_arp_dict[interface_index]["arp_infos"].append({
+        # Append ARP info directly to the dictionary entry
+        cached_arp_dict.setdefault(interface_index, []).append({
             "ip_address": ip_address,
             "mac_address": mac_address
         })
@@ -2192,7 +2182,7 @@ if Settings.CAPTURE_ARP:
         interface_arp_infos: list[dict[str, str]] = []
 
         # Skip ARP entries with known placeholder MAC addresses
-        for entry in cached_arp_infos["arp_infos"]:
+        for entry in cached_arp_infos:
             if entry["mac_address"] in ["00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"]:
                 continue
 
@@ -2210,7 +2200,7 @@ if Settings.CAPTURE_ARP:
             continue
 
         for interface_ip_address in i.ip_addresses:
-            i.add_arp_infos(interface_ip_address, interface_arp_infos)
+            i.add_arp_infos(interface_arp_infos)
 
 from Modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
 
@@ -2253,7 +2243,7 @@ for i in Interface.iterate_safely():
 
     if Settings.CAPTURE_ARP:
         for ip in i.ip_addresses:
-            arp_infos = i.get_arp_infos(ip)
+            arp_infos = i.get_arp_infos()
             if not arp_infos:
                 continue
 
