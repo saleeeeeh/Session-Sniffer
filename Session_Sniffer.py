@@ -1374,51 +1374,46 @@ def get_filtered_tshark_interfaces():
 
     return interfaces
 
-def get_and_parse_arp_cache():
-    stdout = subprocess.check_output([
-        "arp", "-a"
-    ], text=True, encoding="utf-8", errors="ignore") # NOTE: "ignore" completely removes those annoying chars, so it might be a problem at some points?
+def get_arp_table():
+    import win32com
+    from win32com.client import CDispatch
 
-    RE_NEW_INTERFACE_PATTERN = re.compile(r"^\w+\s*:\s*(?P<IP_ADDRESS>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s*---\s*(?P<INTERFACE_IDX_HEX>0x[0-9a-fA-F]+)$")
-    RE_ENTRY_PATTERN = re.compile(r"^\s*(?P<IP_ADDRESS>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s*(?P<MAC_ADDRESS>(?:[0-9a-fA-F]{2}[:-]){5}(?:[0-9a-fA-F]{2}))\s*\w+\s*$")
+    objWMI = win32com.client.GetObject("winmgmts:\\\\.\\root\\StandardCimv2")
+    arp_entries = objWMI.ExecQuery("SELECT * FROM MSFT_NetNeighbor WHERE AddressFamily=2")
+    if not isinstance(arp_entries, CDispatch):
+        raise TypeError(f'Expected "CDispatch", got "{type(mac_address)}"')
 
-    cached_arp_dict: dict[int, dict[str, str | list[dict[str, str]]]] = {}
-    current_interface: dict[str, str | list[dict[str, str]]] = {}
+    cached_arp_dict: dict[int, dict[str, list[dict[str, str]]]] = {}
 
-    for line in stdout.splitlines():
-        new_interface_match = RE_NEW_INTERFACE_PATTERN.match(line)
-        if new_interface_match:
-            current_interface = {}
+    for entry in arp_entries:
+        if not isinstance(entry, CDispatch):
+            raise TypeError(f'Expected "CDispatch", got "{type(mac_address)}"')
 
-            ip_address = new_interface_match.group('IP_ADDRESS')
-            if ip_address is None or not isinstance(ip_address, str) or not is_ipv4_address(ip_address):
-                continue
-            interface_idx_hex = new_interface_match.group('INTERFACE_IDX_HEX')
-            if interface_idx_hex is None or not isinstance(interface_idx_hex, str) or not is_hex(interface_idx_hex):
-                continue
+        interface_index = entry.InterfaceIndex
+        if not isinstance(interface_index, int):
+            raise TypeError(f'Expected "int", got "{type(mac_address)}"')
+        ip_address = entry.IPAddress
+        if not isinstance(ip_address, str):
+            raise TypeError(f'Expected "str", got "{type(ip_address)}"')
+        mac_address = entry.LinkLayerAddress
+        if not isinstance(mac_address, str):
+            raise TypeError(f'Expected "str", got "{type(mac_address)}"')
 
-            interface_index = hex_to_int(interface_idx_hex)
 
-            current_interface = {
-                "interface_ip_address": ip_address,
-                "interface_arp_output": []
-            }
-            cached_arp_dict[interface_index] = current_interface
+        if not ip_address or not mac_address or not interface_index:
             continue
 
-        entry_match = RE_ENTRY_PATTERN.match(line)
-        if entry_match and current_interface:
-            ip_address = entry_match.group('IP_ADDRESS')
-            if ip_address is None or not isinstance(ip_address, str) or not is_ipv4_address(ip_address):
-                continue
-            mac_address = entry_match.group('MAC_ADDRESS')
-            if mac_address is None or not isinstance(mac_address, str) or not is_mac_address(mac_address):
-                continue
+        # Initialize interface entry if not already done
+        if interface_index not in cached_arp_dict:
+            cached_arp_dict[interface_index] = {
+                "arp_infos": []
+            }
 
-            current_interface["interface_arp_output"].append({
-                "ip_address": ip_address,
-                "mac_address": mac_address
-            })
+        # Append the new entry
+        cached_arp_dict[interface_index]["arp_infos"].append({
+            "ip_address": ip_address,
+            "mac_address": mac_address
+        })
 
     return cached_arp_dict
 
@@ -2187,34 +2182,35 @@ for config in iterate_network_ip_details():
         i.mac_address = config.MACAddress
 
 if Settings.CAPTURE_ARP:
-    cached_arp_dict = get_and_parse_arp_cache()
+    cached_arp_dict = get_arp_table()
 
-    for arp_interface_index, arp_interface_info in cached_arp_dict.items():
-        i = Interface.get_interface_by_id(arp_interface_index)
-        if not i:
+    for cached_arp_interface_index, cached_arp_infos in cached_arp_dict.items():
+        i = Interface.get_interface_by_id(cached_arp_interface_index)
+        if not i or cached_arp_interface_index != i.adapter_properties.InterfaceIndex:
             continue
 
-        if (
-            not arp_interface_info["interface_ip_address"] in i.ip_addresses
-            or not arp_interface_info["interface_arp_output"]
-        ):
+        interface_arp_infos: list[dict[str, str]] = []
+
+        # Skip ARP entries with known placeholder MAC addresses
+        for entry in cached_arp_infos["arp_infos"]:
+            if entry["mac_address"] in ["00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"]:
+                continue
+
+            if is_valid_non_special_ipv4(entry["ip_address"]):
+                interface_arp_infos.append({
+                    "ip_address": entry["ip_address"],
+                    "mac_address": format_mac_address(entry["mac_address"]),
+                    "organization_name": (
+                        get_mac_address_organization_name(entry["mac_address"])
+                        or "N/A"
+                    )
+                })
+
+        if not interface_arp_infos:
             continue
 
-        arp_infos: list[dict[str, str]] = [
-            {
-                "ip_address": entry["ip_address"],
-                "mac_address": format_mac_address(entry["mac_address"]),
-                "organization_name": (
-                    get_mac_address_organization_name(entry["mac_address"])
-                    or "N/A"
-                )
-            }
-            for entry in arp_interface_info["interface_arp_output"]
-            if is_valid_non_special_ipv4(entry["ip_address"])
-        ]
-
-        if arp_infos:
-            i.add_arp_infos(arp_interface_info["interface_ip_address"], arp_infos)
+        for interface_ip_address in i.ip_addresses:
+            i.add_arp_infos(interface_ip_address, interface_arp_infos)
 
 from Modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
 
