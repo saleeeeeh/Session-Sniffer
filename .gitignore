@@ -1,8 +1,6 @@
 /.devfolder
 /.vscode
-/Modules/capture/__pycache__/
-/Modules/https_utils/__pycache__/
-/Modules/oui_lookup/__pycache__/
+/Modules/**/__pycache__/
 /GeoLite2 Databases
 *.pyc
 .dccache
@@ -12,8 +10,4 @@ debug.log
 UserIP_Logging.log
 /Sessions Logging
 /UserIP Databases
-GTA_V_Session_Sniffer-x64.exe
-GTA_V_Session_Sniffer-x86.exe
-Session_Sniffer-x64.exe
-Session_Sniffer-x86.exe
 Session_Sniffer.exe
