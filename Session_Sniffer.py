@@ -4866,6 +4866,20 @@ class SessionTableView(QTableView):
                     handler=lambda: self.show_detailed_ip_lookup_player_cell(ip_address),
                 )
 
+                add_action(
+                    context_menu,
+                    "Ping",
+                    tooltip="Checks if the specified IP address responds to pings.",
+                    handler=lambda: self.ping(ip_address),
+                )
+
+                add_action(
+                    context_menu,
+                    "TCP Port Ping",
+                    tooltip="Checks if the specified IP address responds to TCP pings on a given port.",
+                    handler=lambda: self.tcp_port_ping(ip_address),
+                )
+
                 userip_menu = add_menu(context_menu, "UserIP  ")
 
                 if ip_address not in UserIP_Databases.ips_set:
@@ -5028,6 +5042,49 @@ class SessionTableView(QTableView):
             Hosting, colocated or data center: {player.iplookup.ipapi.compiled.hosting}
         """).removeprefix("\n").removesuffix("\n")
         QMessageBox.information(self, TITLE, msgbox_message)
+
+    def ping(self, ip: str):
+        """ Runs a continuous ping to a specified IP address in a new terminal window. """
+
+        try:
+            subprocess.Popen(
+                ["cmd.exe", "/K", "ping", ip, "-t"],  # -t keeps ping running indefinitely
+                creationflags=subprocess.CREATE_NEW_CONSOLE  # Opens a new terminal window
+            )
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
+
+
+    def tcp_port_ping(self, ip: str):
+        """ Runs paping to check TCP connectivity to a host on a user-specified port indefinitely. """
+
+        def run_paping(host: str, port: int):
+            from Modules.constants.standard import PAPING_PATH
+            """ Runs paping in a new terminal window to check TCP connectivity continuously. """
+            try:
+                subprocess.Popen(
+                    ["cmd.exe", "/K", PAPING_PATH, host, "-p", str(port)],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE  # Opens a new terminal window
+                )
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
+
+        port, ok = QInputDialog.getText(self, "Input Port", "Enter the port number to check TCP connectivity:")
+
+        if not ok:
+            return
+
+        if not port.isdigit():
+            QMessageBox.warning(self, "Error", "No valid port number provided.")
+            return
+
+        port = int(port)
+
+        if not 1 <= port <= 65535:  # Ensure the port is a valid number between 1 and 65535
+            QMessageBox.warning(self, "Error", "Please enter a valid port number between 1 and 65535.")
+            return
+
+        run_paping(ip, port)
 
     # TODO:
     #def userip_manager__rename(self, ip_addresses: list[str]):

@@ -9,6 +9,7 @@ EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
     "Event Tracing for Windows (ETW) reader"
 }
 SETTINGS_PATH = Path("Settings.ini")
+PAPING_PATH = Path("bin/paping.exe")
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
