@@ -1,5 +1,5 @@
 TITLE = "Session Sniffer"
-VERSION = "v1.3.3 - 12/02/2025 (21:59)"
+VERSION = "v1.3.3 - 15/02/2025 (20:48)"
 USER_SHELL_FOLDERS_REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
 USERIP_INI_SETTINGS_LIST = ["ENABLED", "COLOR", "NOTIFICATIONS", "VOICE_NOTIFICATIONS", "LOG", "PROTECTION", "PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH", "PROTECTION_SUSPEND_PROCESS_MODE"]
 WIRESHARK_RECOMMENDED_FULL_VERSION = "TShark (Wireshark) 4.2.10 (v4.2.10-0-g40bbca02d283)."
@@ -16,7 +16,10 @@ GUI_COLUMN_HEADERS_TOOLTIP_MAPPING = {
     "Rejoins": "The number of times the player has left and joined again your session across all sessions.",
     "T. Packets": "The total number of packets exchanged by the player across all sessions.",
     "Packets": "The number of packets exchanged by the player during the current session.",
-    "PPS": "The number of Packets Per Second exchanged by the player.",
+    "PPS": "The number of Packets exchanged Per Second by the player.",
+    "Avg PPS": "The average number of Packets exchanged Per Second by the player, based on the last 3 PPS values.",
+    "PPM": "The number of packets exchanged per Minute by the player.",
+    "Avg PPM": "The average number of Packets exchanged Per Minute by the player, based on the last 3 PPM values.",
     "IP Address": "The IP address of the player.",
     "Last Port": "The port used by the player's last captured packet.",
     "Intermediate Ports": "The ports used by the player between the first and last captured packets.",

@@ -96,7 +96,7 @@ def terminate_script(
         if terminate_gracefully is False:
             return False
 
-        for thread_name in ["capture_core__thread", "rendering_core__thread", "iplookup_core__thread"]:
+        for thread_name in ("capture_core__thread", "rendering_core__thread", "iplookup_core__thread"):
             if thread_name in globals():
                 thread = globals()[thread_name]
                 if isinstance(thread, threading.Thread):
@@ -297,7 +297,7 @@ class DefaultSettings:
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]
+    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
@@ -319,6 +319,9 @@ class Settings(DefaultSettings):
         "T. Packets": "total_packets",
         "Packets": "packets",
         "PPS": "pps.rate",
+        #"Avg PPS": "pps.get_average()",
+        "PPM": "ppm.rate",
+        #"Avg PPM": "ppm.get_average()",
         "IP Address": "ip",
         "Last Port": "ports.last",
         "Intermediate Ports": "ports.intermediate",
@@ -344,10 +347,10 @@ class Settings(DefaultSettings):
         "VPN": "iplookup.ipapi.compiled.proxy",
         "Hosting": "iplookup.ipapi.compiled.hosting"
     }
-    gui_forced_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "IP Address"]
-    gui_hideable_fields = ["Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
-    gui_all_connected_fields = [field for field in gui_forced_fields if field != "Last Seen"] + gui_hideable_fields
-    gui_all_disconnected_fields = [field for field in gui_forced_fields if field != "PPS"] + gui_hideable_fields
+    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
+    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
+    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
 
     @classmethod
     def iterate_over_settings(cls):
@@ -357,7 +360,7 @@ class Settings(DefaultSettings):
             if (
                 callable(attr_value)
                 or attr_name.startswith("_")
-                or attr_name in ["gui_fields_mapping", "gui_forced_fields", "gui_hideable_fields", "gui_all_connected_fields", "gui_all_disconnected_fields"]
+                or attr_name in ("gui_fields_mapping", "gui_forced_fields", "gui_hideable_fields", "gui_all_connected_fields", "gui_all_disconnected_fields")
                 or not attr_name.isupper()
                 or not isinstance(attr_value, _allowed_settings_types)
             ):
@@ -608,10 +611,10 @@ class Settings(DefaultSettings):
             Settings.reconstruct_settings()
 
         for field_name in Settings.GUI_FIELDS_TO_HIDE:
-            for sort_field_name, sort_field_value, default_sort_value in [
+            for sort_field_name, sort_field_value, default_sort_value in (
                 ("GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY),
                 ("GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
-            ]:
+            ):
                 if field_name in sort_field_value:
                     need_rewrite_settings = True
 
@@ -653,7 +656,7 @@ class Settings(DefaultSettings):
             if errorlevel != MsgBox.ReturnValues.IDYES:
                 terminate_script("EXIT")
 
-            for setting_name in ["GUI_DATE_FIELDS_SHOW_DATE", "GUI_DATE_FIELDS_SHOW_TIME", "GUI_DATE_FIELDS_SHOW_ELAPSED"]:
+            for setting_name in ("GUI_DATE_FIELDS_SHOW_DATE", "GUI_DATE_FIELDS_SHOW_TIME", "GUI_DATE_FIELDS_SHOW_ELAPSED"):
                 setattr(Settings, setting_name, getattr(DefaultSettings, setting_name))
 
             Settings.reconstruct_settings()
@@ -751,17 +754,54 @@ class ThirdPartyServers(enum.Enum):
     MINECRAFTBEDROCKEDITION_PC_AND_PS3_MICROSOFT = ["20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19"]
 
 class Player_PPS:
-    def __init__(self, packet_datetime: datetime):
-        self._initialize(packet_datetime)
+    def __init__(self):
+        self._initialize()
 
-    def _initialize(self, packet_datetime: datetime):
-        self.t1 = packet_datetime
+    def _initialize(self):
+        self.is_first_calculation = True
+        self.last_update_time = time.monotonic()
+        self.last_pps_values: list[int] = []  # Stores last 3 PPS values
         self.counter = 0
         self.rate = 0
-        self.is_first_calculation = True
+        self.avg_rate = 0
 
-    def reset(self, packet_datetime: datetime):
-        self._initialize(packet_datetime)
+    def reset(self):
+        self._initialize()
+
+    def update_average(self, player_pps_rate: int):
+        """ Safely updates the last PPS values list, keeping only the latest 3 values. """
+        if len(self.last_pps_values) >= 3:
+            self.last_pps_values.pop(0)  # Keep only the last 3 values
+        self.last_pps_values.append(player_pps_rate)
+
+    def get_average(self):
+        """ Returns the average of the last 3 PPS values (or fewer if not enough data). """
+        return int(sum(self.last_pps_values) / len(self.last_pps_values)) if self.last_pps_values else 0
+
+class Player_PPM:
+    def __init__(self):
+        self._initialize()
+
+    def _initialize(self):
+        self.is_first_calculation = True
+        self.last_ppm_values: list[int] = []  # Stores last 3 PPM values
+        self.last_update_time = time.monotonic()
+        self.counter = 0
+        self.rate = 0
+        self.avg_rate = 0
+
+    def reset(self):
+        self._initialize()
+
+    def update_average(self, player_ppm_counter: int):
+        """ Safely updates the last PPM values list, keeping only the latest 3 values. """
+        if len(self.last_ppm_values) >= 3:
+            self.last_ppm_values.pop(0)  # Keep only the last 3 values
+        self.last_ppm_values.append(player_ppm_counter)
+
+    def get_average(self):
+        """ Returns the average of the last 3 PPM values (or fewer if not enough data). """
+        return round(sum(self.last_ppm_values) / len(self.last_ppm_values)) if self.last_ppm_values else 0
 
 class Player_Ports:
     def __init__(self, port: int):
@@ -951,7 +991,8 @@ class Player:
         self.total_packets = 1
         self.usernames: list[str] = []
 
-        self.pps = Player_PPS(packet_datetime)
+        self.pps = Player_PPS()
+        self.ppm = Player_PPM()
         self.ports = Player_Ports(port)
         self.datetime = Player_DateTime(packet_datetime)
         self.iplookup = Player_IPLookup()
@@ -961,6 +1002,7 @@ class Player:
     def reset(self, port: int, packet_datetime: datetime):
         self.packets = 1
         self.pps.reset(packet_datetime)
+        self.ppm.reset(packet_datetime)
         self.ports.reset(port)
         self.datetime.reset(packet_datetime)
 
@@ -1478,7 +1520,7 @@ def update_and_initialize_geolite2_readers():
                 "last_version": None,
                 "download_url": None
             }
-            for db in ["ASN", "City", "Country"]
+            for db in ("ASN", "City", "Country")
         }
 
         try:
@@ -2183,7 +2225,7 @@ if Settings.CAPTURE_ARP:
 
         # Skip ARP entries with known placeholder MAC addresses
         for entry in cached_arp_infos:
-            if entry["mac_address"] in ["00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"]:
+            if entry["mac_address"] in ("00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"):
                 continue
 
             if is_valid_non_special_ipv4(entry["ip_address"]):
@@ -2256,7 +2298,7 @@ if (
     # Check if the network interface prompt is disabled
     not Settings.CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT
     # Check if any capture setting is defined
-    and any(setting is not None for setting in [Settings.CAPTURE_INTERFACE_NAME, Settings.CAPTURE_MAC_ADDRESS, Settings.CAPTURE_IP_ADDRESS])
+    and any(setting is not None for setting in (Settings.CAPTURE_INTERFACE_NAME, Settings.CAPTURE_MAC_ADDRESS, Settings.CAPTURE_IP_ADDRESS))
 ):
     max_priority = 0
 
@@ -2433,7 +2475,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 if player.userip.settings.PROTECTION == "Suspend_Process":
                     if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
                         threading.Thread(target=suspend_process_for_duration_or_mode, args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE), daemon=True).start()
-                elif player.userip.settings.PROTECTION in ["Exit_Process", "Restart_Process"]:
+                elif player.userip.settings.PROTECTION in ("Exit_Process", "Restart_Process"):
                     if isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
                         if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
                             terminate_process_tree(process_pid)
@@ -2826,6 +2868,7 @@ def capture_core():
             player.datetime.last_seen = packet_datetime
             player.total_packets += 1
             player.pps.counter += 1
+            player.ppm.counter += 1
 
             if player.datetime.left: # player left, rejoined now.
                 player.datetime.left = None
@@ -2950,8 +2993,19 @@ def rendering_core():
                 """
                 return sort_order == Qt.SortOrder.DescendingOrder
 
-
-            if sorted_column_name == "IP Address":
+            if sorted_column_name == "Avg PPS":
+                return sorted(
+                    session_list,
+                    key=lambda player: getattr(player.pps, "get_average")(),
+                    reverse=sort_order_to_reverse(sort_order)
+                )
+            elif sorted_column_name == "Avg PPM":
+                return sorted(
+                    session_list,
+                    key=lambda player: getattr(player.ppm, "get_average")(),
+                    reverse=sort_order_to_reverse(sort_order)
+                )
+            elif sorted_column_name == "IP Address":
                 import ipaddress
 
                 return sorted(
@@ -2959,7 +3013,7 @@ def rendering_core():
                     key=lambda player: ipaddress.ip_address(player.ip),
                     reverse=sort_order_to_reverse(sort_order)
                 )
-            elif sorted_column_name in ["First Seen", "Last Rejoin", "Last Seen"]:
+            elif sorted_column_name in ("First Seen", "Last Rejoin", "Last Seen"):
                 return sorted(
                     session_list,
                     key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
@@ -3470,6 +3524,9 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.pps.rate}")
+                row_texts.append(f"{player.pps.get_average()}")
+                row_texts.append(f"{player.ppm.rate}")
+                row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
@@ -3592,15 +3649,6 @@ def rendering_core():
             def format_player_gui_usernames(player_usernames: list[str]):
                 return ", ".join(player_usernames) if player_usernames else "N/A"
 
-            def format_player_gui_pps(pps_color: QColor, is_pps_first_calculation: bool, pps_rate: int):
-                if not is_pps_first_calculation:
-                    if pps_rate == 0:
-                        pps_color = QColor("red")
-                    elif pps_rate >= 1 and pps_rate <= 3:
-                        pps_color = QColor("yellow")
-
-                return pps_color, f"{pps_rate}"
-
             def format_player_gui_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
                     return f"{player_ip} 👑"
@@ -3612,6 +3660,42 @@ def rendering_core():
                     return ", ".join(map(str, player_ports.intermediate))
                 else:
                     return ""
+
+            def get_player_gui_pps_color(pps_color: QColor, is_pps_first_calculation: bool, pps_rate: int):
+                if not is_pps_first_calculation:
+                    if pps_rate == 0:
+                        pps_color = QColor("red")
+                    elif pps_rate >= 1 and pps_rate <= 3:
+                        pps_color = QColor("yellow")
+
+                return pps_color
+
+            def get_player_gui_avg_pps_color(avg_pps_color: QColor, is_pps_first_calculation: bool, pps_rate: int):
+                if not is_pps_first_calculation:
+                    if pps_rate == 0:
+                        avg_pps_color = QColor("red")
+                    elif pps_rate >= 1 and pps_rate <= 3:
+                        avg_pps_color = QColor("yellow")
+
+                return avg_pps_color
+
+            def get_player_gui_ppm_color(ppm_color: QColor, is_ppm_first_calculation: bool, ppm_rate: int):
+                if not is_ppm_first_calculation:
+                    if ppm_rate == 0:
+                        ppm_color = QColor("red")
+                    elif ppm_rate >= 1 and ppm_rate <= 3:
+                        ppm_color = QColor("yellow")
+
+                return ppm_color
+
+            def get_player_gui_avg_ppm_color(avg_ppm_color: QColor, is_ppm_first_calculation: bool, ppm_rate: int):
+                if not is_ppm_first_calculation:
+                    if ppm_rate == 0:
+                        avg_ppm_color = QColor("red")
+                    elif ppm_rate >= 1 and ppm_rate <= 3:
+                        avg_ppm_color = QColor("yellow")
+
+                return avg_ppm_color
 
 
             from Modules.constants.external import HARDCODED_DEFAULT_TABLE_BACKGROUD_CELL_COLOR
@@ -3642,9 +3726,18 @@ def rendering_core():
                 row_texts.append(f"{player.rejoins}")
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
-                cell_fg_color, player_pps = format_player_gui_pps(row_fg_color, player.pps.is_first_calculation, player.pps.rate)
-                row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=cell_fg_color) # Update the foreground color for the "PPS" column
-                row_texts.append(f"{player_pps}")
+                if "PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=get_player_gui_pps_color(row_fg_color, player.pps.is_first_calculation, player.pps.rate)) # Update the foreground color for the "PPS" column
+                    row_texts.append(f"{player.pps.rate}")
+                if "Avg PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]]._replace(foreground=get_player_gui_avg_pps_color(row_fg_color, player.pps.is_first_calculation, player.pps.rate)) # Update the foreground color for the "Avg PPS" column
+                    row_texts.append(f"{player.pps.get_average()}")
+                if "PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPM"]]._replace(foreground=get_player_gui_ppm_color(row_fg_color, player.ppm.is_first_calculation, player.ppm.rate)) # Update the foreground color for the "PPM" column
+                    row_texts.append(f"{player.ppm.rate}")
+                if "Avg PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]]._replace(foreground=get_player_gui_avg_ppm_color(row_fg_color, player.ppm.is_first_calculation, player.ppm.rate)) # Update the foreground color for the "Avg PPM" column
+                    row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
@@ -3787,7 +3880,7 @@ def rendering_core():
                 session_disconnected_table__compiled_colors
             )
 
-        def generate_gui_header_text(global_pps_t1: float, global_pps_rate: int):
+        def generate_gui_header_text(global_pps_last_update_time: float, global_pps_rate: int):
             from Modules.constants.standard import WIRESHARK_VERSION_PATTERN
 
             global global_pps_counter, tshark_packets_latencies
@@ -3829,11 +3922,10 @@ def rendering_core():
             else:
                 latency_color = '<span style="color: green;">'
 
-            seconds_elapsed = time.monotonic() - global_pps_t1
-            if seconds_elapsed >= 1:
-                global_pps_rate = round(global_pps_counter / seconds_elapsed)
+            if (time.monotonic() - global_pps_last_update_time) >= 1.0:
+                global_pps_rate = global_pps_counter
                 global_pps_counter = 0
-                global_pps_t1 = time.monotonic()
+                global_pps_last_update_time = time.monotonic()
 
             # For reference, in a GTA Online session, the packets per second (PPS) typically range from 0 (solo session) to 1500 (public session, 32 players).
             # If the packet rate exceeds these ranges, we flag them with yellow or red color to indicate potential issues (such as scanning unwanted packets outside of the GTA game).
@@ -3889,7 +3981,7 @@ def rendering_core():
                 if corrupted_settings_count:
                     header += f"Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{corrupted_settings_count}</span><br>"
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
-            return header, global_pps_t1, global_pps_rate
+            return header, global_pps_last_update_time, global_pps_rate
 
         from Modules.constants.standard import TWO_TAKE_ONE__PLUGIN__LOG_PATH, STAND__PLUGIN__LOG_PATH, RE_MODMENU_LOGS_USER_PATTERN
         from Modules.constants.local import CHERAX__PLUGIN__LOG_PATH
@@ -3901,13 +3993,14 @@ def rendering_core():
             LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
             LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES
         ) = compile_tables_header_field_names()
+
         GUIrenderingData.SESSION_CONNECTED_TABLE__NUM_COLS = len(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS = len(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         # Define the column name to index mapping for connected and disconnected players
         CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
         #DISCONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
 
-        global_pps_t1 = time.monotonic()
+        global_pps_last_update_time = time.monotonic()
         global_pps_rate = 0
         last_userip_parse_time = None
         last_mod_menus_logs_parse_time = None
@@ -3939,7 +4032,7 @@ def rendering_core():
             if last_mod_menus_logs_parse_time is None or time.monotonic() - last_mod_menus_logs_parse_time >= 1.0:
                 last_mod_menus_logs_parse_time = time.monotonic()
 
-                for log_path in [STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH]:
+                for log_path in (STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH):
                     if not log_path.is_file():
                         continue
 
@@ -4014,12 +4107,21 @@ def rendering_core():
                         session_connected__padding_country_name = get_minimum_padding(player.iplookup.maxmind.compiled.country, session_connected__padding_country_name, 27)
                         session_connected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.compiled.continent, session_connected__padding_continent_name, 13)
 
-                    if (player_timedelta := (datetime.now() - player.pps.t1)).total_seconds() >= 1.0:
-                        player.pps.rate = round(player.pps.counter / player_timedelta.total_seconds())
+                    # Calculate PPS every second
+                    if (time.monotonic() - player.pps.last_update_time) >= 1.0:
+                        player.pps.rate = player.pps.counter  # Count of packets in the last second
+                        player.pps.update_average(player.pps.rate)
                         player.pps.counter = 0
-                        player.pps.t1 = datetime.now()
+                        player.pps.last_update_time = time.monotonic()
                         player.pps.is_first_calculation = False
 
+                    # Calculate PPM every minute
+                    if (time.monotonic() - player.ppm.last_update_time) >= 60.0:
+                        player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
+                        player.ppm.update_average(player.ppm.rate)
+                        player.ppm.counter = 0
+                        player.ppm.last_update_time = time.monotonic()
+                        player.ppm.is_first_calculation = False
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
                 if SessionHost.player:
@@ -4059,7 +4161,7 @@ def rendering_core():
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):
                 discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected")
 
-            GUIrenderingData.header_text, global_pps_t1, global_pps_rate = generate_gui_header_text(global_pps_t1, global_pps_rate)
+            GUIrenderingData.header_text, global_pps_last_update_time, global_pps_rate = generate_gui_header_text(global_pps_last_update_time, global_pps_rate)
             (
                 GUIrenderingData.session_connected_table__num_rows,
                 GUIrenderingData.session_connected_table__processed_data,
@@ -4219,7 +4321,7 @@ class SessionTableModel(QAbstractTableModel):
                 key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
                 reverse=sort_order_bool
             )
-        elif sorted_column_name in ["First Seen", "Last Rejoin", "Last Seen"]:
+        elif sorted_column_name in ("First Seen", "Last Rejoin", "Last Seen"):
             # Retrieve the player datetime object from the IP column
             def extract_datetime_for_ip(ip: str):
                 """
@@ -4577,7 +4679,7 @@ class SessionTableView(QTableView):
                     header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
                 else:
                     header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-            elif header_label in ["First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting"]:
+            elif header_label in ("First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting"):
                 header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -5261,7 +5363,7 @@ class MainWindow(QMainWindow):
         while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
         _sort_column = GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
-        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in ["Last Rejoin", "Last Seen"]:
+        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in ("Last Rejoin", "Last Seen"):
             _sort_order = Qt.SortOrder.AscendingOrder
         else:
             _sort_order = Qt.SortOrder.DescendingOrder
