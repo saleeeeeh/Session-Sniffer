@@ -5048,8 +5048,8 @@ class SessionTableView(QTableView):
 
         try:
             subprocess.Popen(
-                ["cmd.exe", "/K", "ping", ip, "-t"],  # -t keeps ping running indefinitely
-                creationflags=subprocess.CREATE_NEW_CONSOLE  # Opens a new terminal window
+                ["cmd.exe", "/K", "ping", ip, "-t"],
+                creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
@@ -5064,7 +5064,7 @@ class SessionTableView(QTableView):
             try:
                 subprocess.Popen(
                     ["cmd.exe", "/K", PAPING_PATH, host, "-p", str(port)],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE  # Opens a new terminal window
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to start paping:\n{e}")
