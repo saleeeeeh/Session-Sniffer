@@ -5067,7 +5067,7 @@ class SessionTableView(QTableView):
                     creationflags=subprocess.CREATE_NEW_CONSOLE  # Opens a new terminal window
                 )
             except Exception as e:
-                QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
+                QMessageBox.warning(self, "Error", f"Failed to start paping:\n{e}")
 
         port, ok = QInputDialog.getText(self, "Input Port", "Enter the port number to check TCP connectivity:")
 
@@ -5080,7 +5080,7 @@ class SessionTableView(QTableView):
 
         port = int(port)
 
-        if not 1 <= port <= 65535:  # Ensure the port is a valid number between 1 and 65535
+        if not 1 <= port <= 65535:
             QMessageBox.warning(self, "Error", "Please enter a valid port number between 1 and 65535.")
             return
 
