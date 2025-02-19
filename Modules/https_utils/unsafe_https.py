@@ -15,7 +15,7 @@ from typing import Optional
 urllib3.disable_warnings(InsecureRequestWarning)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:132.0) Gecko/20100101 Firefox/132.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0"
 }
 
 # Allow custom ssl context for adapters

@@ -4875,6 +4875,13 @@ class SessionTableView(QTableView):
 
                 add_action(
                     context_menu,
+                    "Ping (spoofed)",
+                    tooltip="Checks if the specified IP address responds to pings from 'check-host.net'",
+                    handler=lambda: self.ping_spoofed(ip_address),
+                )
+
+                add_action(
+                    context_menu,
                     "TCP Port Ping",
                     tooltip="Checks if the specified IP address responds to TCP pings on a given port.",
                     handler=lambda: self.tcp_port_ping(ip_address),
@@ -5054,6 +5061,17 @@ class SessionTableView(QTableView):
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
 
+    def ping_spoofed(self, ip: str):
+        """ Runs a continuous ping to a specified IP address in a new terminal window. """
+        from Modules.constants.standard import SPOOFED_PING_PATH
+
+        try:
+            subprocess.Popen(
+                [sys.executable, SPOOFED_PING_PATH, ip],
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to start ping (spoofed):\n{e}")
 
     def tcp_port_ping(self, ip: str):
         """ Runs paping to check TCP connectivity to a host on a user-specified port indefinitely. """

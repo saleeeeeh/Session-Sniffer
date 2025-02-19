@@ -10,6 +10,7 @@ EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
 }
 SETTINGS_PATH = Path("Settings.ini")
 PAPING_PATH = Path("bin/paping.exe")
+SPOOFED_PING_PATH = Path("scripts/spoofed_ping.py")
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
