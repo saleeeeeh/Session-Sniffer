@@ -153,9 +153,9 @@ def get_tshark_path(tshark_path: Path = None):
         try:
             if (tshark_validation_result := validate_tshark_path(possible_tshark_path)).is_valid:
                 if not isinstance(tshark_validation_result.path, Path):
-                    raise TypeError(f'Expected "Path", got "{type(tshark_validation_result.path)}"')
+                    raise TypeError(f'Expected "Path", got "{type(tshark_validation_result.path).__name__}"')
                 if not isinstance(tshark_validation_result.version, str):
-                    raise TypeError(f'Expected "str", got "{type(tshark_validation_result.version)}"')
+                    raise TypeError(f'Expected "str", got "{type(tshark_validation_result.version).__name__}"')
                 return tshark_validation_result.path, tshark_validation_result.version
         except InvalidTSharkVersionException as invalid_tshark_version:
             invalid_tshark_version_exception = invalid_tshark_version

@@ -57,7 +57,7 @@ def get_documents_folder(use_alternative_method = False):
             documents_path, _ = winreg.QueryValueEx(key, "Personal")
 
     if not isinstance(documents_path, str):
-        raise TypeError(f'Expected "str", got "{type(documents_path)}"')
+        raise TypeError(f'Expected "str", got "{type(documents_path).__name__}"')
 
     return Path(documents_path)
 

@@ -60,12 +60,12 @@ def ping_loop(target_ip: str):
 
         nodes = response.json()
         if not isinstance(nodes, dict):
-            raise TypeError(f'Expected "dict", got "{type(nodes)}"')
+            raise TypeError(f'Expected "dict", got "{type(nodes).__name__}"')
         request_id = nodes.get("request_id")
         if request_id is None:
             return None, None
         if not isinstance(request_id, str):
-            raise TypeError(f'Expected "NoneType", got "{type(request_id)}"')
+            raise TypeError(f'Expected "NoneType", got "{type(request_id).__name__}"')
         return request_id, nodes
 
     def get_ping_results(request_id: str, retries: int = 1, delay: int = 10):
@@ -80,14 +80,14 @@ def ping_loop(target_ip: str):
 
         results: PingCheckResults = response.json()
         if not isinstance(results, dict):
-            raise TypeError(f'Expected "dict", got "{type(results)}"')
+            raise TypeError(f'Expected "dict", got "{type(results).__name__}"')
 
         for node, pings in results.items():
             if pings is None:
                 continue
 
             if not isinstance(pings, list):
-                raise TypeError(f'Expected "list", got "{type(pings)}"')
+                raise TypeError(f'Expected "list", got "{type(pings).__name__}"')
 
         return results
 
@@ -128,7 +128,7 @@ def ping_loop(target_ip: str):
 
         results: PingCheckResults = get_ping_results(request_id)
         if not isinstance(results, dict):
-            raise TypeError(f'Expected "dict", got "{type(results)}"')
+            raise TypeError(f'Expected "dict", got "{type(results).__name__}"')
         if not results:
             print(f"[{Colors.RED}]Failed to retrieve ping results.[/{Colors.RED}]")
             time.sleep(10)
@@ -147,10 +147,10 @@ def ping_loop(target_ip: str):
         for node, pings in results.items():
             country = nodes["nodes"][node][1]
             if not isinstance(country, str):
-                raise TypeError(f'Expected "str", got "{type(country)}"')
+                raise TypeError(f'Expected "str", got "{type(country).__name__}"')
             city = nodes["nodes"][node][2]
             if not isinstance(city, str):
-                raise TypeError(f'Expected "str", got "{type(city)}"')
+                raise TypeError(f'Expected "str", got "{type(city).__name__}"')
 
             message = None
             if pings is None:
@@ -167,10 +167,10 @@ def ping_loop(target_ip: str):
                     for i in range(4):
                         result = ping[i][0]
                         if not isinstance(result, str):
-                            raise TypeError(f'Expected "str", got "{type(result)}"')
+                            raise TypeError(f'Expected "str", got "{type(result).__name__}"')
                         rtt = ping[i][1]
                         if not isinstance(rtt, (float, int)):
-                            raise TypeError(f'Expected "(float, int)", got "{type(rtt)}"')
+                            raise TypeError(f'Expected "(float, int)", got "{type(rtt).__name__}"')
 
                         if result == "OK":
                             successful_pings += 1
@@ -238,7 +238,6 @@ def main():
     args = parser.parse_args()
 
     target_ip = args.ip.strip() if isinstance(args.ip, str) else None
-
     if not target_ip:
         print(f"[{Colors.RED}]Error: No IP address provided.[/{Colors.RED}]")
         exit(1)

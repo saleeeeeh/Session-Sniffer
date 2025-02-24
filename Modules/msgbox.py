@@ -44,5 +44,5 @@ class MsgBox:
         # https://stackoverflow.com/questions/50086178/python-how-to-keep-messageboxw-on-top-of-all-other-windows
         msgbox_result = ctypes.windll.user32.MessageBoxW(0, message, title, style)
         if not isinstance(msgbox_result, int):
-            raise TypeError(f'Expected "int" object, got "{type(msgbox_result)}"')
+            raise TypeError(f'Expected "int" object, got "{type(msgbox_result).__name__}"')
         return msgbox_result

@@ -1,7 +1,7 @@
 # Standard Python Libraries
 import subprocess
 from pathlib import Path
-from typing import Optional, NamedTuple, Union
+from typing import Optional, NamedTuple
 
 
 class InterfaceSupportResult(NamedTuple):

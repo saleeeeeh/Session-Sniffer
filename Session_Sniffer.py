@@ -24,7 +24,7 @@ from operator import attrgetter
 from datetime import datetime, timedelta
 from traceback import TracebackException
 from types import FrameType, TracebackType
-from typing import TypedDict, Optional, Literal, Union, Type, NamedTuple, Any
+from typing import Optional, Literal, Union, Type, NamedTuple, Any
 from ipaddress import IPv4Address, AddressValueError
 from dataclasses import dataclass
 
@@ -96,7 +96,7 @@ def terminate_script(
         if terminate_gracefully is False:
             return False
 
-        for thread_name in ("capture_core__thread", "rendering_core__thread", "iplookup_core__thread"):
+        for thread_name in ("capture_core__thread", "rendering_core__thread", "iplookup_core__thread", "pinger_core__thread"):
             if thread_name in globals():
                 thread = globals()[thread_name]
                 if isinstance(thread, threading.Thread):
@@ -297,7 +297,7 @@ class DefaultSettings:
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]
+    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN", "Pinging"]
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
@@ -345,12 +345,13 @@ class Settings(DefaultSettings):
         "ASN": "iplookup.ipapi.compiled.as_name",
         "Mobile": "iplookup.ipapi.compiled.mobile",
         "VPN": "iplookup.ipapi.compiled.proxy",
-        "Hosting": "iplookup.ipapi.compiled.hosting"
+        "Hosting": "iplookup.ipapi.compiled.hosting",
+        "Pinging": "ping.is_pinging"
     }
     gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
-    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
-    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting"]
+    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
 
     @classmethod
     def iterate_over_settings(cls):
@@ -731,12 +732,6 @@ class Interface:
         for interface in cls.all_interfaces[:]:  # Iterate over a copy of the list
             yield interface
 
-class InterfaceOptionData(TypedDict):
-    is_arp: bool
-    interface: str
-    ip_address: Optional[str]
-    mac_address: Optional[str]
-
 class ThirdPartyServers(enum.Enum):
     PC_DISCORD = ["66.22.196.0/22", "66.22.200.0/21", "66.22.208.0/20", "66.22.224.0/20", "66.22.240.0/21", "66.22.248.0/24"]
     PC_VALVE = ["103.10.124.0/23", "103.28.54.0/23", "146.66.152.0/21", "155.133.224.0/19", "162.254.192.0/21", "185.25.180.0/22", "205.196.6.0/24"] # Valve = Steam
@@ -955,6 +950,19 @@ class Player_IPLookup:
         self.maxmind = MaxMind_GeoLite2()
         self.ipapi = IPAPI()
 
+class Player_Ping:
+    def __init__(self):
+        self.is_initialized = False
+        self.is_pinging:          Union[Literal["N/A"], bool]            = "N/A"
+        self.ping_times:          Union[Literal["N/A"], list[float]]     = "N/A"
+        self.packets_transmitted: Union[Literal["N/A"], Optional[int]]   = "N/A"
+        self.packets_received:    Union[Literal["N/A"], Optional[int]]   = "N/A"
+        self.packet_loss:         Union[Literal["N/A"], Optional[int]]   = "N/A"
+        self.rtt_min:             Union[Literal["N/A"], Optional[float]] = "N/A"
+        self.rtt_avg:             Union[Literal["N/A"], Optional[float]] = "N/A"
+        self.rtt_max:             Union[Literal["N/A"], Optional[float]] = "N/A"
+        self.rtt_mdev:            Union[Literal["N/A"], Optional[float]] = "N/A"
+
 class Player_Detection:
     def __init__(self):
         self.type: Optional[Literal["Static IP"]] = None
@@ -996,6 +1004,7 @@ class Player:
         self.ports = Player_Ports(port)
         self.datetime = Player_DateTime(packet_datetime)
         self.iplookup = Player_IPLookup()
+        self.ping = Player_Ping()
         self.userip = Player_UserIp()
         self.mod_menus = Player_ModMenus()
 
@@ -1397,7 +1406,7 @@ def get_filtered_tshark_interfaces():
     ], text=True, encoding="utf-8")
 
     if not isinstance(stdout, str):
-        raise TypeError(f'Expected "str", got "{type(stdout)}"')
+        raise TypeError(f'Expected "str", got "{type(stdout).__name__}"')
 
     interfaces: list[tuple[str, str, str]] = []
     for parts in map(process_stdout, stdout.splitlines()):
@@ -1420,23 +1429,23 @@ def get_arp_table():
     objWMI = win32com.client.GetObject("winmgmts:\\\\.\\root\\StandardCimv2")
     arp_entries = objWMI.ExecQuery("SELECT * FROM MSFT_NetNeighbor WHERE AddressFamily=2")
     if not isinstance(arp_entries, CDispatch):
-        raise TypeError(f'Expected "CDispatch", got "{type(mac_address)}"')
+        raise TypeError(f'Expected "CDispatch", got "{type(mac_address).__name__}"')
 
     cached_arp_dict: dict[int, list[dict[str, str]]] = {}
 
     for entry in arp_entries:
         if not isinstance(entry, CDispatch):
-            raise TypeError(f'Expected "CDispatch", got "{type(mac_address)}"')
+            raise TypeError(f'Expected "CDispatch", got "{type(mac_address).__name__}"')
 
         interface_index = entry.InterfaceIndex
         if not isinstance(interface_index, int):
-            raise TypeError(f'Expected "int", got "{type(mac_address)}"')
+            raise TypeError(f'Expected "int", got "{type(mac_address).__name__}"')
         ip_address = entry.IPAddress
         if not isinstance(ip_address, str):
-            raise TypeError(f'Expected "str", got "{type(ip_address)}"')
+            raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
         mac_address = entry.LinkLayerAddress
         if not isinstance(mac_address, str):
-            raise TypeError(f'Expected "str", got "{type(mac_address)}"')
+            raise TypeError(f'Expected "str", got "{type(mac_address).__name__}"')
 
         if not ip_address or not mac_address or not interface_index:
             continue
@@ -1453,11 +1462,11 @@ def iterate_network_adapter_details(**kwargs):
     """Yields network adapter info using WMI."""
     interfaces: list[_wmi_object] = wmi_namespace.Win32_NetworkAdapter(**kwargs)
     if not isinstance(interfaces, list):
-        raise TypeError(f'Expected "list", got "{type(interfaces)}"')
+        raise TypeError(f'Expected "list", got "{type(interfaces).__name__}"')
 
     for interface in interfaces:
         if not isinstance(interface, _wmi_object):
-            raise TypeError(f'Expected "_wmi_object", got "{type(interface)}"')
+            raise TypeError(f'Expected "_wmi_object", got "{type(interface).__name__}"')
 
         yield(interface)
 
@@ -1466,11 +1475,11 @@ def iterate_network_ip_details(**kwargs):
     # Get network adapter configurations
     configurations: list[_wmi_object] = wmi_namespace.Win32_NetworkAdapterConfiguration(**kwargs)
     if not isinstance(configurations, list):
-        raise TypeError(f'Expected "list", got "{type(configurations)}"')
+        raise TypeError(f'Expected "list", got "{type(configurations).__name__}"')
 
     for configuration in configurations:
         if not isinstance(configuration, _wmi_object):
-            raise TypeError(f'Expected "_wmi_object", got "{type(configuration)}"')
+            raise TypeError(f'Expected "_wmi_object", got "{type(configuration).__name__}"')
 
         yield(configuration)
 
@@ -1557,7 +1566,7 @@ def update_and_initialize_geolite2_readers():
 
         release_data = response.json()
         if not isinstance(release_data, dict):
-            raise TypeError(f'Expected "dict" object, got "{type(release_data)}"')
+            raise TypeError(f'Expected "dict" object, got "{type(release_data).__name__}"')
 
         for asset in release_data["assets"]:
             asset_name = asset["name"]
@@ -1590,7 +1599,7 @@ def update_and_initialize_geolite2_readers():
                             "http_code": response.status_code
                         }
                     if not isinstance(response.content, bytes):
-                        raise TypeError(f'Expected "bytes" object, got "{type(response.content)}"')
+                        raise TypeError(f'Expected "bytes" object, got "{type(response.content).__name__}"')
 
                     GEOLITE2_DATABASES_FOLDER_PATH.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
                     destination_file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
@@ -1732,10 +1741,10 @@ def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "l
             continue
         setting_name = match.group("key")
         if not isinstance(setting_name, str):
-            raise TypeError(f'Expected "str" object, got "{type(setting_name)}"')
+            raise TypeError(f'Expected "str" object, got "{type(setting_name).__name__}"')
         setting_value = match.group("value")
         if not isinstance(setting_value, str):
-            raise TypeError(f'Expected "str" object, got "{type(setting_value)}"')
+            raise TypeError(f'Expected "str" object, got "{type(setting_value).__name__}"')
 
         corrected_setting_name = setting_name.strip()
         if corrected_setting_name == "":
@@ -1988,7 +1997,7 @@ except:
 else:
     versions_json: dict[str, str] = response.json()
     if not isinstance(versions_json, dict):
-        raise TypeError(f'Expected "dict" object, got "{type(versions_json)}"')
+        raise TypeError(f'Expected "dict" object, got "{type(versions_json).__name__}"')
 
     # Get versions from the response
     latest_stable_version = Version(versions_json["Stable"])
@@ -2096,7 +2105,7 @@ title(f"Capture network interface selection - {TITLE}")
 print(f"\nCapture network interface selection ...\n")
 wmi_namespace: _wmi_namespace = wmi.WMI()
 if not isinstance(wmi_namespace, _wmi_namespace):
-    raise TypeError(f'Expected "_wmi_namespace" object, got "{type(wmi_namespace)}"')
+    raise TypeError(f'Expected "_wmi_namespace" object, got "{type(wmi_namespace).__name__}"')
 
 for _, _, name in get_filtered_tshark_interfaces():
     Interface(name)
@@ -2122,7 +2131,7 @@ for config in iterate_network_adapter_details():
 
     if config.MACAddress is not None:
         if not isinstance(config.MACAddress, str):
-            raise TypeError(f'Expected "str" object, got "{type(config.MACAddress)}"')
+            raise TypeError(f'Expected "str" object, got "{type(config.MACAddress).__name__}"')
         if i.mac_address != "N/A":
             stdout_crash_text = textwrap.dedent(f"""
                 ERROR:
@@ -2146,7 +2155,7 @@ for config in iterate_network_adapter_details():
 
     if config.InterfaceIndex is not None:
         if not isinstance(config.InterfaceIndex, int):
-            raise TypeError(f'Expected "int" object, got "{type(config.InterfaceIndex)}"')
+            raise TypeError(f'Expected "int" object, got "{type(config.InterfaceIndex).__name__}"')
         if i.adapter_properties.InterfaceIndex != "N/A":
             stdout_crash_text = textwrap.dedent(f"""
                 ERROR:
@@ -2165,12 +2174,12 @@ for config in iterate_network_adapter_details():
 
     if config.Name is not None:
         if not isinstance(config.Name, str):
-            raise TypeError(f'Expected "str" object, got "{type(config.Name)}"')
+            raise TypeError(f'Expected "str" object, got "{type(config.Name).__name__}"')
         i.adapter_properties.Name = config.Name
 
     if config.Manufacturer is not None:
         if not isinstance(config.Manufacturer, str):
-            raise TypeError(f'Expected "str" object, got "{type(config.Manufacturer)}"')
+            raise TypeError(f'Expected "str" object, got "{type(config.Manufacturer).__name__}"')
         i.adapter_properties.Manufacturer = config.Manufacturer
 
 for config in iterate_network_ip_details():
@@ -2185,7 +2194,7 @@ for config in iterate_network_ip_details():
 
     if config.IPAddress is not None:
         if not isinstance(config.IPAddress, tuple):
-            raise TypeError(f'Expected "tuple" object, got "{type(config.IPAddress)}"')
+            raise TypeError(f'Expected "tuple" object, got "{type(config.IPAddress).__name__}"')
 
         for ip in config.IPAddress:
             if not is_ipv4_address(ip):
@@ -2196,7 +2205,7 @@ for config in iterate_network_ip_details():
 
     if config.MACAddress is not None:
         if not isinstance(config.MACAddress, str):
-            raise TypeError(f'Expected "str" object, got "{type(config.MACAddress)}"')
+            raise TypeError(f'Expected "str" object, got "{type(config.MACAddress).__name__}"')
         if i.mac_address != config.MACAddress:
             stdout_crash_text = textwrap.dedent(f"""
                 ERROR:
@@ -2630,122 +2639,122 @@ def iplookup_core():
             iplookup_results: list[dict[str]] = response.json()
 
             if not isinstance(iplookup_results, list):
-                raise TypeError(f'Expected "list" object, got "{type(iplookup_results)}"')
+                raise TypeError(f'Expected "list" object, got "{type(iplookup_results).__name__}"')
 
             for iplookup in iplookup_results:
                 if not isinstance(iplookup, dict):
-                    raise TypeError(f'Expected "dict" object, got "{type(iplookup)}"')
+                    raise TypeError(f'Expected "dict" object, got "{type(iplookup).__name__}"')
 
                 player_ip_looked_up = iplookup.get("query")
                 if not isinstance(player_ip_looked_up, str):
-                    raise TypeError(f'Expected "str" object, got "{type(player_ip_looked_up)}"')
+                    raise TypeError(f'Expected "str" object, got "{type(player_ip_looked_up).__name__}"')
 
                 ip_api_instance = IPAPI()
                 ip_api_instance.is_initialized = True
 
                 continent = iplookup.get("continent", "N/A")
                 if continent != "N/A" and not isinstance(continent, str):
-                    raise TypeError(f'Expected "str" object, got "{type(continent)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(continent).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.continent = continent
 
                 continent_code = iplookup.get("continentCode", "N/A")
                 if continent_code != "N/A" and not isinstance(continent_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(continent_code)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(continent_code).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.continent_code = continent_code
 
                 country = iplookup.get("country", "N/A")
                 if country != "N/A" and not isinstance(country, str):
-                    raise TypeError(f'Expected "str" object, got "{type(country)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(country).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.country = country
 
                 country_code = iplookup.get("countryCode", "N/A")
                 if country_code != "N/A" and not isinstance(country_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(country_code)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(country_code).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.country_code = country_code
 
                 region = iplookup.get("regionName", "N/A")
                 if region != "N/A" and not isinstance(region, str):
-                    raise TypeError(f'Expected "str" object, got "{type(region)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(region).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.region = region
 
                 region_code = iplookup.get("region", "N/A")
                 if region_code != "N/A" and not isinstance(region_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(region_code)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(region_code).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.region_code = region_code
 
                 city = iplookup.get("city", "N/A")
                 if city != "N/A" and not isinstance(city, str):
-                    raise TypeError(f'Expected "str" object, got "{type(city)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(city).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.city = city
 
                 district = iplookup.get("district", "N/A")
                 if district != "N/A" and not isinstance(district, str):
-                    raise TypeError(f'Expected "str" object, got "{type(district)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(district).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.district = district
 
                 zip_code = iplookup.get("zip", "N/A")
                 if zip_code != "N/A" and not isinstance(zip_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(zip_code)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(zip_code).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.zip_code = zip_code
 
                 lat = iplookup.get("lat", "N/A")
                 if lat != "N/A" and not isinstance(lat, (float, int)):
-                    raise TypeError(f'Expected "float | int" object, got "{type(lat)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "float | int" object, got "{type(lat).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.lat = lat
 
                 lon = iplookup.get("lon", "N/A")
                 if lon != "N/A" and not isinstance(lon, (float, int)):
-                    raise TypeError(f'Expected "float | int" object, got "{type(lon)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "float | int" object, got "{type(lon).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.lon = lon
 
                 time_zone = iplookup.get("timezone", "N/A")
                 if time_zone != "N/A" and not isinstance(time_zone, str):
-                    raise TypeError(f'Expected "str" object, got "{type(time_zone)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(time_zone).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.time_zone = time_zone
 
                 offset = iplookup.get("offset", "N/A")
                 if offset != "N/A" and not isinstance(offset, int):
-                    raise TypeError(f'Expected "int" object, got "{type(offset)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "int" object, got "{type(offset).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.offset = offset
 
                 currency = iplookup.get("currency", "N/A")
                 if currency != "N/A" and not isinstance(currency, str):
-                    raise TypeError(f'Expected "str" object, got "{type(currency)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(currency).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.currency = currency
 
                 isp = iplookup.get("isp", "N/A")
                 if isp != "N/A" and not isinstance(isp, str):
-                    raise TypeError(f'Expected "str" object, got "{type(isp)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(isp).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.isp = isp
 
                 org = iplookup.get("org", "N/A")
                 if org != "N/A" and not isinstance(org, str):
-                    raise TypeError(f'Expected "str" object, got "{type(org)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(org).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.org = org
 
                 _as = iplookup.get("as", "N/A")
                 if _as != "N/A" and not isinstance(_as, str):
-                    raise TypeError(f'Expected "str" object, got "{type(_as)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(_as).__name__}" ({player_ip_looked_up})')
                 ip_api_instance._as = _as
 
                 as_name = iplookup.get("asname", "N/A")
                 if as_name != "N/A" and not isinstance(as_name, str):
-                    raise TypeError(f'Expected "str" object, got "{type(as_name)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "str" object, got "{type(as_name).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.as_name = as_name
 
                 mobile = iplookup.get("mobile", "N/A")
                 if mobile != "N/A" and not isinstance(mobile, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(mobile)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "bool" object, got "{type(mobile).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.mobile = mobile
 
                 proxy = iplookup.get("proxy", "N/A")
                 if proxy != "N/A" and not isinstance(proxy, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(proxy)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "bool" object, got "{type(proxy).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.proxy = proxy
 
                 hosting = iplookup.get("hosting", "N/A")
                 if hosting != "N/A" and not isinstance(hosting, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(hosting)}" ({player_ip_looked_up})')
+                    raise TypeError(f'Expected "bool" object, got "{type(hosting).__name__}" ({player_ip_looked_up})')
                 ip_api_instance.hosting = hosting
 
                 ip_api_instance.compile()
@@ -2759,6 +2768,67 @@ def iplookup_core():
                     player_to_update.iplookup.ipapi = ip_api_instance
 
             throttle_until(response)
+
+def pinger_core():
+    with Threads_ExceptionHandler():
+        import concurrent.futures
+        from Modules.ping.check_ping import fetch_and_parse_ping
+
+        while not gui_closed__event.is_set():
+            if ScriptControl.has_crashed():
+                return
+
+            players_connected_to_ping: list[str] = []
+            players_disconnected_to_ping: list[str] = []
+
+            # Collect IPs based on player status.
+            for player in PlayersRegistry.iterate_players_from_registry():
+                if player.ping.is_initialized:
+                    continue
+
+                if player.datetime.left:
+                    players_disconnected_to_ping.append(player.ip)
+                else:
+                    players_connected_to_ping.append(player.ip)
+
+            ips_to_ping = players_connected_to_ping + players_disconnected_to_ping
+
+            # If there are no IPs to ping, wait for a cooldown period before continuing.
+            if not ips_to_ping:
+                time.sleep(1)
+                continue
+
+            # Use a thread pool to fetch ping data concurrently.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+                # Map each IP to its future.
+                future_to_ip = {
+                    executor.submit(fetch_and_parse_ping, ip): ip for ip in ips_to_ping
+                }
+
+                for future in concurrent.futures.as_completed(future_to_ip):
+                    ip = future_to_ip[future]
+                    try:
+                        ping_data = future.result()
+                    except Exception as exc:
+                        # Optionally log the exception for this IP.
+                        continue
+
+                    # Skip if no valid ping data.
+                    if ping_data is None or ping_data.packets_received is None:
+                        continue
+
+                    if player := PlayersRegistry.get_player(ip):
+                        player.ping.is_initialized = True
+                        player.ping.is_pinging = ping_data.packets_received > 0
+
+                        player.ping.ping_times = ping_data.ping_times
+                        player.ping.packets_transmitted = ping_data.packets_transmitted
+                        player.ping.packets_received = ping_data.packets_received
+                        player.ping.packet_loss = ping_data.packet_loss
+                        player.ping.rtt_min = ping_data.rtt_min
+                        player.ping.rtt_avg = ping_data.rtt_avg
+                        player.ping.rtt_max = ping_data.rtt_max
+                        player.ping.rtt_mdev = ping_data.rtt_mdev
 
 def capture_core():
     with Threads_ExceptionHandler():
@@ -2993,6 +3063,14 @@ def rendering_core():
                 """
                 return sort_order == Qt.SortOrder.DescendingOrder
 
+            def get_nested_attr(item, attr_path: str):
+                """Retrieve a nested attribute from an object using a dot-separated path."""
+                for attr in attr_path.split("."):
+                    item = getattr(item, attr, None)
+                    if item is None:
+                        break
+                return item
+
             if sorted_column_name == "Avg PPS":
                 return sorted(
                     session_list,
@@ -3017,6 +3095,13 @@ def rendering_core():
                 return sorted(
                     session_list,
                     key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
+                    reverse=not sort_order_to_reverse(sort_order)
+                )
+            # Force sorting those fields as strings as they contain both bools AND strings.
+            elif sorted_column_name in ("Mobile", "VPN", "Hosting", "Pinging"):
+                return sorted(
+                    session_list,
+                    key=lambda item: str(get_nested_attr(item, Settings.gui_fields_mapping[sorted_column_name])).lower(),
                     reverse=not sort_order_to_reverse(sort_order)
                 )
             else:
@@ -3074,14 +3159,14 @@ def rendering_core():
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
                     if not isinstance(setting, str):
-                        raise TypeError(f'Expected "str" object, got "{type(setting)}"')
+                        raise TypeError(f'Expected "str" object, got "{type(setting).__name__}"')
                     value = match.group("value")
                     if value is None:
                         if corrected_ini_data_lines:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
                     if not isinstance(value, str):
-                        raise TypeError(f'Expected "str" object, got "{type(value)}"')
+                        raise TypeError(f'Expected "str" object, got "{type(value).__name__}"')
 
                     setting = setting.strip()
                     if not setting:
@@ -3220,12 +3305,12 @@ def rendering_core():
                     if username is None:
                         continue
                     if not isinstance(username, str):
-                        raise TypeError(f'Expected "str" object, got "{type(username)}"')
+                        raise TypeError(f'Expected "str" object, got "{type(username).__name__}"')
                     ip = match.group("ip")
                     if ip is None:
                         continue
                     if not isinstance(ip, str):
-                        raise TypeError(f'Expected "str" object, got "{type(ip)}"')
+                        raise TypeError(f'Expected "str" object, got "{type(ip).__name__}"')
 
                     username = username.strip()
                     if not username:
@@ -3551,6 +3636,7 @@ def rendering_core():
                 row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
                 row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
                 row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                row_texts.append(f"{player.ping.is_pinging}")
                 logging_connected_players_table.add_row(row_texts)
 
             logging_disconnected_players_table = PrettyTable()
@@ -3591,6 +3677,7 @@ def rendering_core():
                 row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
                 row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
                 row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                row_texts.append(f"{player.ping.is_pinging}")
                 logging_disconnected_players_table.add_row(row_texts)
 
             from Modules.constants.standard import SESSIONS_LOGGING_PATH
@@ -3791,6 +3878,8 @@ def rendering_core():
                     row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
                 if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{player.ping.is_pinging}")
 
                 session_connected_table__processed_data.append(row_texts)
                 session_connected_table__compiled_colors.append(row_colors)
@@ -3867,6 +3956,8 @@ def rendering_core():
                     row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
                 if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{player.ping.is_pinging}")
 
                 session_disconnected_table__processed_data.append(row_texts)
                 session_disconnected_table__compiled_colors.append(row_colors)
@@ -3890,7 +3981,7 @@ def rendering_core():
             if match := WIRESHARK_VERSION_PATTERN.search(capture.tshark_version):
                 extracted_tshark_version = match.group("version")
             if not isinstance(extracted_tshark_version, str):
-                raise TypeError(f'Expected "str", got "{type(extracted_tshark_version)}"')
+                raise TypeError(f'Expected "str", got "{type(extracted_tshark_version).__name__}"')
 
             if extracted_tshark_version == WIRESHARK_RECOMMENDED_VERSION_NUMBER:
                 tshark_version_color = '<span style="color: green;">'
@@ -4186,6 +4277,9 @@ rendering_core__thread.start()
 iplookup_core__thread = threading.Thread(target=iplookup_core, daemon=True)
 iplookup_core__thread.start()
 
+pinger_core__thread = threading.Thread(target=pinger_core, daemon=True)
+pinger_core__thread.start()
+
 capture_core__thread = threading.Thread(target=capture_core, daemon=True)
 capture_core__thread.start()
 
@@ -4240,7 +4334,7 @@ class SessionTableModel(QAbstractTableModel):
             # Get the column resize mode
             header = self._view.horizontalHeader()
             if not isinstance(header, QHeaderView):
-                raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+                raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
             resize_mode = header.sectionResizeMode(index.column())
 
             # Return None if the column resize mode isn't set to Stretch, as it shouldn't be truncated
@@ -4329,7 +4423,7 @@ class SessionTableModel(QAbstractTableModel):
                 """
                 player = PlayersRegistry.get_player(ip)
                 if not isinstance(player, Player):
-                    raise TypeError(f'Expected "Player", got "{type(player)}"')
+                    raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
                 # Retrieve the player datetime attribute name for the selected column
                 # Mapping column names to player datetime attributes
@@ -4339,7 +4433,7 @@ class SessionTableModel(QAbstractTableModel):
                     "Last Seen": "last_seen"
                 }.get(self._headers[column], None)
                 if not isinstance(datetime_attribute, str):
-                    raise TypeError(f'Expected "str", got "{type(datetime_attribute)}"')
+                    raise TypeError(f'Expected "str", got "{type(datetime_attribute).__name__}"')
 
                 # Safely retrieve the attribute using `getattr`
                 return getattr(player.datetime, datetime_attribute)
@@ -4408,7 +4502,7 @@ class SessionTableModel(QAbstractTableModel):
         # Retrieve the current sort column and order
         header = self._view.horizontalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
         sort_column = header.sortIndicatorSection()
         sort_order = header.sortIndicatorOrder()
 
@@ -4453,7 +4547,7 @@ class SessionTableModel(QAbstractTableModel):
             if self._view:
                 selection_model = self._view.selectionModel()
                 if not isinstance(selection_model, QItemSelectionModel):
-                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
             # Adjust selection for the deleted row
             for index in selection_model.selection().indexes():
@@ -4554,11 +4648,11 @@ class SessionTableView(QTableView):
                 elif event.key() == Qt.Key.Key_C:
                     selected_model = self.model()
                     if not isinstance(selected_model, SessionTableModel):
-                        raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+                        raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
                     selection_model = self.selectionModel()
                     if not isinstance(selection_model, QItemSelectionModel):
-                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
                     selected_indexes = selection_model.selectedIndexes()
 
@@ -4581,7 +4675,7 @@ class SessionTableView(QTableView):
             if index.isValid():
                 selection_model = self.selectionModel()
                 if not isinstance(selection_model, QItemSelectionModel):
-                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
                 if event.button() == Qt.MouseButton.RightButton:
                     if not selection_model.isSelected(index):
@@ -4630,7 +4724,7 @@ class SessionTableView(QTableView):
                 if index.isValid():
                     selection_model = self.selectionModel()
                     if not isinstance(selection_model, QItemSelectionModel):
-                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
                     # Select the current cell
                     selection_model.select(index, QItemSelectionModel.SelectionFlag.Select)
@@ -4658,11 +4752,11 @@ class SessionTableView(QTableView):
         """Adjust the column widths of a QTableView to fit content."""
         model = self.model()
         if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
 
         header = self.horizontalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
 
         for column in range(model.columnCount()):
             # Get the header label for the column
@@ -4679,7 +4773,7 @@ class SessionTableView(QTableView):
                     header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
                 else:
                     header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-            elif header_label in ("First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting"):
+            elif header_label in ("First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"):
                 header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -4688,11 +4782,11 @@ class SessionTableView(QTableView):
         """Get the currently sorted column and its order for this table view."""
         model = self.model()
         if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
 
         header = self.horizontalHeader()
         if header is None:
-            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
 
         # Get the index of the currently sorted column
         sorted_column_index = header.sortIndicatorSection()
@@ -4705,18 +4799,18 @@ class SessionTableView(QTableView):
             sorted_column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
         )
         if not isinstance(sorted_column_name, str):
-            raise TypeError(f'Expected "str", got "{type(sorted_column_name)}"')
+            raise TypeError(f'Expected "str", got "{type(sorted_column_name).__name__}"')
 
         return sorted_column_name, sort_order
 
     def on_section_clicked(self, section_index: int):
         model = self.model()
         if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
 
         header = self.horizontalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header)}"')
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
 
         # Clear selections when a header section is clicked
         # TODO: We can uses the "IP Address" field to store previous selections and their indexes and apply them back after sorting.
@@ -4774,11 +4868,11 @@ class SessionTableView(QTableView):
 
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
         selection_model = self.selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         selected_indexes = selection_model.selectedIndexes()
 
@@ -4848,13 +4942,14 @@ class SessionTableView(QTableView):
 
             column_name = selected_model.headerData(selected_column, Qt.Orientation.Horizontal)
             if not isinstance(column_name, str):
-                raise TypeError(f'Expected "str", got "{type(column_name)}"')
+                raise TypeError(f'Expected "str", got "{type(column_name).__name__}"')
 
             if column_name == "IP Address":
                 # Get the IP address from the selected cell
                 ip_address = selected_model.data(selected_indexes[0], Qt.ItemDataRole.DisplayRole)
                 if not isinstance(ip_address, str):
-                    raise TypeError(f'Expected "str", got "{type(ip_address)}"')
+                    return  # Added this return cuz some rare times it would raise.
+                    # raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
                 ip_address = ip_address.removesuffix(" 👑")
 
                 userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
@@ -4937,7 +5032,7 @@ class SessionTableView(QTableView):
                 for index in selected_indexes:
                     ip_address = selected_model.data(index, Qt.ItemDataRole.DisplayRole)
                     if not isinstance(ip_address, str):
-                        raise TypeError(f'Expected "str", got "{type(ip_address)}"')
+                        raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
                     ip_address = ip_address.removesuffix(" 👑")
                     all_ip_addresses.append(ip_address)
 
@@ -4989,7 +5084,7 @@ class SessionTableView(QTableView):
         # Access the system clipboard
         clipboard = QApplication.clipboard()
         if not isinstance(clipboard, QClipboard):
-            raise TypeError(f'Expected "QClipboard", got "{type(clipboard)}"')
+            raise TypeError(f'Expected "QClipboard", got "{type(clipboard).__name__}"')
 
         # Prepare a list to store text data from selected cells
         selected_texts: list[str] = []
@@ -4998,7 +5093,7 @@ class SessionTableView(QTableView):
         for index in selected_indexes:
             cell_text = selected_model.data(index, Qt.ItemDataRole.DisplayRole)
             if not isinstance(cell_text, str):
-                raise TypeError(f'Expected "str", got "{type(cell_text)}"')
+                raise TypeError(f'Expected "str", got "{type(cell_text).__name__}"')
             selected_texts.append(cell_text)
 
         # Return if no text was selected
@@ -5014,7 +5109,7 @@ class SessionTableView(QTableView):
     def show_detailed_ip_lookup_player_cell(self, ip_address: str):
         player = PlayersRegistry.get_player(ip_address)
         if not isinstance(player, Player):
-            raise TypeError(f'Expected "Player", got "{type(player)}"')
+            raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
         msgbox_message = textwrap.dedent(f"""
             ############ Player Infos #############
@@ -5047,6 +5142,16 @@ class SessionTableView(QTableView):
             Mobile (cellular) connection: {player.iplookup.ipapi.compiled.mobile}
             Proxy, VPN or Tor exit address: {player.iplookup.ipapi.compiled.proxy}
             Hosting, colocated or data center: {player.iplookup.ipapi.compiled.hosting}
+
+            ############ Ping Response ############
+            Ping Times: {player.ping.ping_times}
+            Packets Transmitted: {player.ping.packets_transmitted}
+            Packets Received: {player.ping.packets_received}
+            Packet Loss: {player.ping.packet_loss}
+            Round-Trip Time Minimum: {player.ping.rtt_min}
+            Round-Trip Time Average: {player.ping.rtt_avg}
+            Round-Trip Time Maximum: {player.ping.rtt_max}
+            Round-Trip Time Mean Deviation: {player.ping.rtt_mdev}
         """).removeprefix("\n").removesuffix("\n")
         QMessageBox.information(self, TITLE, msgbox_message)
 
@@ -5251,11 +5356,11 @@ class SessionTableView(QTableView):
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
         selection_model = self.selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         # Get the top-left and bottom-right QModelIndex for the entire table
         top_left = selected_model.createIndex(0, 0)  # Top-left item (first row, first column)
@@ -5286,11 +5391,11 @@ class SessionTableView(QTableView):
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
         selection_model = self.selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         top_index = selected_model.createIndex(row, 0)  # First column of the specified row
         bottom_index = selected_model.createIndex(row, selected_model.columnCount() - 1)  # Last column of the specified row
@@ -5312,11 +5417,11 @@ class SessionTableView(QTableView):
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model)}"')
+            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
         selection_model = self.selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model)}"')
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         top_index = selected_model.createIndex(0, column)  # First row of the specified column
         bottom_index = selected_model.createIndex(selected_model.rowCount() - 1, column)  # Last row of the specified column
