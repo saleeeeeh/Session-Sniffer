@@ -2501,14 +2501,14 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 voice_name = "Liam"
             elif player.userip.settings.VOICE_NOTIFICATIONS == "Female":
                 voice_name = "Jane"
-            file_path = Path(f"{TTS_PATH}/{voice_name} ({connection_type}).wav")
+            tts_file_path = TTS_PATH / f"{voice_name} ({connection_type}).wav"
 
-            if not file_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(file_path.absolute()))
-            if not file_path.is_file():
-                raise InvalidFileError(str(file_path.absolute()))
+            if not tts_file_path.exists():
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(tts_file_path.absolute()))
+            if not tts_file_path.is_file():
+                raise InvalidFileError(str(tts_file_path.absolute()))
 
-            winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
+            winsound.PlaySound(tts_file_path, winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
         if connection_type == "connected":
             while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
@@ -5167,11 +5167,11 @@ class SessionTableView(QTableView):
 
     def ping_spoofed(self, ip: str):
         """ Runs a continuous ping to a specified IP address in a new terminal window. """
-        from Modules.constants.standard import SPOOFED_PING_PATH
+        from Modules.constants.local import SCRIPTS_PATH
 
         try:
             subprocess.Popen(
-                ["cmd.exe", "/K", f'py {SPOOFED_PING_PATH}', ip],
+                ["cmd.exe", "/K", "py", SCRIPTS_PATH / "spoofed_ping.py", ip],
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         except Exception as e:
@@ -5181,11 +5181,12 @@ class SessionTableView(QTableView):
         """ Runs paping to check TCP connectivity to a host on a user-specified port indefinitely. """
 
         def run_paping(host: str, port: int):
-            from Modules.constants.standard import PAPING_PATH
+            from Modules.constants.local import BIN_PATH
             """ Runs paping in a new terminal window to check TCP connectivity continuously. """
+
             try:
                 subprocess.Popen(
-                    ["cmd.exe", "/K", PAPING_PATH, host, "-p", str(port)],
+                    ["cmd.exe", "/K", BIN_PATH / 'paping.exe', host, "-p", str(port)],
                     creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
             except Exception as e:

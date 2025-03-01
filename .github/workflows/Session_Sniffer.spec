@@ -5,7 +5,7 @@ a = Analysis(
     ['..\\..\\Session_Sniffer.py'],
     pathex=[],
     binaries=[],
-    datas=[('..\\..\\TTS', 'TTS')],
+    datas=[('..\\..\\TTS', 'TTS'), ('..\\..\\scripts', 'scripts')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
