@@ -3424,7 +3424,7 @@ def rendering_core():
                 """,
                 USERIP_DATABASES_PATH / "Enemylist.ini": """
                     ENABLED=True
-                    COLOR=YELLOW
+                    COLOR=DARKGOLDENROD
                     LOG=True
                     NOTIFICATIONS=True
                     VOICE_NOTIFICATIONS=Male
@@ -4824,7 +4824,6 @@ class SessionTableView(QTableView):
         # Sort the model
         model.sort(section_index, header.sortIndicatorOrder())
         self._previous_sort_section_index = section_index
-
 
     def show_context_menu(self, pos: QPoint):
         """
