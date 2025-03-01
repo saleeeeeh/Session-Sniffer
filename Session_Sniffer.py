@@ -5171,7 +5171,7 @@ class SessionTableView(QTableView):
 
         try:
             subprocess.Popen(
-                [sys.executable, SPOOFED_PING_PATH, ip],
+                ["cmd.exe", "/K", f'py {SPOOFED_PING_PATH}', ip],
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         except Exception as e:
