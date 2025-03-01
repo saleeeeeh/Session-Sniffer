@@ -1285,7 +1285,7 @@ class UserIP_Databases:
         return False
 
 def is_pyinstaller_compiled():
-    return getattr(sys, "frozen", False) # Check if the running Python script is compiled using PyInstaller, cx_Freeze or similar
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
 
 def title(title: str):
     print(f"\033]0;{title}\007", end="")
