@@ -2,6 +2,7 @@
 import sys
 import time
 import argparse
+import requests
 import ipaddress
 import statistics
 from enum import Enum
@@ -11,14 +12,6 @@ from typing import Union, Literal
 # External/Third-party Python Libraries
 from rich.table import Table
 from rich import print
-
-# Local Python Libraries (Included with Project)
-# Get the parent directory and add it to sys.path
-parent_dir = Path(__file__).resolve().parent.parent
-sys.path.append(str(parent_dir))
-
-# Now import the module
-from Modules.https_utils.unsafe_https import s
 
 
 PingCheckResults = dict[str, list[
@@ -52,6 +45,13 @@ class Colors(Enum):
 
 def ping_loop(target_ip: str):
     """ Continuously pings the target IP until the user closes the script. """
+
+    s = requests.Session()
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
+        "Accept": "application/json"
+    })
+    #s.verify = False
 
     def send_ping_request(ip: str):
         """ Sends a ping request to the Check-Host API. """

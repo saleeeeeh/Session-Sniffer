@@ -4970,13 +4970,13 @@ class SessionTableView(QTableView):
                 add_action(
                     context_menu,
                     "Ping (spoofed)",
-                    tooltip="Checks if the specified IP address responds to pings from 'check-host.net'",
+                    tooltip="Checks if the specified IP address responds to pings from 'check-host.net'.",
                     handler=lambda: self.ping_spoofed(ip_address),
                 )
 
                 add_action(
                     context_menu,
-                    "TCP Port Ping",
+                    "Ping TCP Port",
                     tooltip="Checks if the specified IP address responds to TCP pings on a given port.",
                     handler=lambda: self.tcp_port_ping(ip_address),
                 )
