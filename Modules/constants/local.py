@@ -5,6 +5,7 @@ from pathlib import Path
 from Modules.utils import get_documents_folder, resource_path
 
 CHERAX__PLUGIN__LOG_PATH = get_documents_folder() / "Cherax/Lua/GTA_V_Session_Sniffer-plugin/log.txt"
-TTS_PATH = resource_path(Path("TTS/"))
 BIN_PATH = resource_path(Path("bin/"))
 SCRIPTS_PATH = resource_path(Path("scripts/"))
+SETUP_PATH = resource_path(Path("setup/"))
+TTS_PATH = resource_path(Path("TTS/"))

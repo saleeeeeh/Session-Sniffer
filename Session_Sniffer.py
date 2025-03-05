@@ -51,12 +51,12 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 # -----------------------------------------------------
 # 📚 Local Python Libraries (Included with Project) 📚
 # -----------------------------------------------------
-from Modules.constants.standalone import TITLE, VERSION, WIRESHARK_REQUIRED_DL, WIRESHARK_RECOMMENDED_FULL_VERSION, WIRESHARK_RECOMMENDED_VERSION_NUMBER
+from Modules.constants.standalone import TITLE, VERSION, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
 from Modules.constants.standard import SETTINGS_PATH
 from Modules.utils import Version
 from Modules.oui_lookup.oui_lookup import MacLookup
 from Modules.capture.capture import PacketCapture, Packet, TSharkCrashException
-from Modules.capture.utils import TSharkNotFoundException, InvalidTSharkVersionException, get_tshark_path, is_npcap_or_winpcap_installed
+from Modules.capture.utils import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path, is_npcap_installed
 from Modules.msgbox import MsgBox
 from Modules.https_utils.unsafe_https import s
 
@@ -283,7 +283,6 @@ class Threads_ExceptionHandler:
 
 class DefaultSettings:
     """Class containing default setting values."""
-    CAPTURE_TSHARK_PATH = None
     CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT = True
     CAPTURE_INTERFACE_NAME = None
     CAPTURE_IP_ADDRESS = None
@@ -414,15 +413,7 @@ class Settings(DefaultSettings):
                 matched_settings_count += 1
                 need_rewrite_current_setting = False
 
-                if setting_name == "CAPTURE_TSHARK_PATH":
-                    try:
-                        Settings.CAPTURE_TSHARK_PATH, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
-                    except InvalidNoneTypeValueError:
-                        stripped__setting_value = setting_value.strip("\"'")
-                        if not setting_value == stripped__setting_value:
-                            need_rewrite_settings = True
-                        Settings.CAPTURE_TSHARK_PATH = Path(stripped__setting_value.replace("\\", "/"))
-                elif setting_name == "CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT":
+                if setting_name == "CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT":
                     try:
                         Settings.CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
@@ -1402,7 +1393,7 @@ def get_filtered_tshark_interfaces():
         return stdout.strip().split(" ", maxsplit=2)
 
     stdout = subprocess.check_output([
-        Settings.CAPTURE_TSHARK_PATH, "-D"
+        tshark_path, "-D"
     ], text=True, encoding="utf-8")
 
     if not isinstance(stdout, str):
@@ -1500,22 +1491,6 @@ def format_mac_address(mac_address: str):
         terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
     return mac_address.replace("-", ":").upper()
-
-def show_error__tshark_not_detected():
-    from Modules.constants.standalone import WIRESHARK_REQUIRED_DL
-
-    webbrowser.open(WIRESHARK_REQUIRED_DL)
-
-    msgbox_title = TITLE
-    msgbox_message = textwrap.dedent(f"""
-        ERROR: Could not detect \"TShark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" installed on your system.
-
-        Opening the \"Wireshark\" project download page for you.
-        You can then download and install it from there and press \"Retry\".
-    """.removeprefix("\n").removesuffix("\n"))
-    msgbox_style = MsgBox.Style.RetryCancel | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
-
-    return MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
 def update_and_initialize_geolite2_readers():
     def update_geolite2_databases():
@@ -1920,8 +1895,8 @@ if not is_pyinstaller_compiled():
     import importlib.metadata
 
     cls()
-    title(f"Checking that your Python packages versions matches with file \"requirements.txt\" - {TITLE}")
-    print(f"\nChecking that your Python packages versions matches with file \"requirements.txt\" ...\n")
+    title(f'Checking that your Python packages versions matches with file "requirements.txt" - {TITLE}')
+    print(f'\nChecking that your Python packages versions matches with file "requirements.txt" ...\n')
 
     def check_packages_version(third_party_packages: dict[str, str]):
         outdated_packages: list[tuple[str, str, str]] = []
@@ -1969,8 +1944,8 @@ if not is_pyinstaller_compiled():
             terminate_script("EXIT")
 
 cls()
-title(f"Applying your custom settings from \"Settings.ini\" - {TITLE}")
-print("\nApplying your custom settings from \"Settings.ini\" ...\n")
+title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
+print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 cls()
@@ -1984,7 +1959,8 @@ try:
 except:
     msgbox_title = TITLE
     msgbox_message = textwrap.dedent(f"""
-        ERROR: Failed to check for updates.
+        ERROR:
+        Failed to check for updates.
 
         Do you want to open the \"{TITLE}\" project download page ?
         You can then download and run the latest version from there.
@@ -2029,53 +2005,84 @@ else:
             terminate_script("EXIT")
 
 cls()
-title(f"Checking that \"Npcap\" or \"WinpCap\" driver is installed on your system - {TITLE}")
-print("\nChecking that \"Npcap\" or \"WinpCap\" driver is installed on your system ...\n")
-while not is_npcap_or_winpcap_installed():
+title(f'Checking that "Npcap" driver is installed on your system - {TITLE}')
+print('\nChecking that "Npcap" driver is installed on your system ...\n')
+from Modules.constants.local import SETUP_PATH
+
+while not is_npcap_installed():
+
     webbrowser.open("https://nmap.org/npcap/")
     msgbox_title = TITLE
     msgbox_message = textwrap.dedent(f"""
-        ERROR: Could not detect the \"Npcap\" or \"WinpCap\" driver installed on your system.
+        ERROR:
+        Could not detect \"Npcap\" driver installed on your system.
 
-        Opening the \"Npcap\" project download page for you.
-        You can then download and install it from there and press \"Retry\".
+        Opening the \"Npcap\" setup installer for you.
     """.removeprefix("\n").removesuffix("\n"))
-    msgbox_style = MsgBox.Style.RetryCancel | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
-    errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-    if errorlevel == MsgBox.ReturnValues.IDCANCEL:
-        terminate_script("EXIT")
+    msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
+    MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+
+    subprocess.run([SETUP_PATH / "npcap-1.78.exe"], shell=True)
+
+del SETUP_PATH
 
 cls()
-title(f"Applying your custom settings from \"Settings.ini\" - {TITLE}")
-print("\nApplying your custom settings from \"Settings.ini\" ...\n")
+title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
+print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 cls()
-title(f"Checking that \"Tshark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" is installed on your system - {TITLE}")
-print(f"\nChecking that \"Tshark (Wireshark) v{WIRESHARK_RECOMMENDED_VERSION_NUMBER}\" is installed on your system ...\n")
+title(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
+print(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match ...\n')
+
+from Modules.constants.local import BIN_PATH
+from Modules.constants.standalone import GITHUB_RELEASES_URL
 
 while True:
     try:
-        tshark_path, tshark_version = get_tshark_path(Settings.CAPTURE_TSHARK_PATH)
-        if Settings.CAPTURE_TSHARK_PATH is None:
-            Settings.CAPTURE_TSHARK_PATH = tshark_path
-            Settings.reconstruct_settings()
+        tshark_path, tshark_version = validate_tshark_path(BIN_PATH / "WiresharkPortable64/App/Wireshark/tshark.exe")
         break
     except TSharkNotFoundException:
-        errorlevel = show_error__tshark_not_detected()
-        if errorlevel == MsgBox.ReturnValues.IDCANCEL:
-            terminate_script("EXIT")
-    except InvalidTSharkVersionException as unsupported_tshark:
-        webbrowser.open(WIRESHARK_REQUIRED_DL)
+        webbrowser.open(GITHUB_RELEASES_URL)
+
         msgbox_title = TITLE
         msgbox_message = textwrap.dedent(f"""
-            ERROR: Detected an unsupported \"Tshark (Wireshark)\" version installed on your system.
+            ERROR:
+            \"TShark\" could not be found within the script directories.
 
-            Installed version: {unsupported_tshark.version}
-            Required version: {WIRESHARK_RECOMMENDED_FULL_VERSION}
+            Opening {TITLE} download page for you.
+            Please download and reinstall it, then restart the application.
+        """.removeprefix("\n").removesuffix("\n"))
+        msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
+        MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+        terminate_script("EXIT")
+    except TSharkVersionNotFoundException:
+        webbrowser.open(GITHUB_RELEASES_URL)
 
-            Opening the \"Wireshark\" project download page for you.
-            You can then download and install it from there and press \"Retry\".
+        msgbox_title = TITLE
+        msgbox_message = textwrap.dedent(f"""
+            ERROR:
+            Could not determine the version of \"TShark (Wireshark)\".
+
+            Opening {TITLE} download page for you.
+            Please download and reinstall it, then restart the application.
+        """).strip()
+        msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
+        MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+        terminate_script("EXIT")
+    except InvalidTSharkVersionException as unsupported_tshark:
+        webbrowser.open(GITHUB_RELEASES_URL)
+
+        msgbox_title = TITLE
+        msgbox_message = textwrap.dedent(f"""
+            ERROR:
+            Detected an unsupported \"Tshark (Wireshark)\" version installed on your system.
+
+            Detected version: {unsupported_tshark.version}
+            Recommended version: {TSHARK_RECOMMENDED_FULL_VERSION}
+
+            Opening {TITLE} download page for you.
+            Please download and reinstall it, then restart the application.
         """.removeprefix("\n").removesuffix("\n"))
         msgbox_style = MsgBox.Style.AbortRetryIgnore | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
@@ -2084,11 +2091,9 @@ while True:
         elif errorlevel == MsgBox.ReturnValues.IDIGNORE:
             tshark_path = unsupported_tshark.path
             tshark_version = unsupported_tshark.version
-
-            if Settings.CAPTURE_TSHARK_PATH is None:
-                Settings.CAPTURE_TSHARK_PATH = unsupported_tshark.path
-                Settings.reconstruct_settings()
             break
+
+del BIN_PATH, GITHUB_RELEASES_URL
 
 cls()
 title(f"Initializing and updating MaxMind's GeoLite2 Country, City and ASN databases - {TITLE}")
@@ -2379,7 +2384,7 @@ force_enable_capture_vpn_mode = False
 if not Settings.CAPTURE_VPN_MODE:
     from Modules.capture.check_tshark_filters import check_broadcast_multicast_support
 
-    result = check_broadcast_multicast_support(Settings.CAPTURE_TSHARK_PATH, Settings.CAPTURE_INTERFACE_NAME)
+    result = check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)
     if result.broadcast_supported and result.multicast_supported:
         capture_filter.append("not (broadcast or multicast)")
     else:
@@ -2424,24 +2429,13 @@ if Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
 CAPTURE_FILTER = " and ".join(capture_filter) if capture_filter else None
 DISPLAY_FILTER = " and ".join(display_filter) if display_filter else None
 
-while True:
-    try:
-        capture = PacketCapture(
-            interface = Settings.CAPTURE_INTERFACE_NAME,
-            capture_filter = CAPTURE_FILTER,
-            display_filter = DISPLAY_FILTER,
-            tshark_path = Settings.CAPTURE_TSHARK_PATH,
-            tshark_version = tshark_version
-        )
-        break
-    except TSharkNotFoundException:
-        errorlevel = show_error__tshark_not_detected()
-        if errorlevel == 2:
-            terminate_script("EXIT")
-
-if not capture.tshark_path == Settings.CAPTURE_TSHARK_PATH:
-    Settings.CAPTURE_TSHARK_PATH = capture.tshark_path
-    Settings.reconstruct_settings()
+capture = PacketCapture(
+    interface = Settings.CAPTURE_INTERFACE_NAME,
+    capture_filter = CAPTURE_FILTER,
+    display_filter = DISPLAY_FILTER,
+    tshark_path = tshark_path,
+    tshark_version = tshark_version
+)
 
 userip_logging_file_write_lock = threading.Lock()
 gui_closed__event = threading.Event()
@@ -3972,18 +3966,9 @@ def rendering_core():
             )
 
         def generate_gui_header_text(global_pps_last_update_time: float, global_pps_rate: int):
-            from Modules.constants.standard import WIRESHARK_VERSION_PATTERN
-
             global global_pps_counter, tshark_packets_latencies
 
-            # Search for the version in the string
-            extracted_tshark_version = None
-            if match := WIRESHARK_VERSION_PATTERN.search(capture.tshark_version):
-                extracted_tshark_version = match.group("version")
-            if not isinstance(extracted_tshark_version, str):
-                raise TypeError(f'Expected "str", got "{type(extracted_tshark_version).__name__}"')
-
-            if extracted_tshark_version == WIRESHARK_RECOMMENDED_VERSION_NUMBER:
+            if capture.extracted_tshark_version == TSHARK_RECOMMENDED_VERSION_NUMBER:
                 tshark_version_color = '<span style="color: green;">'
             else:
                 tshark_version_color = '<span style="color: yellow;">'
@@ -4055,7 +4040,7 @@ def rendering_core():
                     The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
-                    Scanning with TShark {tshark_version_color}v{extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span>
+                    Scanning with TShark {tshark_version_color}v{capture.extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span>
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}
@@ -5181,8 +5166,8 @@ class SessionTableView(QTableView):
         """ Runs paping to check TCP connectivity to a host on a user-specified port indefinitely. """
 
         def run_paping(host: str, port: int):
-            from Modules.constants.local import BIN_PATH
             """ Runs paping in a new terminal window to check TCP connectivity continuously. """
+            from Modules.constants.local import BIN_PATH
 
             try:
                 subprocess.Popen(
