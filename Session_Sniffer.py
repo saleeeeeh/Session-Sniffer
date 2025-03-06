@@ -4945,23 +4945,22 @@ class SessionTableView(QTableView):
                     handler=lambda: self.show_detailed_ip_lookup_player_cell(ip_address),
                 )
 
+                ping_menu = add_menu(context_menu, "Ping    ")
                 add_action(
-                    context_menu,
-                    "Ping",
+                    ping_menu,
+                    "Normal",
                     tooltip="Checks if the specified IP address responds to pings.",
                     handler=lambda: self.ping(ip_address),
                 )
-
                 add_action(
-                    context_menu,
-                    "Ping (spoofed)",
+                    ping_menu,
+                    "Spoofed (check-host.net API)",
                     tooltip="Checks if the specified IP address responds to pings from 'check-host.net'.",
                     handler=lambda: self.ping_spoofed(ip_address),
                 )
-
                 add_action(
-                    context_menu,
-                    "Ping TCP Port",
+                    ping_menu,
+                    "TCP Port (paping.exe)",
                     tooltip="Checks if the specified IP address responds to TCP pings on a given port.",
                     handler=lambda: self.tcp_port_ping(ip_address),
                 )
