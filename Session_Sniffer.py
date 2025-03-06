@@ -736,7 +736,7 @@ class ThirdPartyServers(enum.Enum):
     GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ["26.0.0.0/8"]
     GTAV_PC_BATTLEYE = ["51.89.97.102/32", "51.89.99.255/32"]
     GTAV_XBOXONE_MICROSOFT = ["52.159.128.0/17", "52.160.0.0/16", "40.74.0.0/18"]
-    PS5_AMAZON = ["52.40.62.0/25"]
+    PS5_AMAZON = ["52.40.62.0/25", "44.192.0.0/10"]
     MINECRAFTBEDROCKEDITION_PC_AND_PS3_MICROSOFT = ["20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19"]
 
 class Player_PPS:
@@ -1254,6 +1254,11 @@ class UserIP_Databases:
 
             cls.userip_infos_by_ip = userip_infos_by_ip
             cls.ips_set = ips_set
+
+    @classmethod
+    def get_userip_database_filenames(cls):
+        with cls.update_userip_database_lock:
+            return [f"{db_name}.ini" for db_name, _, _ in cls.userip_databases]
 
     @classmethod
     def get_userip_info(cls, ip: str):
@@ -4026,7 +4031,7 @@ def rendering_core():
             else:
                 rpc_message = ""
 
-            num_of_userip_files = len(UserIP_Databases.userip_databases)
+            num_of_userip_files = len(UserIP_Databases.get_userip_database_filenames())
             invalid_ip_count = len(UserIP_Databases.notified_ip_invalid)
             conflict_ip_count = len(UserIP_Databases.notified_ip_conflicts)
             corrupted_settings_count = len(UserIP_Databases.notified_settings_corrupted)
@@ -4936,7 +4941,7 @@ class SessionTableView(QTableView):
                     # raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
                 ip_address = ip_address.removesuffix(" 👑")
 
-                userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
+                userip_database_filenames = UserIP_Databases.get_userip_database_filenames()
 
                 add_action(
                     context_menu,
@@ -5022,8 +5027,7 @@ class SessionTableView(QTableView):
                 if all(ip not in UserIP_Databases.ips_set for ip in all_ip_addresses):
                     userip_menu = add_menu(context_menu, "UserIP  ")
                     add_userip_menu = add_menu(userip_menu, "Add Selected")
-                    userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
-                    for db_filename in userip_database_filenames:
+                    for db_filename in UserIP_Databases.get_userip_database_filenames():
                         add_action(
                             add_userip_menu,
                             db_filename,
@@ -5042,8 +5046,7 @@ class SessionTableView(QTableView):
                     #)
 
                     move_userip_menu = add_menu(userip_menu, "Move Selected")
-                    userip_database_filenames = [f"{db_name}.ini" for db_name, _, _ in UserIP_Databases.userip_databases]
-                    for db_filename in userip_database_filenames:
+                    for db_filename in UserIP_Databases.get_userip_database_filenames():
                         add_action(
                             move_userip_menu,
                             db_filename,
@@ -5227,7 +5230,7 @@ class SessionTableView(QTableView):
         target_db_path = Path("UserIP Databases") / selected_db_name
 
         # Iterate over each UserIP database
-        for db_name, _, _ in UserIP_Databases.userip_databases:
+        for db_name in UserIP_Databases.get_userip_database_filenames():
             db_filename = f"{db_name}.ini"
             db_path = Path("UserIP Databases") / db_filename
 
@@ -5284,7 +5287,7 @@ class SessionTableView(QTableView):
         deleted_entries_by_db: dict[str, list[str]] = {}
 
         # Iterate over each UserIP database
-        for db_name, _, _ in UserIP_Databases.userip_databases:
+        for db_name in UserIP_Databases.get_userip_database_filenames():
             db_filename = f"{db_name}.ini"
             db_path = Path("UserIP Databases") / db_filename
 
