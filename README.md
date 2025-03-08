@@ -30,10 +30,11 @@
 
 ## Officially Tested and Supported Video Games
 
-| Supported Video Games               | Tested Platforms  |
-| :---------------------------------- | :---------------: |
-| Grand Theft Auto 5                  | PC, Xbox One, PS5 |
-| Minecraft Bedrock Edition (Friends) |      PC, PS3      |
+| Supported Video Games               | Tested Platforms                         |
+| :---------------------------------- | :--------------------------------------: |
+| Grand Theft Auto Online             | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
+| Red Dead Online                     | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
+| Minecraft Bedrock Edition (Friends) | PC, PS3                                  |
 
 > _Note_: The script works for all P2P (Peer-To-Peer) games, but only the games listed above have servers filtering.
 
