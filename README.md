@@ -44,7 +44,7 @@
 
 The script **does not decrypt or resolve usernames automatically**\*.  
 This functionality was available on PS3 and Xbox 360 but is patched on current-gen platforms.  
-However, it does allow for manual assignment using [UserIP INI databases Configuration](https://github.com/BUZZARDGTA/Session-Sniffer/blob/main/docs/SCRIPT_CONFIGURATION.md#userip-ini-databases-configuration) files.
+However, it does allow for manual assignment using [UserIP INI databases Configuration](https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration) files.
 
 \*_As of v1.1.4, username detection for GTA V (PC) is supported via these **mod menu** plugins:_
 - ~~_[Session Sniffer 2Take1 Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-2Take1-Lua)_~~ \[ARCHIVED\]
