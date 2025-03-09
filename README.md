@@ -44,22 +44,20 @@
 
 The script **does not decrypt or resolve usernames automatically**\*.  
 This functionality was available on PS3 and Xbox 360 but is patched on current-gen platforms.  
-However, it does allow for manual assignment using [UserIP INI databases Configuration](https://github.com/BUZZARDGTA/Session-Sniffer/blob/main/docs/SCRIPT_CONFIGURATION.md#userip-ini-databases-configuration) files.  
+However, it does allow for manual assignment using [UserIP INI databases Configuration](https://github.com/BUZZARDGTA/Session-Sniffer/blob/main/docs/SCRIPT_CONFIGURATION.md#userip-ini-databases-configuration) files.
 
 \*_As of v1.1.4, username detection for GTA V (PC) is supported via these **mod menu** plugins:_
-- ~~_[Session Sniffer 2Take1 Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-2Take1-Lua)_~~ \[ARCHIVED\]  
-- _[Session Sniffer Stand Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-Stand-Lua)_  
-- _[Session Sniffer Cherax Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-Cherax-Lua)_  
+- ~~_[Session Sniffer 2Take1 Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-2Take1-Lua)_~~ \[ARCHIVED\]
+- _[Session Sniffer Stand Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-Stand-Lua)_
+- _[Session Sniffer Cherax Lua Plugin](https://github.com/BUZZARDGTA/GTA_V_Session_Sniffer-plugin-Cherax-Lua)_
 
 ---
 
 ## Requirements
 
 - **OS**: [Windows](https://www.microsoft.com/windows) 10 or 11 (x64)
-- **Network Tools**:
-  - [Wireshark](https://www.wireshark.org/) v4.2.10 (x64)
-  - [Npcap](https://nmap.org/npcap/) or [Winpcap](https://www.winpcap.org/)
-  - **Optional**: [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/)
+- **Network Driver**: [Npcap](https://nmap.org/npcap/)
+- **Optional**: [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/)
 
 ---
 
@@ -76,6 +74,6 @@ Need help? You can reach out via:
 - [GitHub Discussions](https://github.com/BUZZARDGTA/Session-Sniffer/discussions)
 
 Or privately:
-- **Email**: BUZZARDGTA@protonmail.com  
-- **Discord**: waitingforharukatoaddme  
-- **Telegram**: [@waitingforharukatoaddme](https://t.me/waitingforharukatoaddme)  
+- **Email**: BUZZARDGTA@protonmail.com
+- **Discord**: waitingforharukatoaddme
+- **Telegram**: [@waitingforharukatoaddme](https://t.me/waitingforharukatoaddme)

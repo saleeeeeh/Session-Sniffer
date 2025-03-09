@@ -3,7 +3,15 @@ import subprocess
 from pathlib import Path
 from typing import Callable, Optional
 from datetime import datetime
+from typing import NamedTuple
 
+
+class PacketFields(NamedTuple):
+    frame_time: str
+    src_ip: str
+    dst_ip: str
+    src_port: str
+    dst_port: str
 
 class TSharkCrashException(Exception):
     pass
@@ -23,10 +31,10 @@ class UDP:
         self.dstport = int(dstport) if dstport else None
 
 class Packet:
-    def __init__(self, fields: list[str]):
-        self.frame = Frame(fields[0])
-        self.ip = IP(fields[1], fields[2])
-        self.udp = UDP(fields[3], fields[4])
+    def __init__(self, fields: PacketFields):
+        self.frame = Frame(fields.frame_time)
+        self.ip = IP(fields.src_ip, fields.dst_ip)
+        self.udp = UDP(fields.src_port, fields.dst_port)
 
 class PacketCapture:
     def __init__(
@@ -37,7 +45,7 @@ class PacketCapture:
         capture_filter: Optional[str] = None,
         display_filter: Optional[str] = None
     ):
-        from Modules.constants.standard import WIRESHARK_VERSION_PATTERN
+        from Modules.constants.standard import RE_WIRESHARK_VERSION_PATTERN
 
         self.interface = interface
         self.tshark_path = tshark_path
@@ -46,7 +54,7 @@ class PacketCapture:
         self.display_filter = display_filter
 
         # Extract Wireshark version
-        if not (match := WIRESHARK_VERSION_PATTERN.search(tshark_version)):
+        if not (match := RE_WIRESHARK_VERSION_PATTERN.search(tshark_version)):
             raise ValueError("Could not extract Wireshark version")
 
         extracted_version = match.group("version")
@@ -116,7 +124,8 @@ class PacketCapture:
 
     def _capture_packets(self):
         def process_tshark_stdout(line: str):
-            return line.rstrip().split('|', 4)
+            fields = line.rstrip().split('|', 4)
+            return PacketFields(*fields) if len(fields) == 5 else None
 
         with subprocess.Popen(
             self._tshark_command,
@@ -128,12 +137,16 @@ class PacketCapture:
 
             # Iterate over stdout line by line as it is being produced
             for line in process.stdout:
-                yield Packet(process_tshark_stdout(line))
+                if (packet_fields := process_tshark_stdout(line)) and all([
+                    packet_fields.src_ip, packet_fields.dst_ip, packet_fields.src_port, packet_fields.dst_port
+                ]):
+                    yield Packet(packet_fields)
 
             # After stdout is done, check if there were any errors
             stderr_output = process.stderr.read()
             if process.returncode != 0:
                 raise TSharkCrashException(f"TShark exited with error code {process.returncode}:\n{stderr_output.strip()}")
+
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
     return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch))

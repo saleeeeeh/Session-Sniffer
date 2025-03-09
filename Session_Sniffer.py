@@ -949,6 +949,7 @@ class Player_Ping:
         self.packets_transmitted: Union[Literal["N/A"], Optional[int]]   = "N/A"
         self.packets_received:    Union[Literal["N/A"], Optional[int]]   = "N/A"
         self.packet_loss:         Union[Literal["N/A"], Optional[int]]   = "N/A"
+        self.packet_errors:       Union[Literal["N/A"], Optional[int]]   = "N/A"
         self.rtt_min:             Union[Literal["N/A"], Optional[float]] = "N/A"
         self.rtt_avg:             Union[Literal["N/A"], Optional[float]] = "N/A"
         self.rtt_max:             Union[Literal["N/A"], Optional[float]] = "N/A"
@@ -966,7 +967,7 @@ class Player_UserIp:
         self._initialize()
 
     def _initialize(self):
-        self.database_name: Optional[str] = None
+        self.database_path: Optional[Path] = None
         self.settings: Optional[UserIP_Settings] = None
         self.usernames: list[str] = []
         self.detection = Player_Detection()
@@ -1150,17 +1151,17 @@ class UserIP:
     """
     def __init__(self,
         ip: str,
-        database_name: str,
+        database_path: Path,
         settings: UserIP_Settings,
         usernames: list[str]
     ):
         self.ip = ip
-        self.database_name = database_name
+        self.database_path = database_path
         self.settings = settings
         self.usernames = usernames
 
 class UserIP_Databases:
-    userip_databases: list[tuple[str, UserIP_Settings, dict[str, list[str]]]] = []
+    userip_databases: list[tuple[Path, UserIP_Settings, dict[str, list[str]]]] = []
     userip_infos_by_ip: dict[str, UserIP] = {}
     ips_set: set[str] = set()
     notified_settings_corrupted: set[Path] = set()
@@ -1169,7 +1170,7 @@ class UserIP_Databases:
     update_userip_database_lock = threading.Lock()
 
     @staticmethod
-    def _notify_conflict(initial_userip_entry: UserIP, conflicting_database_name: str, conflicting_username: str, conflicting_ip: str):
+    def _notify_conflict(initial_userip_entry: UserIP, conflicting_database: Path, conflicting_username: str, conflicting_ip: str):
         from Modules.constants.standard import USERIP_DATABASES_PATH
 
         msgbox_title = TITLE
@@ -1184,36 +1185,29 @@ class UserIP_Databases:
                 the conflict is resolved.
 
             DEBUG:
-                \"{USERIP_DATABASES_PATH}\\{initial_userip_entry.database_name}.ini\":
+                \"{initial_userip_entry.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}\":
                 {', '.join(initial_userip_entry.usernames)}={initial_userip_entry.ip}
 
-                \"{USERIP_DATABASES_PATH}\\{conflicting_database_name}.ini\":
+                \"{conflicting_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}\":
                 {conflicting_username}={conflicting_ip}
         """.removeprefix("\n").removesuffix("\n")), "    ")
         msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
         threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
     @classmethod
-    def add(cls, database_name: str, settings: UserIP_Settings, user_ips: dict[str, list[str]]):
+    def populate(cls, database_entries: list[tuple[Path, UserIP_Settings, dict[str, list[str]]]]):
         """
-        Add a settings dictionary and user_ips dictionary pair to the databases.
+        Replaces userip_databases with a new set of databases.
 
         Args:
-            database_name: The name of the database.
-            settings: The settings class for the database.
-            user_ips: A dictionary mapping usernames to lists of IPs.
-        """
-        if settings.ENABLED == True:
-            with cls.update_userip_database_lock:
-                cls.userip_databases.append((database_name, settings, user_ips))
-
-    @classmethod
-    def reset(cls):
-        """
-        Reset the userip_databases by clearing all entries.
+            database_entries: A list of tuples containing database_path, settings, and user_ips.
         """
         with cls.update_userip_database_lock:
-            cls.userip_databases.clear()
+            cls.userip_databases = [
+                (database_path, settings, user_ips)
+                for database_path, settings, user_ips in database_entries
+                if settings.ENABLED
+            ]
 
     @classmethod
     def build(cls):
@@ -1226,21 +1220,21 @@ class UserIP_Databases:
             unresolved_conflicts: set[str] = set()
             ips_set: set[str] = set()
 
-            for database_name, settings, user_ips in cls.userip_databases:
+            for database_path, settings, user_ips in cls.userip_databases:
                 for username, ips in user_ips.items():
                     for ip in ips:
                         if ip not in userip_infos_by_ip:
                             userip_infos_by_ip[ip] = UserIP(
                                 ip = ip,
-                                database_name = database_name,
+                                database_path = database_path,
                                 settings = settings,
                                 usernames = [username]
                             )
                             ips_set.add(ip)
 
-                        if not userip_infos_by_ip[ip].database_name == database_name:
+                        if not userip_infos_by_ip[ip].database_path == database_path:
                             if ip not in cls.notified_ip_conflicts:
-                                cls._notify_conflict(userip_infos_by_ip[ip], database_name, username, ip)
+                                cls._notify_conflict(userip_infos_by_ip[ip], database_path, username, ip)
                                 cls.notified_ip_conflicts.add(ip)
                             unresolved_conflicts.add(ip)
                             continue
@@ -1256,14 +1250,15 @@ class UserIP_Databases:
             cls.ips_set = ips_set
 
     @classmethod
-    def get_userip_database_filenames(cls):
+    def get_userip_database_filepaths(cls):
         with cls.update_userip_database_lock:
-            return [f"{db_name}.ini" for db_name, _, _ in cls.userip_databases]
+            return [database_path for database_path, _, _ in cls.userip_databases]
 
     @classmethod
     def get_userip_info(cls, ip: str):
-        """Returns an UserIP object for the specified IP, containing its associated name, settings and usernames."""
-        return cls.userip_infos_by_ip.get(ip)
+        """Returns a UserIP object for the specified IP."""
+        with cls.update_userip_database_lock:
+            return cls.userip_infos_by_ip.get(ip)
 
     @classmethod
     def update_player_userip_info(cls, player: Player):
@@ -1274,7 +1269,7 @@ class UserIP_Databases:
             player: The player object with 'ip' and 'userip' attributes.
         """
         if userip_info := cls.get_userip_info(player.ip):
-            player.userip.database_name = userip_info.database_name
+            player.userip.database_path = userip_info.database_path
             player.userip.settings = userip_info.settings
             player.userip.usernames = userip_info.usernames
             return True
@@ -1709,7 +1704,7 @@ def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "l
     ini_data = ini_path.read_text("utf-8")
 
     need_rewrite_ini = False
-    ini_db: dict[str, str | list[str]] = {}
+    ini_database: dict[str, str | list[str]] = {}
 
     for line in map(process_ini_line_output, ini_data.splitlines(keepends=False)):
         corrected_line = line.strip()
@@ -1739,17 +1734,17 @@ def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "l
             need_rewrite_ini = True
 
         if values_handling == "first":
-            if corrected_setting_name not in ini_db:
-                ini_db[corrected_setting_name] = corrected_setting_value
+            if corrected_setting_name not in ini_database:
+                ini_database[corrected_setting_name] = corrected_setting_value
         elif values_handling == "last":
-            ini_db[corrected_setting_name] = corrected_setting_value
+            ini_database[corrected_setting_name] = corrected_setting_value
         elif values_handling == "all":
-            if corrected_setting_name in ini_db:
-                ini_db[corrected_setting_name].append(corrected_setting_value)
+            if corrected_setting_name in ini_database:
+                ini_database[corrected_setting_name].append(corrected_setting_value)
             else:
-                ini_db[corrected_setting_name] = [corrected_setting_value]
+                ini_database[corrected_setting_name] = [corrected_setting_value]
 
-    return ini_db, need_rewrite_ini
+    return ini_database, need_rewrite_ini
 
 def is_file_need_newline_ending(file: Union[str, Path]):
     if isinstance(file, Path):
@@ -2517,13 +2512,16 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
             else:
                 return
 
+            from Modules.constants.standard import USERIP_DATABASES_PATH
+            relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")
+
             with userip_logging_file_write_lock:
                 write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
                     f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
                     f"Time:{player.userip.detection.date_time} | Country:{player.iplookup.maxmind.compiled.country} | "
                     f"Detection Type: {player.userip.detection.type} | "
-                    f"Database:{player.userip.database_name}"
+                    f"Database:{relative_database_path}"
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
@@ -2542,7 +2540,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                     Port{pluralize(len(player.ports.list))}: {', '.join(map(str, reversed(player.ports.list)))}
                     Country Code: {player.iplookup.maxmind.compiled.country_code}
                     Detection Type: {player.userip.detection.type}
-                    Database: {player.userip.database_name}
+                    Database: {relative_database_path}
                     ############# IP Lookup ##############
                     Continent: {player.iplookup.ipapi.compiled.continent}
                     Country: {player.iplookup.maxmind.compiled.country}
@@ -2771,7 +2769,7 @@ def iplookup_core():
 def pinger_core():
     with Threads_ExceptionHandler():
         import concurrent.futures
-        from Modules.ping.check_ping import fetch_and_parse_ping
+        from Modules.ping.check_ping import AllEndpointsExhausted, fetch_and_parse_ping
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
@@ -2808,12 +2806,17 @@ def pinger_core():
                     ip = future_to_ip[future]
                     try:
                         ping_data = future.result()
-                    except Exception as exc:
-                        # Optionally log the exception for this IP.
+                    except AllEndpointsExhausted:
                         continue
 
                     # Skip if no valid ping data.
-                    if ping_data is None or ping_data.packets_received is None:
+                    if (
+                           ping_data                     is None
+                        or ping_data.packets_transmitted is None
+                        or ping_data.packets_received    is None
+                        or ping_data.packet_loss         is None
+                        or ping_data.packet_errors       is None
+                    ):
                         continue
 
                     if player := PlayersRegistry.get_player(ip):
@@ -2824,6 +2827,7 @@ def pinger_core():
                         player.ping.packets_transmitted = ping_data.packets_transmitted
                         player.ping.packets_received = ping_data.packets_received
                         player.ping.packet_loss = ping_data.packet_loss
+                        player.ping.packet_errors = ping_data.packet_errors
                         player.ping.rtt_min = ping_data.rtt_min
                         player.ping.rtt_avg = ping_data.rtt_avg
                         player.ping.rtt_max = ping_data.rtt_max
@@ -2850,25 +2854,13 @@ def capture_core():
                     target_ip = packet.ip.src
                     target_port = packet.udp.srcport
                 else:
-                    stdout_crash_text = textwrap.dedent(f"""
-                        ERROR:
-                            Developer didn't expect this scenario to be possible.
-
-                        INFOS:
-                            Neither source nor destination IP address matches the specified <CAPTURE_IP_ADDRESS>.
-
-                        DEBUG:
-                            Settings.CAPTURE_IP_ADDRESS: {Settings.CAPTURE_IP_ADDRESS}
-                            packet.ip.src: {packet.ip.src}
-                            packet.ip.dst: {packet.ip.dst}
-                    """.removeprefix("\n").removesuffix("\n"))
-                    terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+                    return  # Neither source nor destination matches the specified `Settings.CAPTURE_IP_ADDRESS`.
             else:
                 is_src_private_ip = is_private_device_ipv4(packet.ip.src)
                 is_dst_private_ip = is_private_device_ipv4(packet.ip.dst)
 
                 if is_src_private_ip and is_dst_private_ip:
-                    return
+                    return  # Both source and destination are private IPs, no action needed.
                 elif is_src_private_ip:
                     target_ip = packet.ip.dst
                     target_port = packet.udp.dstport
@@ -2876,42 +2868,10 @@ def capture_core():
                     target_ip = packet.ip.src
                     target_port = packet.udp.srcport
                 else:
-                    stdout_crash_text = textwrap.dedent(f"""
-                        ERROR:
-                            Developer didn't expect this scenario to be possible.
-
-                        INFOS:
-                            Neither source nor destination is a private IP address.
-
-                        DEBUG:
-                            packet.ip.src: {packet.ip.src}
-                            packet.ip.dst: {packet.ip.dst}
-                    """.removeprefix("\n").removesuffix("\n"))
-                    terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+                    return  # Neither source nor destination is a private IP address.
 
             if target_port is None:
-                msgbox_message = textwrap.dedent(f"""
-                    ERROR:
-                        Developer didn't expect this scenario to be possible.
-
-                    INFOS:
-                        A player port was not found.
-                        This situation already happened to me,
-                        but at this time I had not the `target_ip` info
-                        from the packet, so it was useless.
-
-                        Note for the future:
-                        If `target_ip` is a false positive (not a player),
-                        always `continue` on a packet with no port.
-
-                    DEBUG:
-                        target_ip: {target_ip}
-                        target_port: {target_port}
-                """.removeprefix("\n").removesuffix("\n"))
-                msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
-                msgbox_title = TITLE
-                threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
-                return
+                return  # A packet port was not found.
 
             global_pps_counter += 1
 
@@ -3319,8 +3279,8 @@ def rendering_core():
                         continue
 
                     if not is_ipv4_address(ip):
-                        unresolved_ip_invalid.add(f"{ini_path.name}={username}={ip}")
-                        if not f"{ini_path.name}={username}={ip}" in UserIP_Databases.notified_ip_invalid:
+                        unresolved_ip_invalid.add(f"{ini_path}={username}={ip}")
+                        if not f"{ini_path}={username}={ip}" in UserIP_Databases.notified_ip_invalid:
                             msgbox_title = TITLE
                             msgbox_message = textwrap.indent(textwrap.dedent(f"""
                                 ERROR:
@@ -3335,7 +3295,7 @@ def rendering_core():
                             """.removeprefix("\n").removesuffix("\n")), "    ")
                             msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
                             threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
-                            UserIP_Databases.notified_ip_invalid.add(f"{ini_path.name}={username}={ip}")
+                            UserIP_Databases.notified_ip_invalid.add(f"{ini_path}={username}={ip}")
                         continue
 
                     if username in userip:
@@ -3491,15 +3451,16 @@ def rendering_core():
                 if not file_path.is_file():
                     UserIP_Databases.notified_settings_corrupted.remove(file_path)
 
-            UserIP_Databases.reset()
-
+            new_databases: list[tuple[Path, UserIP_Settings, dict[str, list[str]]]] = []
             unresolved_ip_invalid: set[str] = set()
 
-            for userip_path in USERIP_DATABASES_PATH.glob("*.ini"):
+            for userip_path in USERIP_DATABASES_PATH.rglob("*.ini"):
                 parsed_settings, parsed_data = parse_userip_ini_file(userip_path, unresolved_ip_invalid)
                 if parsed_settings is None or parsed_data is None:
                     continue
-                UserIP_Databases.add(userip_path.stem, parsed_settings, parsed_data)
+                new_databases.append((userip_path, parsed_settings, parsed_data))
+
+            UserIP_Databases.populate(new_databases)
 
             resolved_ip_invalids = UserIP_Databases.notified_ip_invalid - unresolved_ip_invalid
             for resolved_database_entry in resolved_ip_invalids:
@@ -4031,7 +3992,7 @@ def rendering_core():
             else:
                 rpc_message = ""
 
-            num_of_userip_files = len(UserIP_Databases.get_userip_database_filenames())
+            num_of_userip_files = len(UserIP_Databases.get_userip_database_filepaths())
             invalid_ip_count = len(UserIP_Databases.notified_ip_invalid)
             conflict_ip_count = len(UserIP_Databases.notified_ip_conflicts)
             corrupted_settings_count = len(UserIP_Databases.notified_settings_corrupted)
@@ -4819,7 +4780,7 @@ class SessionTableView(QTableView):
         """
         Show the context menu at the specified position with options to interact with the table's content.
         """
-        from Modules.constants.standard import CUSTOM_CONTEXT_MENU_STYLESHEET
+        from Modules.constants.standard import CUSTOM_CONTEXT_MENU_STYLESHEET, USERIP_DATABASES_PATH
 
         def add_action(menu: QMenu, label: str, shortcut: Optional[str] = None, tooltip: Optional[str] = None, handler = None, enabled: Optional[bool] = None):
             """Helper to create and configure a QAction."""
@@ -4941,12 +4902,12 @@ class SessionTableView(QTableView):
                     # raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
                 ip_address = ip_address.removesuffix(" 👑")
 
-                userip_database_filenames = UserIP_Databases.get_userip_database_filenames()
+                userip_database_filepaths = UserIP_Databases.get_userip_database_filepaths()
 
                 add_action(
                     context_menu,
                     "IP Lookup Details",
-                    tooltip="Displays a notification with a detailed IP lookup report for this player.",
+                    tooltip="Displays a notification with a detailed IP lookup report for selected player.",
                     handler=lambda: self.show_detailed_ip_lookup_player_cell(ip_address),
                 )
 
@@ -4954,32 +4915,32 @@ class SessionTableView(QTableView):
                 add_action(
                     ping_menu,
                     "Normal",
-                    tooltip="Checks if the specified IP address responds to pings.",
+                    tooltip="Checks if selected IP address responds to pings.",
                     handler=lambda: self.ping(ip_address),
                 )
                 add_action(
                     ping_menu,
                     "Spoofed (check-host.net API)",
-                    tooltip="Checks if the specified IP address responds to pings from 'check-host.net'.",
+                    tooltip="Checks if selected IP address responds to pings from 'check-host.net'.",
                     handler=lambda: self.ping_spoofed(ip_address),
                 )
                 add_action(
                     ping_menu,
                     "TCP Port (paping.exe)",
-                    tooltip="Checks if the specified IP address responds to TCP pings on a given port.",
+                    tooltip="Checks if selected IP address responds to TCP pings on a given port.",
                     handler=lambda: self.tcp_port_ping(ip_address),
                 )
 
                 userip_menu = add_menu(context_menu, "UserIP  ")
 
                 if ip_address not in UserIP_Databases.ips_set:
-                    add_userip_menu = add_menu(userip_menu, "Add     ", "Add this IP address to UserIP database.") # Extra spaces for alignment
-                    for db_filename in userip_database_filenames:
+                    add_userip_menu = add_menu(userip_menu, "Add     ", "Add selected IP address to UserIP database.") # Extra spaces for alignment
+                    for database_path in userip_database_filepaths:
                         add_action(
                             add_userip_menu,
-                            db_filename,
-                            tooltip=f'Add this IP address to the "{db_filename}" UserIP database.',
-                            handler=lambda _, db_filename=db_filename: self.userip_manager__add([ip_address], db_filename),
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                            tooltip=f'Add selected IP address to this UserIP database.',
+                            handler=lambda _, database_path=database_path: self.userip_manager__add([ip_address], database_path),
                         )
                 else:
                     userip_info = UserIP_Databases.get_userip_info(ip_address)
@@ -4993,19 +4954,19 @@ class SessionTableView(QTableView):
                     #    tooltip="Rename this IP address from UserIP databases.",
                     #    handler=lambda: self.userip_manager__rename([ip_address]),
                     #)
-                    move_userip_menu = add_menu(userip_menu, "Move    ", "Move this IP address to another database.")
-                    for db_filename in userip_database_filenames:
+                    move_userip_menu = add_menu(userip_menu, "Move    ", "Move selected IP address to another database.")
+                    for database_path in userip_database_filepaths:
                         add_action(
                             move_userip_menu,
-                            db_filename,
-                            tooltip=f'Move this IP address to the "{db_filename}" UserIP database.',
-                            handler=lambda _, db_filename=db_filename: self.userip_manager__move([ip_address], db_filename),
-                            enabled=userip_info.database_name != db_filename.removesuffix(".ini"),
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                            tooltip=f'Move selected IP address to this UserIP database.',
+                            handler=lambda _, database_path=database_path: self.userip_manager__move([ip_address], database_path),
+                            enabled=userip_info.database_path != database_path,
                         )
                     add_action(
                         userip_menu,
                         "Delete  ", # Extra spaces for alignment
-                        tooltip="Delete this IP address from UserIP databases.",
+                        tooltip="Delete selected IP address from UserIP databases.",
                         handler=lambda: self.userip_manager__del([ip_address]),
                     )
         else:
@@ -5027,12 +4988,20 @@ class SessionTableView(QTableView):
                 if all(ip not in UserIP_Databases.ips_set for ip in all_ip_addresses):
                     userip_menu = add_menu(context_menu, "UserIP  ")
                     add_userip_menu = add_menu(userip_menu, "Add Selected")
-                    for db_filename in UserIP_Databases.get_userip_database_filenames():
+                    for database_path in UserIP_Databases.get_userip_database_filepaths():
                         add_action(
                             add_userip_menu,
-                            db_filename,
-                            tooltip=f'Add these IP addresses to the "{db_filename}" database.',
-                            handler=lambda _, db_filename=db_filename: self.userip_manager__add(all_ip_addresses, db_filename),
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                            tooltip=f'Add selected IP addresses to this UserIP database.',
+                            handler=lambda _, database_path=database_path: self.userip_manager__add(all_ip_addresses, database_path),
+                        )
+
+                    for database_path in UserIP_Databases.get_userip_database_filepaths():
+                        add_action(
+                            add_userip_menu,
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                            tooltip=f'Add selected IP addresses to this UserIP database.',
+                            handler=lambda _, database_path=database_path: self.userip_manager__add(all_ip_addresses, database_path),
                         )
                 elif all(ip in UserIP_Databases.ips_set for ip in all_ip_addresses):
                     userip_menu = add_menu(context_menu, "UserIP  ")
@@ -5046,17 +5015,17 @@ class SessionTableView(QTableView):
                     #)
 
                     move_userip_menu = add_menu(userip_menu, "Move Selected")
-                    for db_filename in UserIP_Databases.get_userip_database_filenames():
+                    for database_path in UserIP_Databases.get_userip_database_filepaths():
                         add_action(
                             move_userip_menu,
-                            db_filename,
-                            tooltip=f'Move these IP addresses to the "{db_filename}" database.',
-                            handler=lambda _, db_filename=db_filename: self.userip_manager__move(all_ip_addresses, db_filename),
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                            tooltip=f'Move selected IP addresses to this UserIP database.',
+                            handler=lambda _, database_path=database_path: self.userip_manager__move(all_ip_addresses, database_path),
                         )
                     add_action(
                         userip_menu,
                         "Delete Selected", # Extra spaces for alignment
-                        tooltip="Delete these IP addresses from UserIP databases.",
+                        tooltip="Delete selected IP addresses from UserIP databases.",
                         handler=lambda: self.userip_manager__del(all_ip_addresses),
                     )
 
@@ -5097,11 +5066,13 @@ class SessionTableView(QTableView):
         if not isinstance(player, Player):
             raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
+        from Modules.constants.standard import USERIP_DATABASES_PATH
+
         msgbox_message = textwrap.dedent(f"""
             ############ Player Infos #############
             IP Address: {player.ip}
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
-            Is in UserIP database: {player.userip.detection.as_processed_userip_task and f'Yes: \"{player.userip.database_name}.ini\"' or "No"}
+            In UserIP database: {player.userip.database_path and f"{player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}" or "No"}
             Last Port: {player.ports.last}
             Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
             First Port: {player.ports.first}
@@ -5134,6 +5105,7 @@ class SessionTableView(QTableView):
             Packets Transmitted: {player.ping.packets_transmitted}
             Packets Received: {player.ping.packets_received}
             Packet Loss: {player.ping.packet_loss}
+            Packet Errors: {player.ping.packet_errors}
             Round-Trip Time Minimum: {player.ping.rtt_min}
             Round-Trip Time Average: {player.ping.rtt_avg}
             Round-Trip Time Maximum: {player.ping.rtt_max}
@@ -5205,42 +5177,39 @@ class SessionTableView(QTableView):
     #        # TODO:
     #        pass
 
-    def userip_manager__add(self, ip_addresses: list[str], selected_db_name: str):
+    def userip_manager__add(self, ip_addresses: list[str], selected_database: Path):
+        from Modules.constants.standard import USERIP_DATABASES_PATH
+
         # Prompt the user for a username
         username, ok = QInputDialog.getText(self, "Input Username", f"Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:")
 
         if ok and username:  # Only proceed if the user clicked 'OK' and provided a username
-            db_path = Path("UserIP Databases") / selected_db_name
-
             # Append the username and associated IP(s) to the corresponding database file
-            write_lines_to_file(db_path, "a", [f"{username}={ip}\n" for ip in ip_addresses])
+            write_lines_to_file(selected_database, "a", [f"{username}={ip}\n" for ip in ip_addresses])
 
-            QMessageBox.information(self, TITLE, f'Selected IP{pluralize(len(ip_addresses))} {ip_addresses} has been added with username "{username}" to UserIP database "{selected_db_name}".')
+            QMessageBox.information(self, TITLE, f'Selected IP{pluralize(len(ip_addresses))} {ip_addresses} has been added with username "{username}" to UserIP database "{selected_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}".')
         else:
             # If the user canceled or left the input empty, show an error
             QMessageBox.warning(self, TITLE, "ERROR:\nNo username was provided.")
 
-    def userip_manager__move(self, ip_addresses: list[str], selected_db_name: str):
-        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
+    def userip_manager__move(self, ip_addresses: list[str], selected_database: Path):
+        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
 
         # Dictionary to store removed entries by database
-        deleted_entries_by_db: dict[str, list[str]] = {}
-
-        # Path to the target database where entries should be moved
-        target_db_path = Path("UserIP Databases") / selected_db_name
+        deleted_entries_by_database: dict[Path, list[str]] = {}
 
         # Iterate over each UserIP database
-        for db_name in UserIP_Databases.get_userip_database_filenames():
-            db_filename = f"{db_name}.ini"
-            db_path = Path("UserIP Databases") / db_filename
+        for database_path in UserIP_Databases.get_userip_database_filepaths():
+            if database_path == selected_database:
+                continue
 
             # Read the database file
-            lines = db_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            lines = database_path.read_text(encoding="utf-8").splitlines(keepends=True)
             if not lines:
                 continue
 
             # List to store deleted entries in this particular database
-            deleted_entries_in_this_db: list[str] = []
+            deleted_entries_in_this_database: list[str] = []
 
             # Remove any lines containing the IP address
             lines_to_keep: list[str] = []
@@ -5252,26 +5221,26 @@ class SessionTableView(QTableView):
 
                     # Ensure both username and ip are non-empty strings
                     if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
-                        deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
+                        deleted_entries_in_this_database.append(line.strip())  # Store the deleted entry
                         continue
 
                 lines_to_keep.append(line)
 
-            if deleted_entries_in_this_db:
+            if deleted_entries_in_this_database:
                 # Only update the database file if there were any deletions
-                write_lines_to_file(db_path, "w", lines_to_keep)
+                write_lines_to_file(database_path, "w", lines_to_keep)
 
                 # Store the deleted entries for this database
-                deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
+                deleted_entries_by_database[database_path] = deleted_entries_in_this_database
 
                 # Move the deleted entries to the target database
-                write_lines_to_file(target_db_path, "a", [f"{entry}\n" for entry in deleted_entries_in_this_db])
+                write_lines_to_file(selected_database, "a", [f"{entry}\n" for entry in deleted_entries_in_this_database])
 
         # After processing all databases, show a detailed report
-        if deleted_entries_by_db:
-            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} moved from the following UserIP database{pluralize(len(deleted_entries_by_db))} to UserIP database "{selected_db_name}":</b><br><br><br>'
-            for db_filename, deleted_entries in deleted_entries_by_db.items():
-                report += f"<b>{db_filename}:</b><br>"
+        if deleted_entries_by_database:
+            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} moved from the following UserIP database{pluralize(len(deleted_entries_by_database))} to UserIP database "{selected_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}":</b><br><br><br>'
+            for database_path, deleted_entries in deleted_entries_by_database.items():
+                report += f"<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>"
                 report += "<ul>"
                 for entry in deleted_entries:
                     report += f"<li>{entry}</li>"
@@ -5281,23 +5250,20 @@ class SessionTableView(QTableView):
             QMessageBox.information(self, TITLE, report)
 
     def userip_manager__del(self, ip_addresses: list[str]):
-        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN
+        from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
 
         # Dictionary to store removed entries by database
-        deleted_entries_by_db: dict[str, list[str]] = {}
+        deleted_entries_by_database: dict[Path, list[str]] = {}
 
         # Iterate over each UserIP database
-        for db_name in UserIP_Databases.get_userip_database_filenames():
-            db_filename = f"{db_name}.ini"
-            db_path = Path("UserIP Databases") / db_filename
-
+        for database_path in UserIP_Databases.get_userip_database_filepaths():
             # Read the database file
-            lines = db_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            lines = database_path.read_text(encoding="utf-8").splitlines(keepends=True)
             if not lines:
                 continue
 
             # List to store deleted entries in this particular database
-            deleted_entries_in_this_db: list[str] = []
+            deleted_entries_in_this_database: list[str] = []
 
             # Remove any lines containing the IP address
             lines_to_keep: list[str] = []
@@ -5309,23 +5275,23 @@ class SessionTableView(QTableView):
 
                     # Ensure both username and ip are non-empty strings
                     if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
-                        deleted_entries_in_this_db.append(line.strip())  # Store the deleted entry
+                        deleted_entries_in_this_database.append(line.strip())  # Store the deleted entry
                         continue
 
                 lines_to_keep.append(line)
 
-            if deleted_entries_in_this_db:
+            if deleted_entries_in_this_database:
                 # Only update the database file if there were any deletions
-                write_lines_to_file(db_path, "w", lines_to_keep)
+                write_lines_to_file(database_path, "w", lines_to_keep)
 
                 # Store the deleted entries for this database
-                deleted_entries_by_db[db_filename] = deleted_entries_in_this_db
+                deleted_entries_by_database[database_path] = deleted_entries_in_this_database
 
         # After processing all databases, show a detailed report
-        if deleted_entries_by_db:
-            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_db))}:</b><br><br><br>'
-            for db_filename, deleted_entries in deleted_entries_by_db.items():
-                report += f"<b>{db_filename}:</b><br>"
+        if deleted_entries_by_database:
+            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_database))}:</b><br><br><br>'
+            for database_path, deleted_entries in deleted_entries_by_database.items():
+                report += f"<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>"
                 report += "<ul>"
                 for entry in deleted_entries:
                     report += f"<li>{entry}</li>"
