@@ -1,5 +1,5 @@
 TITLE = "Session Sniffer"
-VERSION = "v1.3.3 - 09/03/2025 (17:53)"
+VERSION = "v1.3.4 - 09/03/2025 (19:22)"
 GITHUB_REPO_URL = "https://github.com/BUZZARDGTA/Session-Sniffer"
 GITHUB_RELEASES_URL = "https://github.com/BUZZARDGTA/Session-Sniffer/releases"
 USER_SHELL_FOLDERS_REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"

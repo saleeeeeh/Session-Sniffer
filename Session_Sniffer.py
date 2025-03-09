@@ -4995,14 +4995,6 @@ class SessionTableView(QTableView):
                             tooltip=f'Add selected IP addresses to this UserIP database.',
                             handler=lambda _, database_path=database_path: self.userip_manager__add(all_ip_addresses, database_path),
                         )
-
-                    for database_path in UserIP_Databases.get_userip_database_filepaths():
-                        add_action(
-                            add_userip_menu,
-                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                            tooltip=f'Add selected IP addresses to this UserIP database.',
-                            handler=lambda _, database_path=database_path: self.userip_manager__add(all_ip_addresses, database_path),
-                        )
                 elif all(ip in UserIP_Databases.ips_set for ip in all_ip_addresses):
                     userip_menu = add_menu(context_menu, "UserIP  ")
 
