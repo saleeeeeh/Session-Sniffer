@@ -296,7 +296,7 @@ class DefaultSettings:
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN", "Pinging"]
+    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
