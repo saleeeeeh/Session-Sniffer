@@ -2606,7 +2606,7 @@ def hostname_core():
                     if player := PlayersRegistry.get_player(ip):
                         player.hostname = hostname
 
-                    time.sleep(0.1)
+                    gui_closed__event.wait(0.1)
 
 def iplookup_core():
     with Threads_ExceptionHandler():
