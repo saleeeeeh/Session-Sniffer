@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 # Local Python Libraries (Included with Project)
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
-from Modules.https_utils.unsafe_https import s
+from Modules.networking.unsafe_https import s
 
 
 class AllEndpointsExhausted(Exception):

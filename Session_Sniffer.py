@@ -54,11 +54,11 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 from Modules.constants.standalone import TITLE, VERSION, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
 from Modules.constants.standard import SETTINGS_PATH
 from Modules.utils import Version
-from Modules.oui_lookup.oui_lookup import MacLookup
-from Modules.capture.capture import PacketCapture, Packet, TSharkCrashException
-from Modules.capture.utils import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path, is_npcap_installed
 from Modules.msgbox import MsgBox
-from Modules.https_utils.unsafe_https import s
+from Modules.networking.oui_lookup import MacLookup
+from Modules.networking.unsafe_https import s
+from Modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashException
+from Modules.capture.utils import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path, is_npcap_installed
 
 
 if sys.version_info.major <= 3 and sys.version_info.minor < 12:
@@ -2561,11 +2561,14 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
 def hostname_core():
-    with Threads_ExceptionHandler():  # Assuming this is a context manager to handle exceptions
-        from Modules.hostname.resolve_hostname import resolve_hostname
+    with Threads_ExceptionHandler():
+        import concurrent.futures
+        from Modules.networking.reverse_dns_lookup import ReverseDNS
+
+        reverse_dns = ReverseDNS()
 
         while not gui_closed__event.is_set():
-            if ScriptControl.has_crashed():  # Assuming this checks if the script is crashed
+            if ScriptControl.has_crashed():
                 return
 
             players_connected_to_resolve: list[str] = []
@@ -2588,12 +2591,22 @@ def hostname_core():
                 gui_closed__event.wait(1)
                 continue
 
-            for ip in ips_to_resolve:
-                hostname = resolve_hostname(ip)
-                if player := PlayersRegistry.get_player(ip):
-                    player.hostname = hostname
+            # Use a thread pool to resolve hostnames concurrently
+            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+                # Map each IP to its future
+                future_to_ip = {
+                    executor.submit(reverse_dns.lookup, ip): ip for ip in ips_to_resolve
+                }
 
-                time.sleep(0.1)
+                # Process results as they complete
+                for future in concurrent.futures.as_completed(future_to_ip):
+                    ip = future_to_ip[future]
+                    hostname = future.result()
+
+                    if player := PlayersRegistry.get_player(ip):
+                        player.hostname = hostname
+
+                    time.sleep(0.1)
 
 def iplookup_core():
     with Threads_ExceptionHandler():
@@ -2807,7 +2820,7 @@ def iplookup_core():
 def pinger_core():
     with Threads_ExceptionHandler():
         import concurrent.futures
-        from Modules.ping.check_ping import AllEndpointsExhausted, fetch_and_parse_ping
+        from Modules.networking.endpoint_ping_manager import AllEndpointsExhausted, fetch_and_parse_ping
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():

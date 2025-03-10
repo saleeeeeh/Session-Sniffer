@@ -1,5 +1,5 @@
 # Local Python Libraries (Included with Project)
-from Modules.https_utils.unsafe_https import s
+from Modules.networking.unsafe_https import s
 
 # Standard Python Libraries
 import re
