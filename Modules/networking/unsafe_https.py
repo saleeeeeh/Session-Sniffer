@@ -1,14 +1,14 @@
+# Standard Python Libraries
+import ssl
+from ssl import SSLContext
+from typing import Optional
+
 # External/Third-party Python Libraries
 import requests
 import urllib3
 from urllib3.poolmanager import PoolManager
 from urllib3.util import create_urllib3_context
 from urllib3.exceptions import InsecureRequestWarning
-
-# Standard Python Libraries
-import ssl
-from ssl import SSLContext
-from typing import Optional
 
 
 # Workaround unsecure request warnings

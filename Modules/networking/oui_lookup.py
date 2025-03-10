@@ -1,8 +1,8 @@
-# Local Python Libraries (Included with Project)
-from Modules.networking.unsafe_https import s
-
 # Standard Python Libraries
 import re
+
+# Local Python Libraries (Included with Project)
+from Modules.networking.unsafe_https import s
 
 
 OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"

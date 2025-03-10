@@ -1,5 +1,7 @@
+# External/Third-party Python Libraries
 import dns.resolver
 import dns.reversename
+
 
 class ReverseDNS:
     """Resolves hostnames from IP addresses using a custom DNS resolver."""

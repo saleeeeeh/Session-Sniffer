@@ -2,7 +2,6 @@
 # 🐍 Standard Python Libraries (Included by Default) 🐍
 # ------------------------------------------------------
 import os
-import re
 import sys
 import ast
 import json
@@ -58,7 +57,8 @@ from Modules.msgbox import MsgBox
 from Modules.networking.oui_lookup import MacLookup
 from Modules.networking.unsafe_https import s
 from Modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashException
-from Modules.capture.utils import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path, is_npcap_installed
+from Modules.capture.utils.tshark_validator import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path
+from Modules.capture.utils.npcap_checker import is_npcap_installed
 
 
 if sys.version_info.major <= 3 and sys.version_info.minor < 12:
@@ -2013,7 +2013,6 @@ print('\nChecking that "Npcap" driver is installed on your system ...\n')
 from Modules.constants.local import SETUP_PATH
 
 while not is_npcap_installed():
-
     webbrowser.open("https://nmap.org/npcap/")
     msgbox_title = TITLE
     msgbox_message = textwrap.dedent(f"""
@@ -2385,7 +2384,7 @@ if Settings.CAPTURE_IP_ADDRESS:
 
 force_enable_capture_vpn_mode = False
 if not Settings.CAPTURE_VPN_MODE:
-    from Modules.capture.check_tshark_filters import check_broadcast_multicast_support
+    from Modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
 
     result = check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)
     if result.broadcast_supported and result.multicast_supported:

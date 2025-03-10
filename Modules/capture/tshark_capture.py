@@ -1,9 +1,6 @@
 # Standard Python Libraries
-import subprocess
 from pathlib import Path
-from typing import Callable, Optional
-from datetime import datetime
-from typing import NamedTuple
+from typing import Callable, NamedTuple, Optional
 
 
 class PacketFields(NamedTuple):
@@ -123,6 +120,8 @@ class PacketCapture:
             callback(packet)
 
     def _capture_packets(self):
+        import subprocess
+
         def process_tshark_stdout(line: str):
             fields = line.rstrip().split('|', 4)
             return PacketFields(*fields) if len(fields) == 5 else None
@@ -149,4 +148,6 @@ class PacketCapture:
 
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
+    from datetime import datetime
+
     return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch))

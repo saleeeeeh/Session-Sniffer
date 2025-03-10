@@ -1,4 +1,7 @@
 # Standard Python Libraries
+from typing import Union, Literal
+
+# External/Third-party Python Libraries
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
@@ -10,7 +13,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QHBoxLayout
 )
-from typing import Union, Literal
 
 
 class InterfaceSelectionData:

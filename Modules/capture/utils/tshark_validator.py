@@ -1,6 +1,10 @@
 # Standard Python Libraries
+import subprocess
 from pathlib import Path
 from typing import NamedTuple
+
+# Local Python Libraries (Included with Project)
+from Modules.constants.standalone import TSHARK_RECOMMENDED_FULL_VERSION
 
 
 class TSharkNotFoundException(Exception):
@@ -19,6 +23,11 @@ class InvalidTSharkVersionException(Exception):
         super().__init__(self.message)
 
 
+class TSharkValidationResult(NamedTuple):
+    path: Path
+    version: str
+
+
 def validate_tshark_path(tshark_path: Path):
     """
     Validate the path and version of the given tshark executable.
@@ -31,13 +40,6 @@ def validate_tshark_path(tshark_path: Path):
         TSharkVersionNotFoundException: If the TShark version cannot be determined.
         InvalidTSharkVersionException: If the found TShark version is unsupported.
     """
-    import subprocess
-    from Modules.constants.standalone import TSHARK_RECOMMENDED_FULL_VERSION, TITLE
-
-    class TSharkValidationResult(NamedTuple):
-        path: Path
-        version: str
-
     def get_tshark_version(path: Path):
         """Attempts to retrieve TShark's version from the given path."""
         try:
@@ -57,9 +59,3 @@ def validate_tshark_path(tshark_path: Path):
         raise InvalidTSharkVersionException(tshark_path, tshark_version)
 
     return TSharkValidationResult(tshark_path, tshark_version)
-
-
-def is_npcap_installed():
-    import subprocess
-
-    return subprocess.run(["sc", "query", "npcap"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 parent_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(parent_dir))
 from Modules.networking.unsafe_https import s
+from Modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
 
 
 class AllEndpointsExhausted(Exception):
@@ -108,8 +109,6 @@ def get_sorted_endpoints():
             return sorted(endpoints_info.values(), key=lambda info: info.score(now))
 
 def parse_ping_response(response_content: bytes):
-    from Modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
-
     decoded_text = response_content.decode("utf-8")
     unescaped_text = decoded_text.replace("\\/", "/")
 

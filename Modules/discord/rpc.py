@@ -1,11 +1,11 @@
-# External/Third-party Python Libraries
-from pypresence import Presence, DiscordNotFound, PipeClosed, ResponseTimeout, exceptions
-
 # Standard Python Libraries
 import time
 import queue
 import threading
 from typing import Union
+
+# External/Third-party Python Libraries
+from pypresence import Presence, DiscordNotFound, PipeClosed, ResponseTimeout, exceptions
 
 
 QueueHint = queue.SimpleQueue[Union[str, None, "ShutdownSignal"]]

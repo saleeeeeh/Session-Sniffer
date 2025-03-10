@@ -1,12 +1,10 @@
 # Standard Python Libraries
-import sys
 import time
 import argparse
 import requests
 import ipaddress
 import statistics
 from enum import Enum
-from pathlib import Path
 from typing import Union, Literal
 
 # External/Third-party Python Libraries

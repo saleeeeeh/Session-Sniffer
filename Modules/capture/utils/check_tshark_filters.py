@@ -1,7 +1,7 @@
 # Standard Python Libraries
 import subprocess
-from pathlib import Path
 from typing import Optional, NamedTuple
+from pathlib import Path
 
 
 class InterfaceSupportResult(NamedTuple):
@@ -35,7 +35,6 @@ def check_broadcast_multicast_support(tshark_path: Path, interface: str):
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return result.returncode == 0, result.stderr.strip() if result.returncode != 0 else None
 
-    # Run tests
     broadcast_supported, broadcast_error = run_tshark_test("broadcast")
     multicast_supported, multicast_error = run_tshark_test("multicast")
 
