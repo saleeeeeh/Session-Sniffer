@@ -1,5 +1,4 @@
 # Standard Python Libraries
-import re
 import sys
 import time
 import threading

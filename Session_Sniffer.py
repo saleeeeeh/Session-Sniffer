@@ -322,6 +322,7 @@ class Settings(DefaultSettings):
         "PPM": "ppm.rate",
         #"Avg PPM": "ppm.get_average()",
         "IP Address": "ip",
+        "Hostname": "hostname",
         "Last Port": "ports.last",
         "Intermediate Ports": "ports.intermediate",
         "First Port": "ports.first",
@@ -348,9 +349,9 @@ class Settings(DefaultSettings):
         "Pinging": "ping.is_pinging"
     }
     gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
-    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
 
     @classmethod
     def iterate_over_settings(cls):
@@ -986,6 +987,7 @@ class Player:
 
     def _initialize(self, ip: str, port: int, packet_datetime: datetime):
         self.ip = ip
+        self.hostname = "N/A"
         self.rejoins = 0
         self.packets = 1
         self.total_packets = 1
@@ -1910,6 +1912,7 @@ if not is_pyinstaller_compiled():
 
     third_party_packages = {
         "colorama": "0.4.6",
+        "dnspython": "2.7.0",
         "geoip2": "4.8.1",
         "prettytable": "3.12.0",
         "psutil": "6.1.0",
@@ -2557,6 +2560,41 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
+def hostname_core():
+    with Threads_ExceptionHandler():  # Assuming this is a context manager to handle exceptions
+        from Modules.hostname.resolve_hostname import resolve_hostname
+
+        while not gui_closed__event.is_set():
+            if ScriptControl.has_crashed():  # Assuming this checks if the script is crashed
+                return
+
+            players_connected_to_resolve: list[str] = []
+            players_disconnected_to_resolve: list[str] = []
+
+            # Collect IPs based on player status (same logic as before)
+            for player in PlayersRegistry.iterate_players_from_registry():
+                if player.hostname != "N/A":
+                    continue
+
+                if player.datetime.left:
+                    players_disconnected_to_resolve.append(player.ip)
+                else:
+                    players_connected_to_resolve.append(player.ip)
+
+            ips_to_resolve = players_connected_to_resolve + players_disconnected_to_resolve
+
+            # If there are no IPs to resolve, wait for a cooldown period before continuing.
+            if not ips_to_resolve:
+                gui_closed__event.wait(1)
+                continue
+
+            for ip in ips_to_resolve:
+                hostname = resolve_hostname(ip)
+                if player := PlayersRegistry.get_player(ip):
+                    player.hostname = hostname
+
+                time.sleep(0.1)
+
 def iplookup_core():
     with Threads_ExceptionHandler():
         def throttle_until(response: requests.Response):
@@ -2792,7 +2830,7 @@ def pinger_core():
 
             # If there are no IPs to ping, wait for a cooldown period before continuing.
             if not ips_to_ping:
-                time.sleep(1)
+                gui_closed__event.wait(1)
                 continue
 
             # Use a thread pool to fetch ping data concurrently.
@@ -3573,6 +3611,7 @@ def rendering_core():
                 row_texts.append(f"{player.ppm.rate}")
                 row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
+                row_texts.append(f"{player.hostname}")
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
@@ -3614,6 +3653,7 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.ip}")
+                row_texts.append(f"{player.hostname}")
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
@@ -3786,6 +3826,8 @@ def rendering_core():
                     row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]]._replace(foreground=get_player_gui_avg_ppm_color(row_fg_color, player.ppm.is_first_calculation, player.ppm.rate)) # Update the foreground color for the "Avg PPM" column
                     row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
+                if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{player.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3864,6 +3906,8 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.ip}")
+                if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{player.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -4224,6 +4268,9 @@ global_pps_counter = 0
 
 rendering_core__thread = threading.Thread(target=rendering_core, daemon=True)
 rendering_core__thread.start()
+
+hostname_core__thread = threading.Thread(target=hostname_core, daemon=True)
+hostname_core__thread.start()
 
 iplookup_core__thread = threading.Thread(target=iplookup_core, daemon=True)
 iplookup_core__thread.start()
@@ -5063,6 +5110,7 @@ class SessionTableView(QTableView):
         msgbox_message = textwrap.dedent(f"""
             ############ Player Infos #############
             IP Address: {player.ip}
+            Hostname: {player.hostname}
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
             In UserIP database: {player.userip.database_path and f"{player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}" or "No"}
             Last Port: {player.ports.last}
