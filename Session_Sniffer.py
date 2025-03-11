@@ -25,7 +25,7 @@ from traceback import TracebackException
 from types import FrameType, TracebackType
 from typing import Optional, Literal, Union, Type, NamedTuple, Any
 from ipaddress import IPv4Address, AddressValueError
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # --------------------------------------------
 # 📦 External/Third-party Python Libraries 📦
@@ -77,8 +77,7 @@ logging.basicConfig(
 logging.captureWarnings(True)
 
 
-@dataclass
-class ExceptionInfo:
+class ExceptionInfo(NamedTuple):
     exc_type: Type[BaseException]
     exc_value: BaseException
     exc_traceback: Optional[TracebackType]
@@ -281,6 +280,7 @@ class Threads_ExceptionHandler:
 
             return True  # Prevent exceptions from propagating
 
+@dataclass
 class DefaultSettings:
     """Class containing default setting values."""
     CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT = True
@@ -326,26 +326,26 @@ class Settings(DefaultSettings):
         "Last Port": "ports.last",
         "Intermediate Ports": "ports.intermediate",
         "First Port": "ports.first",
-        "Continent": "iplookup.ipapi.compiled.continent",
-        "Country": "iplookup.maxmind.compiled.country",
-        "Region": "iplookup.ipapi.compiled.region",
-        "R. Code": "iplookup.ipapi.compiled.region_code",
-        "City": "iplookup.maxmind.compiled.city",
-        "District": "iplookup.ipapi.compiled.district",
-        "ZIP Code": "iplookup.ipapi.compiled.zip_code",
-        "Lat": "iplookup.ipapi.compiled.lat",
-        "Lon": "iplookup.ipapi.compiled.lon",
-        "Time Zone": "iplookup.ipapi.compiled.time_zone",
-        "Offset": "iplookup.ipapi.compiled.offset",
-        "Currency": "iplookup.ipapi.compiled.currency",
-        "Organization": "iplookup.ipapi.compiled.org",
-        "ISP": "iplookup.ipapi.compiled.isp",
-        "ASN / ISP": "iplookup.maxmind.compiled.asn",
-        "AS": "iplookup.ipapi.compiled._as",
-        "ASN": "iplookup.ipapi.compiled.as_name",
-        "Mobile": "iplookup.ipapi.compiled.mobile",
-        "VPN": "iplookup.ipapi.compiled.proxy",
-        "Hosting": "iplookup.ipapi.compiled.hosting",
+        "Continent": "iplookup.ipapi.continent",
+        "Country": "iplookup.geolite2.country",
+        "Region": "iplookup.ipapi.region",
+        "R. Code": "iplookup.ipapi.region_code",
+        "City": "iplookup.geolite2.city",
+        "District": "iplookup.ipapi.district",
+        "ZIP Code": "iplookup.ipapi.zip_code",
+        "Lat": "iplookup.ipapi.lat",
+        "Lon": "iplookup.ipapi.lon",
+        "Time Zone": "iplookup.ipapi.time_zone",
+        "Offset": "iplookup.ipapi.offset",
+        "Currency": "iplookup.ipapi.currency",
+        "Organization": "iplookup.ipapi.org",
+        "ISP": "iplookup.ipapi.isp",
+        "ASN / ISP": "iplookup.geolite2.asn",
+        "AS": "iplookup.ipapi._as",
+        "ASN": "iplookup.ipapi.as_name",
+        "Mobile": "iplookup.ipapi.mobile",
+        "VPN": "iplookup.ipapi.proxy",
+        "Hosting": "iplookup.ipapi.hosting",
         "Pinging": "ping.is_pinging"
     }
     gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
@@ -654,15 +654,11 @@ class Settings(DefaultSettings):
 
             Settings.reconstruct_settings()
 
+@dataclass
 class Adapter_Properties:
-    def __init__(self,
-        name            = "N/A",
-        interface_index = "N/A",
-        manufacturer    = "N/A"
-    ):
-        self.Name: Union[Literal["N/A"], str] = name
-        self.InterfaceIndex: Union[Literal["N/A"], int] = interface_index
-        self.Manufacturer  : Union[Literal["N/A"], str] = manufacturer
+    Name          : Union[Literal["N/A"], str] = "N/A"
+    InterfaceIndex: Union[Literal["N/A"], int] = "N/A"
+    Manufacturer  : Union[Literal["N/A"], str] = "N/A"
 
 class Interface:
     all_interfaces: list["Interface"] = []
@@ -670,12 +666,12 @@ class Interface:
     def __init__(self, interface_name: str):
         self.interface_name = interface_name
 
-        self.ip_addresses     : list[str]                       = []
-        self.mac_address      : Union[Literal["N/A"], str]      = "N/A"
-        self.organization_name: Union[Literal["N/A"], str]      = "N/A"
-        self.packets_sent     : Union[Literal["N/A"], int]      = "N/A"
-        self.packets_recv     : Union[Literal["N/A"], int]      = "N/A"
-        self.arp_infos        : list[dict[str, str]] = []
+        self.ip_addresses     : list[str]                  = []
+        self.mac_address      : Union[Literal["N/A"], str] = "N/A"
+        self.organization_name: Union[Literal["N/A"], str] = "N/A"
+        self.packets_sent     : Union[Literal["N/A"], int] = "N/A"
+        self.packets_recv     : Union[Literal["N/A"], int] = "N/A"
+        self.arp_infos        : list[dict[str, str]]       = []
 
         self.adapter_properties = Adapter_Properties()
 
@@ -725,20 +721,25 @@ class Interface:
             yield interface
 
 class ThirdPartyServers(enum.Enum):
-    PC_DISCORD = ["66.22.196.0/22", "66.22.200.0/21", "66.22.208.0/20", "66.22.224.0/20", "66.22.240.0/21", "66.22.248.0/24"]
-    PC_VALVE = ["103.10.124.0/23", "103.28.54.0/23", "146.66.152.0/21", "155.133.224.0/19", "162.254.192.0/21", "185.25.180.0/22", "205.196.6.0/24"] # Valve = Steam
-    PC_GOOGLE = ["34.0.0.0/9", "34.128.0.0/10", "35.184.0.0/13", "35.192.0.0/11", "35.224.0.0/12", "35.240.0.0/13"]
-    PC_MULTICAST = ["224.0.0.0/4"]
-    PC_UK_MINISTRY_OF_DEFENCE = ["25.0.0.0/8"]
-    PC_SERVERS_COM = ["173.237.26.0/24"]
-    PC_OTHERS = ["113.117.15.193/32"]
-    GTAV_PC_AND_PS3_TAKETWO = ["104.255.104.0/23", "104.255.106.0/24", "185.56.64.0/22", "192.81.241.0/24", "192.81.244.0/23"]
-    GTAV_PC_MICROSOFT = ["52.139.128.0/18"]
-    GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ["26.0.0.0/8"]
-    GTAV_PC_BATTLEYE = ["51.89.97.102/32", "51.89.99.255/32"]
-    GTAV_XBOXONE_MICROSOFT = ["52.159.128.0/17", "52.160.0.0/16", "40.74.0.0/18"]
-    PS5_AMAZON = ["52.40.62.0/25", "44.192.0.0/10"]
-    MINECRAFTBEDROCKEDITION_PC_AND_PS3_MICROSOFT = ["20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19"]
+    PC_DISCORD = ("66.22.196.0/22", "66.22.200.0/21", "66.22.208.0/20", "66.22.224.0/20", "66.22.240.0/21", "66.22.248.0/24")
+    PC_VALVE = ("103.10.124.0/23", "103.28.54.0/23", "146.66.152.0/21", "155.133.224.0/19", "162.254.192.0/21", "185.25.180.0/22", "205.196.6.0/24") # Valve = Steam
+    PC_GOOGLE = ("34.0.0.0/9", "34.128.0.0/10", "35.184.0.0/13", "35.192.0.0/11", "35.224.0.0/12", "35.240.0.0/13")
+    PC_MULTICAST = ("224.0.0.0/4",)
+    PC_UK_MINISTRY_OF_DEFENCE = ("25.0.0.0/8",)
+    PC_SERVERS_COM = ("173.237.26.0/24",)
+    PC_OTHERS = ("113.117.15.193/32",)
+    GTAV_PC_AND_PS3_TAKETWO = ("104.255.104.0/23", "104.255.106.0/24", "185.56.64.0/22", "192.81.241.0/24", "192.81.244.0/23")
+    GTAV_PC_MICROSOFT = ("52.139.128.0/18",)
+    GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ("26.0.0.0/8",)
+    GTAV_PC_BATTLEYE = ("51.89.97.102/32", "51.89.99.255/32")
+    GTAV_XBOXONE_MICROSOFT = ("52.159.128.0/17", "52.160.0.0/16", "40.74.0.0/18")
+    PS5_AMAZON = ("52.40.62.0/25", "44.192.0.0/10")
+    MINECRAFTBEDROCKEDITION_PC_AND_PS3_MICROSOFT = ("20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19")
+
+    @classmethod
+    def get_all_ip_ranges(cls):
+        """Returns a flat list of all IP ranges from the Enum."""
+        return [ip_range for server in cls for ip_range in server.value]
 
 class Player_PPS:
     def __init__(self):
@@ -816,152 +817,67 @@ class Player_DateTime:
     def reset(self, packet_datetime: datetime):
         self._initialize(packet_datetime)
 
-class MaxMind_GeoLite2_Compiled:
-    def __init__(self):
-        self.country       = "..."
-        self.country_code  = "..."
-        self.country_short = "..."
-        self.city          = "..."
-        self.city_short    = "..."
-        self.asn           = "..."
-        self.asn_short     = "..."
+@dataclass
+class Player_GeoLite2:
+    is_initialized = False
 
-class MaxMind_GeoLite2:
-    def __init__(self):
-        self.is_initialized = False
-        self.compiled = MaxMind_GeoLite2_Compiled()
+    country:      Union[Literal["..."], str] = "..."
+    country_code: Union[Literal["..."], str] = "..."
+    city:         Union[Literal["..."], str] = "..."
+    asn:          Union[Literal["..."], str] = "..."
 
-        self.country:      Optional[str] = None
-        self.country_code: Optional[str] = None
-        self.city:         Optional[str] = None
-        self.asn:          Optional[str] = None
+@dataclass
+class Player_IPAPI:
+    is_initialized = False
 
-    def compile(self):
-        """
-        Populate the `compiled` subclass with processed values where `None` is replaced with "..."
-        and all other values are converted to their string representation.
-        """
-        self.compiled.country        = "..." if self.country      is None else str(self.country)
-        self.compiled.country_code   = "..." if self.country_code is None else str(self.country_code)
-        self.compiled.country_short  = "..." if self.country      is None else str(self.country)
-        self.compiled.city           = "..." if self.city         is None else str(self.city)
-        self.compiled.city_short     = "..." if self.city         is None else str(self.city)
-        self.compiled.asn            = "..." if self.asn          is None else str(self.asn)
-        self.compiled.asn_short      = "..." if self.asn          is None else str(self.asn)
-
-class IPAPI_Compiled:
-    def __init__(self):
-        self.continent      = "..."
-        self.continent_code = "..."
-        self.country        = "..."
-        self.country_code   = "..."
-        self.region         = "..."
-        self.region_short   = "..."
-        self.region_code    = "..."
-        self.city           = "..."
-        self.district       = "..."
-        self.zip_code       = "..."
-        self.lat            = "..."
-        self.lon            = "..."
-        self.time_zone      = "..."
-        self.offset         = "..."
-        self.currency       = "..."
-        self.org            = "..."
-        self.org_short      = "..."
-        self.isp            = "..."
-        self.isp_short      = "..."
-        self._as            = "..."
-        self.as_short       = "..."
-        self.as_name        = "..."
-        self.as_name_short  = "..."
-        self.mobile         = "..."
-        self.proxy          = "..."
-        self.hosting        = "..."
-
-class IPAPI:
-    def __init__(self):
-        self.is_initialized = False
-        self.compiled = IPAPI_Compiled()
-
-        self.continent:      Optional[Union[Literal["N/A"], str]]               = None
-        self.continent_code: Optional[Union[Literal["N/A"], str]]               = None
-        self.country:        Optional[Union[Literal["N/A"], str]]               = None
-        self.country_code:   Optional[Union[Literal["N/A"], str]]               = None
-        self.region:         Optional[Union[Literal["N/A"], str]]               = None
-        self.region_code:    Optional[Union[Literal["N/A"], str]]               = None
-        self.city:           Optional[Union[Literal["N/A"], str]]               = None
-        self.district:       Optional[Union[Literal["N/A"], str]]               = None
-        self.zip_code:       Optional[Union[Literal["N/A"], str]]               = None
-        self.lat:            Optional[Union[Literal["N/A"], Union[float, int]]] = None
-        self.lon:            Optional[Union[Literal["N/A"], Union[float, int]]] = None
-        self.time_zone:      Optional[Union[Literal["N/A"], str]]               = None
-        self.offset:         Optional[Union[Literal["N/A"], int]]               = None
-        self.currency:       Optional[Union[Literal["N/A"], str]]               = None
-        self.org:            Optional[Union[Literal["N/A"], str]]               = None
-        self.isp:            Optional[Union[Literal["N/A"], str]]               = None
-        self._as:            Optional[Union[Literal["N/A"], str]]               = None
-        self.as_name:        Optional[Union[Literal["N/A"], str]]               = None
-        self.mobile:         Optional[Union[Literal["N/A"], bool]]              = None
-        self.proxy:          Optional[Union[Literal["N/A"], bool]]              = None
-        self.hosting:        Optional[Union[Literal["N/A"], bool]]              = None
-
-    def compile(self):
-        """
-        Populate the `compiled` subclass with processed values where `None` is replaced with "..."
-        and all other values are converted to their string representation.
-        """
-        self.compiled.continent      = "..." if self.continent      is None else str(self.continent)
-        self.compiled.continent_code = "..." if self.continent_code is None else str(self.continent_code)
-        self.compiled.country        = "..." if self.country        is None else str(self.country)
-        self.compiled.country_code   = "..." if self.country_code   is None else str(self.country_code)
-        self.compiled.region         = "..." if self.region         is None else str(self.region)
-        self.compiled.region_short   = "..." if self.region         is None else str(self.region)
-        self.compiled.region_code    = "..." if self.region_code    is None else str(self.region_code)
-        self.compiled.city           = "..." if self.city           is None else str(self.city)
-        self.compiled.district       = "..." if self.district       is None else str(self.district)
-        self.compiled.zip_code       = "..." if self.zip_code       is None else str(self.zip_code)
-        self.compiled.lat            = "..." if self.lat            is None else str(self.lat)
-        self.compiled.lon            = "..." if self.lon            is None else str(self.lon)
-        self.compiled.time_zone      = "..." if self.time_zone      is None else str(self.time_zone)
-        self.compiled.offset         = "..." if self.offset         is None else str(self.offset)
-        self.compiled.currency       = "..." if self.currency       is None else str(self.currency)
-        self.compiled.org            = "..." if self.org            is None else str(self.org)
-        self.compiled.org_short      = "..." if self.org            is None else str(self.org)
-        self.compiled.isp            = "..." if self.isp            is None else str(self.isp)
-        self.compiled.isp_short      = "..." if self.isp            is None else str(self.isp)
-        self.compiled._as            = "..." if self._as            is None else str(self._as)
-        self.compiled.as_short       = "..." if self._as            is None else str(self._as)
-        self.compiled.as_name        = "..." if self.as_name        is None else str(self.as_name)
-        self.compiled.as_name_short  = "..." if self.as_name        is None else str(self.as_name)
-        self.compiled.mobile         = "..." if self.mobile         is None else str(self.mobile)
-        self.compiled.proxy          = "..." if self.proxy          is None else str(self.proxy)
-        self.compiled.hosting        = "..." if self.hosting        is None else str(self.hosting)
+    continent:      Union[Literal["N/A", "..."], str]               = "..."
+    continent_code: Union[Literal["N/A", "..."], str]               = "..."
+    country:        Union[Literal["N/A", "..."], str]               = "..."
+    country_code:   Union[Literal["N/A", "..."], str]               = "..."
+    region:         Union[Literal["N/A", "..."], str]               = "..."
+    region_code:    Union[Literal["N/A", "..."], str]               = "..."
+    city:           Union[Literal["N/A", "..."], str]               = "..."
+    district:       Union[Literal["N/A", "..."], str]               = "..."
+    zip_code:       Union[Literal["N/A", "..."], str]               = "..."
+    lat:            Union[Literal["N/A", "..."], Union[float, int]] = "..."
+    lon:            Union[Literal["N/A", "..."], Union[float, int]] = "..."
+    time_zone:      Union[Literal["N/A", "..."], str]               = "..."
+    offset:         Union[Literal["N/A", "..."], int]               = "..."
+    currency:       Union[Literal["N/A", "..."], str]               = "..."
+    org:            Union[Literal["N/A", "..."], str]               = "..."
+    isp:            Union[Literal["N/A", "..."], str]               = "..."
+    _as:            Union[Literal["N/A", "..."], str]               = "..."
+    as_name:        Union[Literal["N/A", "..."], str]               = "..."
+    mobile:         Union[Literal["N/A", "..."], bool]              = "..."
+    proxy:          Union[Literal["N/A", "..."], bool]              = "..."
+    hosting:        Union[Literal["N/A", "..."], bool]              = "..."
 
 class Player_IPLookup:
     def __init__(self):
-        self.maxmind = MaxMind_GeoLite2()
-        self.ipapi = IPAPI()
+        self.geolite2 = Player_GeoLite2()
+        self.ipapi = Player_IPAPI()
 
+@dataclass
 class Player_Ping:
-    def __init__(self):
-        self.is_initialized = False
-        self.is_pinging:          Union[Literal["N/A"], bool]            = "N/A"
-        self.ping_times:          Union[Literal["N/A"], list[float]]     = "N/A"
-        self.packets_transmitted: Union[Literal["N/A"], Optional[int]]   = "N/A"
-        self.packets_received:    Union[Literal["N/A"], Optional[int]]   = "N/A"
-        self.packet_loss:         Union[Literal["N/A"], Optional[int]]   = "N/A"
-        self.packet_errors:       Union[Literal["N/A"], Optional[int]]   = "N/A"
-        self.rtt_min:             Union[Literal["N/A"], Optional[float]] = "N/A"
-        self.rtt_avg:             Union[Literal["N/A"], Optional[float]] = "N/A"
-        self.rtt_max:             Union[Literal["N/A"], Optional[float]] = "N/A"
-        self.rtt_mdev:            Union[Literal["N/A"], Optional[float]] = "N/A"
+    is_initialized = False
 
+    is_pinging:          Union[Literal["..."], bool]            = "..."
+    ping_times:          Union[Literal["..."], list[float]]     = "..."
+    packets_transmitted: Union[Literal["..."], Optional[int]]   = "..."
+    packets_received:    Union[Literal["..."], Optional[int]]   = "..."
+    packet_loss:         Union[Literal["..."], Optional[int]]   = "..."
+    packet_errors:       Union[Literal["..."], Optional[int]]   = "..."
+    rtt_min:             Union[Literal["..."], Optional[float]] = "..."
+    rtt_avg:             Union[Literal["..."], Optional[float]] = "..."
+    rtt_max:             Union[Literal["..."], Optional[float]] = "..."
+    rtt_mdev:            Union[Literal["..."], Optional[float]] = "..."
+
+@dataclass
 class Player_Detection:
-    def __init__(self):
-        self.type: Optional[Literal["Static IP"]] = None
-        self.time: Optional[str] = None
-        self.date_time: Optional[str] = None
-        self.as_processed_userip_task = False
+    type: Optional[Literal["Static IP"]] = None
+    time: Optional[str] = None
+    date_time: Optional[str] = None
+    as_processed_userip_task = False
 
 class Player_UserIp:
     def __init__(self):
@@ -976,9 +892,9 @@ class Player_UserIp:
     def reset(self):
         self._initialize()
 
+@dataclass
 class Player_ModMenus:
-    def __init__(self):
-        self.usernames: list[str] = []
+    usernames: list[str] = field(default_factory=list)
 
 class Player:
     def __init__(self, ip: str, port: int, packet_datetime: datetime):
@@ -987,7 +903,7 @@ class Player:
 
     def _initialize(self, ip: str, port: int, packet_datetime: datetime):
         self.ip = ip
-        self.hostname = "N/A"
+        self.hostname = "..."
         self.rejoins = 0
         self.packets = 1
         self.total_packets = 1
@@ -1027,7 +943,7 @@ class PlayersRegistry:
     def iterate_players_from_registry(
         cls,
         sort_order: str = "datetime.last_seen",
-        reverse: bool = False
+        reverse = False
     ):
         # Using list() ensures a static snapshot of the dictionary's values is used, avoiding the 'RuntimeError: dictionary changed size during iteration'.
         for player in sorted(list(cls.players_registry.values()), key=attrgetter(sort_order), reverse=reverse):
@@ -1065,45 +981,28 @@ class SessionHost:
             SessionHost.player = potential_session_host_player
             SessionHost.search_player = False
 
-class UserIP_Settings:
+class UserIP_Settings(NamedTuple):
     """
     Class to represent settings with attributes for each setting key.
     """
-    def __init__(self,
-        ENABLED: bool,
-        COLOR: QColor,
-        LOG: bool,
-        NOTIFICATIONS: bool,
-        VOICE_NOTIFICATIONS: Union[str | Literal[False]],
-        PROTECTION: Literal["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC", False],
-        PROTECTION_PROCESS_PATH: Optional[Path],
-        PROTECTION_RESTART_PROCESS_PATH: Optional[Path],
-        PROTECTION_SUSPEND_PROCESS_MODE: Union[int, float, Literal["Auto", "Manual"]]
-    ):
-        self.ENABLED = ENABLED
-        self.COLOR = COLOR
-        self.NOTIFICATIONS = NOTIFICATIONS
-        self.VOICE_NOTIFICATIONS = VOICE_NOTIFICATIONS
-        self.LOG = LOG
-        self.PROTECTION = PROTECTION
-        self.PROTECTION_PROCESS_PATH = PROTECTION_PROCESS_PATH
-        self.PROTECTION_RESTART_PROCESS_PATH = PROTECTION_RESTART_PROCESS_PATH
-        self.PROTECTION_SUSPEND_PROCESS_MODE = PROTECTION_SUSPEND_PROCESS_MODE
+    ENABLED: bool
+    COLOR: QColor
+    LOG: bool
+    NOTIFICATIONS: bool
+    VOICE_NOTIFICATIONS: Union[str, Literal[False]]
+    PROTECTION: Literal["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC", False]
+    PROTECTION_PROCESS_PATH: Optional[Path]
+    PROTECTION_RESTART_PROCESS_PATH: Optional[Path]
+    PROTECTION_SUSPEND_PROCESS_MODE: Union[int, float, Literal["Auto", "Manual"]]
 
-class UserIP:
+class UserIP(NamedTuple):
     """
     Class representing information associated with a specific IP, including settings and usernames.
     """
-    def __init__(self,
-        ip: str,
-        database_path: Path,
-        settings: UserIP_Settings,
-        usernames: list[str]
-    ):
-        self.ip = ip
-        self.database_path = database_path
-        self.settings = settings
-        self.usernames = usernames
+    ip: str
+    database_path: Path
+    settings: UserIP_Settings
+    usernames: list[str]
 
 class UserIP_Databases:
     userip_databases: list[tuple[Path, UserIP_Settings, dict[str, list[str]]]] = []
@@ -2231,7 +2130,7 @@ for i in Interface.iterate_safely():
         Settings.reconstruct_settings()
 
     # Filter out interfaces that are not enabled
-    if i.packets_sent == "N/A" and i.packets_recv == "N/A" and not i.ip_addresses and i.mac_address == "N/A" and i.adapter_properties.Name == "N/A" and i.adapter_properties.Manufacturer == "N/A":
+    if (i.packets_sent == "N/A" or i.packets_sent == 0) and (i.packets_recv == "N/A" or i.packets_recv == 0) and not i.ip_addresses and i.mac_address == "N/A" and i.adapter_properties.Name == "N/A" and i.adapter_properties.Manufacturer == "N/A":
         Interface.delete_interface(i)
         continue
 
@@ -2357,8 +2256,7 @@ if Settings.CAPTURE_PROGRAM_PRESET:
     excluded_protocols.append("rtcp")
 
 if Settings.CAPTURE_BLOCK_THIRD_PARTY_SERVERS:
-    ip_ranges = [ip_range for server in ThirdPartyServers for ip_range in server.value]
-    capture_filter.append(f"not (net {' or '.join(ip_ranges)})")
+    capture_filter.append(f"not (net {' or '.join(ThirdPartyServers.get_all_ip_ranges())})")
 
     # Here I'm trying to exclude various UDP protocols that are usefless for the srcipt.
     # But there can be a lot more, those are just a couples I could find on my own usage.
@@ -2455,7 +2353,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
 
         if connection_type == "connected":
             while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
-                if player.userip.usernames and player.iplookup.maxmind.is_initialized:
+                if player.userip.usernames and player.iplookup.geolite2.is_initialized:
                     break
                 gui_closed__event.wait(0.1)
             else:
@@ -2468,7 +2366,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
                     f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
-                    f"Time:{player.userip.detection.date_time} | Country:{player.iplookup.maxmind.compiled.country} | "
+                    f"Time:{player.userip.detection.date_time} | Country:{player.iplookup.geolite2.country} | "
                     f"Detection Type: {player.userip.detection.type} | "
                     f"Database:{relative_database_path}"
                 )])
@@ -2487,21 +2385,21 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                     User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
                     IP: {player.ip}
                     Port{pluralize(len(player.ports.list))}: {', '.join(map(str, reversed(player.ports.list)))}
-                    Country Code: {player.iplookup.maxmind.compiled.country_code}
+                    Country Code: {player.iplookup.geolite2.country_code}
                     Detection Type: {player.userip.detection.type}
                     Database: {relative_database_path}
                     ############# IP Lookup ##############
-                    Continent: {player.iplookup.ipapi.compiled.continent}
-                    Country: {player.iplookup.maxmind.compiled.country}
-                    Region: {player.iplookup.ipapi.compiled.region}
-                    City: {player.iplookup.maxmind.compiled.city}
-                    Organization: {player.iplookup.ipapi.compiled.org}
-                    ISP: {player.iplookup.ipapi.compiled.isp}
-                    ASN / ISP: {player.iplookup.maxmind.compiled.asn}
-                    ASN: {player.iplookup.ipapi.compiled.as_name}
-                    Mobile (cellular) connection: {player.iplookup.ipapi.compiled.mobile}
-                    Proxy, VPN or Tor exit address: {player.iplookup.ipapi.compiled.proxy}
-                    Hosting, colocated or data center: {player.iplookup.ipapi.compiled.hosting}
+                    Continent: {player.iplookup.ipapi.continent}
+                    Country: {player.iplookup.geolite2.country}
+                    Region: {player.iplookup.ipapi.region}
+                    City: {player.iplookup.geolite2.city}
+                    Organization: {player.iplookup.ipapi.org}
+                    ISP: {player.iplookup.ipapi.isp}
+                    ASN / ISP: {player.iplookup.geolite2.asn}
+                    ASN: {player.iplookup.ipapi.as_name}
+                    Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
+                    Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
+                    Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
                 """.removeprefix("\n").removesuffix("\n")), "    ")
                 msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
@@ -2520,7 +2418,7 @@ def hostname_core():
             ips_to_resolve: list[str] = []
 
             for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
-                if player.hostname != "N/A":
+                if player.hostname != "...":
                     continue
 
                 ips_to_resolve.append(player.ip)
@@ -2624,35 +2522,29 @@ def iplookup_core():
                 if not isinstance(player_ip_looked_up, str):
                     raise TypeError(f'Expected "str" object, got "{type(player_ip_looked_up).__name__}"')
 
-                ip_api_instance = IPAPI()
-                ip_api_instance.is_initialized = True
-
-                ip_api_instance.continent      = validate_and_get_field(player_ip_looked_up, iplookup, "continent",     (str,))
-                ip_api_instance.continent_code = validate_and_get_field(player_ip_looked_up, iplookup, "continentCode", (str,))
-                ip_api_instance.country        = validate_and_get_field(player_ip_looked_up, iplookup, "country",       (str,))
-                ip_api_instance.country_code   = validate_and_get_field(player_ip_looked_up, iplookup, "countryCode",   (str,))
-                ip_api_instance.region         = validate_and_get_field(player_ip_looked_up, iplookup, "regionName",    (str,))
-                ip_api_instance.region_code    = validate_and_get_field(player_ip_looked_up, iplookup, "region",        (str,))
-                ip_api_instance.city           = validate_and_get_field(player_ip_looked_up, iplookup, "city",          (str,))
-                ip_api_instance.district       = validate_and_get_field(player_ip_looked_up, iplookup, "district",      (str,))
-                ip_api_instance.zip_code       = validate_and_get_field(player_ip_looked_up, iplookup, "zip",           (str,))
-                ip_api_instance.lat            = validate_and_get_field(player_ip_looked_up, iplookup, "lat",           (float, int))
-                ip_api_instance.lon            = validate_and_get_field(player_ip_looked_up, iplookup, "lon",           (float, int))
-                ip_api_instance.time_zone      = validate_and_get_field(player_ip_looked_up, iplookup, "timezone",      (str,))
-                ip_api_instance.offset         = validate_and_get_field(player_ip_looked_up, iplookup, "offset",        (int,))
-                ip_api_instance.currency       = validate_and_get_field(player_ip_looked_up, iplookup, "currency",      (str,))
-                ip_api_instance.isp            = validate_and_get_field(player_ip_looked_up, iplookup, "isp",           (str,))
-                ip_api_instance.org            = validate_and_get_field(player_ip_looked_up, iplookup, "org",           (str,))
-                ip_api_instance._as            = validate_and_get_field(player_ip_looked_up, iplookup, "as",            (str,))
-                ip_api_instance.as_name        = validate_and_get_field(player_ip_looked_up, iplookup, "asname",        (str,))
-                ip_api_instance.mobile         = validate_and_get_field(player_ip_looked_up, iplookup, "mobile",        (bool,))
-                ip_api_instance.proxy          = validate_and_get_field(player_ip_looked_up, iplookup, "proxy",         (bool,))
-                ip_api_instance.hosting        = validate_and_get_field(player_ip_looked_up, iplookup, "hosting",       (bool,))
-
-                ip_api_instance.compile()
-
                 if player_to_update := PlayersRegistry.get_player(player_ip_looked_up):
-                    player_to_update.iplookup.ipapi = ip_api_instance
+                    player_to_update.iplookup.ipapi.is_initialized = True
+                    player_to_update.iplookup.ipapi.continent      = validate_and_get_field(player_ip_looked_up, iplookup, "continent",     (str,))
+                    player_to_update.iplookup.ipapi.continent_code = validate_and_get_field(player_ip_looked_up, iplookup, "continentCode", (str,))
+                    player_to_update.iplookup.ipapi.country        = validate_and_get_field(player_ip_looked_up, iplookup, "country",       (str,))
+                    player_to_update.iplookup.ipapi.country_code   = validate_and_get_field(player_ip_looked_up, iplookup, "countryCode",   (str,))
+                    player_to_update.iplookup.ipapi.region         = validate_and_get_field(player_ip_looked_up, iplookup, "regionName",    (str,))
+                    player_to_update.iplookup.ipapi.region_code    = validate_and_get_field(player_ip_looked_up, iplookup, "region",        (str,))
+                    player_to_update.iplookup.ipapi.city           = validate_and_get_field(player_ip_looked_up, iplookup, "city",          (str,))
+                    player_to_update.iplookup.ipapi.district       = validate_and_get_field(player_ip_looked_up, iplookup, "district",      (str,))
+                    player_to_update.iplookup.ipapi.zip_code       = validate_and_get_field(player_ip_looked_up, iplookup, "zip",           (str,))
+                    player_to_update.iplookup.ipapi.lat            = validate_and_get_field(player_ip_looked_up, iplookup, "lat",           (float, int))
+                    player_to_update.iplookup.ipapi.lon            = validate_and_get_field(player_ip_looked_up, iplookup, "lon",           (float, int))
+                    player_to_update.iplookup.ipapi.time_zone      = validate_and_get_field(player_ip_looked_up, iplookup, "timezone",      (str,))
+                    player_to_update.iplookup.ipapi.offset         = validate_and_get_field(player_ip_looked_up, iplookup, "offset",        (int,))
+                    player_to_update.iplookup.ipapi.currency       = validate_and_get_field(player_ip_looked_up, iplookup, "currency",      (str,))
+                    player_to_update.iplookup.ipapi.isp            = validate_and_get_field(player_ip_looked_up, iplookup, "isp",           (str,))
+                    player_to_update.iplookup.ipapi.org            = validate_and_get_field(player_ip_looked_up, iplookup, "org",           (str,))
+                    player_to_update.iplookup.ipapi._as            = validate_and_get_field(player_ip_looked_up, iplookup, "as",            (str,))
+                    player_to_update.iplookup.ipapi.as_name        = validate_and_get_field(player_ip_looked_up, iplookup, "asname",        (str,))
+                    player_to_update.iplookup.ipapi.mobile         = validate_and_get_field(player_ip_looked_up, iplookup, "mobile",        (bool,))
+                    player_to_update.iplookup.ipapi.proxy          = validate_and_get_field(player_ip_looked_up, iplookup, "proxy",         (bool,))
+                    player_to_update.iplookup.ipapi.hosting        = validate_and_get_field(player_ip_looked_up, iplookup, "hosting",       (bool,))
 
             throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
@@ -2841,11 +2733,11 @@ class GUIrenderingData(metaclass=ThreadSafeMeta):
     SESSION_CONNECTED_TABLE__NUM_COLS: int = 0
     session_connected_table__num_rows: int = 0
     session_connected_table__processed_data: list[list[str]] = [[]]
-    session_connected_table__compiled_colors: list[list['CellColor']] = [[]]
+    session_connected_table__compiled_colors: list[list[CellColor]] = [[]]
     SESSION_DISCONNECTED_TABLE__NUM_COLS: int = 0
     session_disconnected_table__num_rows: int = 0
     session_disconnected_table__processed_data: list[list[str]] = [[]]
-    session_disconnected_table__compiled_colors: list[list['CellColor']] = [[]]
+    session_disconnected_table__compiled_colors: list[list[CellColor]] = [[]]
 
     session_connected_sorted_column_name: Optional[str] = None
     session_connected_sort_order: Optional[Qt.SortOrder] = None
@@ -3459,26 +3351,26 @@ def rendering_core():
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.compiled.continent_code})")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.country:<{session_connected__padding_country_name}} ({player.iplookup.maxmind.compiled.country_code})")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.region}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.region_code}")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.city}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.district}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.zip_code}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.lat}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.lon}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.time_zone}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.offset}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.currency}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.org}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.isp}")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled._as}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.as_name}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                row_texts.append(f"{player.iplookup.ipapi.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
+                row_texts.append(f"{player.iplookup.geolite2.country:<{session_connected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
+                row_texts.append(f"{player.iplookup.ipapi.region}")
+                row_texts.append(f"{player.iplookup.ipapi.region_code}")
+                row_texts.append(f"{player.iplookup.geolite2.city}")
+                row_texts.append(f"{player.iplookup.ipapi.district}")
+                row_texts.append(f"{player.iplookup.ipapi.zip_code}")
+                row_texts.append(f"{player.iplookup.ipapi.lat}")
+                row_texts.append(f"{player.iplookup.ipapi.lon}")
+                row_texts.append(f"{player.iplookup.ipapi.time_zone}")
+                row_texts.append(f"{player.iplookup.ipapi.offset}")
+                row_texts.append(f"{player.iplookup.ipapi.currency}")
+                row_texts.append(f"{player.iplookup.ipapi.org}")
+                row_texts.append(f"{player.iplookup.ipapi.isp}")
+                row_texts.append(f"{player.iplookup.geolite2.asn}")
+                row_texts.append(f"{player.iplookup.ipapi._as}")
+                row_texts.append(f"{player.iplookup.ipapi.as_name}")
+                row_texts.append(f"{player.iplookup.ipapi.mobile}")
+                row_texts.append(f"{player.iplookup.ipapi.proxy}")
+                row_texts.append(f"{player.iplookup.ipapi.hosting}")
                 row_texts.append(f"{player.ping.is_pinging}")
                 logging_connected_players_table.add_row(row_texts)
 
@@ -3501,26 +3393,26 @@ def rendering_core():
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.compiled.continent_code})")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.country:<{session_disconnected__padding_country_name}} ({player.iplookup.maxmind.compiled.country_code})")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.region}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.region_code}")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.city}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.district}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.zip_code}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.lat}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.lon}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.time_zone}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.offset}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.currency}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.org}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.isp}")
-                row_texts.append(f"{player.iplookup.maxmind.compiled.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled._as}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.as_name}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
-                row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                row_texts.append(f"{player.iplookup.ipapi.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
+                row_texts.append(f"{player.iplookup.geolite2.country:<{session_disconnected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
+                row_texts.append(f"{player.iplookup.ipapi.region}")
+                row_texts.append(f"{player.iplookup.ipapi.region_code}")
+                row_texts.append(f"{player.iplookup.geolite2.city}")
+                row_texts.append(f"{player.iplookup.ipapi.district}")
+                row_texts.append(f"{player.iplookup.ipapi.zip_code}")
+                row_texts.append(f"{player.iplookup.ipapi.lat}")
+                row_texts.append(f"{player.iplookup.ipapi.lon}")
+                row_texts.append(f"{player.iplookup.ipapi.time_zone}")
+                row_texts.append(f"{player.iplookup.ipapi.offset}")
+                row_texts.append(f"{player.iplookup.ipapi.currency}")
+                row_texts.append(f"{player.iplookup.ipapi.org}")
+                row_texts.append(f"{player.iplookup.ipapi.isp}")
+                row_texts.append(f"{player.iplookup.geolite2.asn}")
+                row_texts.append(f"{player.iplookup.ipapi._as}")
+                row_texts.append(f"{player.iplookup.ipapi.as_name}")
+                row_texts.append(f"{player.iplookup.ipapi.mobile}")
+                row_texts.append(f"{player.iplookup.ipapi.proxy}")
+                row_texts.append(f"{player.iplookup.ipapi.hosting}")
                 row_texts.append(f"{player.ping.is_pinging}")
                 logging_disconnected_players_table.add_row(row_texts)
 
@@ -3680,50 +3572,50 @@ def rendering_core():
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_CONTINENT_CODE:
-                        row_texts.append(f"{player.iplookup.ipapi.compiled.continent} ({player.iplookup.ipapi.compiled.continent_code})")
+                        row_texts.append(f"{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})")
                     else:
-                        row_texts.append(f"{player.iplookup.ipapi.compiled.continent}")
+                        row_texts.append(f"{player.iplookup.ipapi.continent}")
                 if "Country" not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_COUNTRY_CODE:
-                        row_texts.append(f"{player.iplookup.maxmind.compiled.country} ({player.iplookup.maxmind.compiled.country_code})")
+                        row_texts.append(f"{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})")
                     else:
-                        row_texts.append(f"{player.iplookup.maxmind.compiled.country}")
+                        row_texts.append(f"{player.iplookup.geolite2.country}")
                 if "Region" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.region}")
+                    row_texts.append(f"{player.iplookup.ipapi.region}")
                 if "R. Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.region_code}")
+                    row_texts.append(f"{player.iplookup.ipapi.region_code}")
                 if "City" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.maxmind.compiled.city}")
+                    row_texts.append(f"{player.iplookup.geolite2.city}")
                 if "District" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.district}")
+                    row_texts.append(f"{player.iplookup.ipapi.district}")
                 if "ZIP Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.zip_code}")
+                    row_texts.append(f"{player.iplookup.ipapi.zip_code}")
                 if "Lat" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.lat}")
+                    row_texts.append(f"{player.iplookup.ipapi.lat}")
                 if "Lon" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.lon}")
+                    row_texts.append(f"{player.iplookup.ipapi.lon}")
                 if "Time Zone" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.time_zone}")
+                    row_texts.append(f"{player.iplookup.ipapi.time_zone}")
                 if "Offset" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.offset}")
+                    row_texts.append(f"{player.iplookup.ipapi.offset}")
                 if "Currency" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.currency}")
+                    row_texts.append(f"{player.iplookup.ipapi.currency}")
                 if "Organization" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.org}")
+                    row_texts.append(f"{player.iplookup.ipapi.org}")
                 if "ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.isp}")
+                    row_texts.append(f"{player.iplookup.ipapi.isp}")
                 if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.maxmind.compiled.asn}")
+                    row_texts.append(f"{player.iplookup.geolite2.asn}")
                 if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled._as}")
+                    row_texts.append(f"{player.iplookup.ipapi._as}")
                 if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.as_name}")
+                    row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
+                    row_texts.append(f"{player.iplookup.ipapi.mobile}")
                 if "VPN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
+                    row_texts.append(f"{player.iplookup.ipapi.proxy}")
                 if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                    row_texts.append(f"{player.iplookup.ipapi.hosting}")
                 if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ping.is_pinging}")
 
@@ -3760,50 +3652,50 @@ def rendering_core():
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_CONTINENT_CODE:
-                        row_texts.append(f"{player.iplookup.ipapi.compiled.continent} ({player.iplookup.ipapi.compiled.continent_code})")
+                        row_texts.append(f"{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})")
                     else:
-                        row_texts.append(f"{player.iplookup.ipapi.compiled.continent}")
+                        row_texts.append(f"{player.iplookup.ipapi.continent}")
                 if "Country" not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_COUNTRY_CODE:
-                        row_texts.append(f"{player.iplookup.maxmind.compiled.country} ({player.iplookup.maxmind.compiled.country_code})")
+                        row_texts.append(f"{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})")
                     else:
-                        row_texts.append(f"{player.iplookup.maxmind.compiled.country}")
+                        row_texts.append(f"{player.iplookup.geolite2.country}")
                 if "Region" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.region}")
+                    row_texts.append(f"{player.iplookup.ipapi.region}")
                 if "R. Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.region_code}")
+                    row_texts.append(f"{player.iplookup.ipapi.region_code}")
                 if "City" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.maxmind.compiled.city}")
+                    row_texts.append(f"{player.iplookup.geolite2.city}")
                 if "District" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.district}")
+                    row_texts.append(f"{player.iplookup.ipapi.district}")
                 if "ZIP Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.zip_code}")
+                    row_texts.append(f"{player.iplookup.ipapi.zip_code}")
                 if "Lat" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.lat}")
+                    row_texts.append(f"{player.iplookup.ipapi.lat}")
                 if "Lon" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.lon}")
+                    row_texts.append(f"{player.iplookup.ipapi.lon}")
                 if "Time Zone" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.time_zone}")
+                    row_texts.append(f"{player.iplookup.ipapi.time_zone}")
                 if "Offset" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.offset}")
+                    row_texts.append(f"{player.iplookup.ipapi.offset}")
                 if "Currency" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.currency}")
+                    row_texts.append(f"{player.iplookup.ipapi.currency}")
                 if "Organization" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.org}")
+                    row_texts.append(f"{player.iplookup.ipapi.org}")
                 if "ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.isp}")
+                    row_texts.append(f"{player.iplookup.ipapi.isp}")
                 if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.maxmind.compiled.asn}")
+                    row_texts.append(f"{player.iplookup.geolite2.asn}")
                 if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled._as}")
+                    row_texts.append(f"{player.iplookup.ipapi._as}")
                 if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.as_name}")
+                    row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.mobile}")
+                    row_texts.append(f"{player.iplookup.ipapi.mobile}")
                 if "VPN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.proxy}")
+                    row_texts.append(f"{player.iplookup.ipapi.proxy}")
                 if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.compiled.hosting}")
+                    row_texts.append(f"{player.iplookup.ipapi.hosting}")
                 if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ping.is_pinging}")
 
@@ -4016,26 +3908,25 @@ def rendering_core():
                         player.userip.detection.as_processed_userip_task = False
                         threading.Thread(target=process_userip_task, args=(player, "disconnected"), daemon=True).start()
 
-                if not player.iplookup.maxmind.is_initialized:
-                    player.iplookup.maxmind.country, player.iplookup.maxmind.country_code = get_country_info(player.ip)
-                    player.iplookup.maxmind.city = get_city_info(player.ip)
-                    player.iplookup.maxmind.asn = get_asn_info(player.ip)
+                if not player.iplookup.geolite2.is_initialized:
+                    player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
+                    player.iplookup.geolite2.city = get_city_info(player.ip)
+                    player.iplookup.geolite2.asn = get_asn_info(player.ip)
 
-                    player.iplookup.maxmind.compile()
-                    player.iplookup.maxmind.is_initialized = True
+                    player.iplookup.geolite2.is_initialized = True
 
                 if player.datetime.left:
                     session_disconnected.append(player)
 
                     if Settings.GUI_SESSIONS_LOGGING:
-                        session_disconnected__padding_country_name = get_minimum_padding(player.iplookup.maxmind.compiled.country, session_disconnected__padding_country_name, 27)
-                        session_disconnected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.compiled.continent, session_disconnected__padding_continent_name, 13)
+                        session_disconnected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_disconnected__padding_country_name, 27)
+                        session_disconnected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_disconnected__padding_continent_name, 13)
                 else:
                     session_connected.append(player)
 
                     if Settings.GUI_SESSIONS_LOGGING:
-                        session_connected__padding_country_name = get_minimum_padding(player.iplookup.maxmind.compiled.country, session_connected__padding_country_name, 27)
-                        session_connected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.compiled.continent, session_connected__padding_continent_name, 13)
+                        session_connected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_connected__padding_country_name, 27)
+                        session_connected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_connected__padding_continent_name, 13)
 
                     # Calculate PPS every second
                     if (time.monotonic() - player.pps.last_update_time) >= 1.0:
@@ -4962,27 +4853,27 @@ class SessionTableView(QTableView):
             First Port: {player.ports.first}
 
             ########## IP Lookup Details ##########
-            Continent: {player.iplookup.ipapi.compiled.continent}
-            Country: {player.iplookup.maxmind.compiled.country}
-            Country Code: {player.iplookup.maxmind.compiled.country_code}
-            Region: {player.iplookup.ipapi.compiled.region}
-            Region Code: {player.iplookup.ipapi.compiled.region_code}
-            City: {player.iplookup.maxmind.compiled.city}
-            District: {player.iplookup.ipapi.compiled.district}
-            ZIP Code: {player.iplookup.ipapi.compiled.zip_code}
-            Lat: {player.iplookup.ipapi.compiled.lat}
-            Lon: {player.iplookup.ipapi.compiled.lon}
-            Time Zone: {player.iplookup.ipapi.compiled.time_zone}
-            Offset: {player.iplookup.ipapi.compiled.offset}
-            Currency: {player.iplookup.ipapi.compiled.currency}
-            Organization: {player.iplookup.ipapi.compiled.org}
-            ISP: {player.iplookup.ipapi.compiled.isp}
-            ASN / ISP: {player.iplookup.maxmind.compiled.asn}
-            AS: {player.iplookup.ipapi.compiled._as}
-            ASN: {player.iplookup.ipapi.compiled.as_name}
-            Mobile (cellular) connection: {player.iplookup.ipapi.compiled.mobile}
-            Proxy, VPN or Tor exit address: {player.iplookup.ipapi.compiled.proxy}
-            Hosting, colocated or data center: {player.iplookup.ipapi.compiled.hosting}
+            Continent: {player.iplookup.ipapi.continent}
+            Country: {player.iplookup.geolite2.country}
+            Country Code: {player.iplookup.geolite2.country_code}
+            Region: {player.iplookup.ipapi.region}
+            Region Code: {player.iplookup.ipapi.region_code}
+            City: {player.iplookup.geolite2.city}
+            District: {player.iplookup.ipapi.district}
+            ZIP Code: {player.iplookup.ipapi.zip_code}
+            Lat: {player.iplookup.ipapi.lat}
+            Lon: {player.iplookup.ipapi.lon}
+            Time Zone: {player.iplookup.ipapi.time_zone}
+            Offset: {player.iplookup.ipapi.offset}
+            Currency: {player.iplookup.ipapi.currency}
+            Organization: {player.iplookup.ipapi.org}
+            ISP: {player.iplookup.ipapi.isp}
+            ASN / ISP: {player.iplookup.geolite2.asn}
+            AS: {player.iplookup.ipapi._as}
+            ASN: {player.iplookup.ipapi.as_name}
+            Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
+            Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
+            Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
 
             ############ Ping Response ############
             Ping Times: {player.ping.ping_times}
@@ -5184,7 +5075,7 @@ class SessionTableView(QTableView):
 
             QMessageBox.information(self, TITLE, report)
 
-    def select_all_cells(self, unselect: bool = False):
+    def select_all_cells(self, unselect = False):
         """
         Select or unselect all rows and columns from the table.
 
@@ -5218,7 +5109,7 @@ class SessionTableView(QTableView):
         # Apply the selection or deselection
         selection_model.select(selection, flag)
 
-    def select_row_cells(self, row: int, unselect: bool = False):
+    def select_row_cells(self, row: int, unselect = False):
         """
         Select or unselect all cells in the specified row from the table.
 
@@ -5244,7 +5135,7 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Deselect if unselect else QItemSelectionModel.SelectionFlag.Select
         selection_model.select(selection, flag)
 
-    def select_column_cells(self, column: int, unselect: bool = False):
+    def select_column_cells(self, column: int, unselect = False):
         """
         Select or unselect all cells in the specified column from the table.
 

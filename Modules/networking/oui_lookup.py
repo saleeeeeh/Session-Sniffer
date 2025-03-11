@@ -42,6 +42,7 @@ class MacLookup():
         else:
             return None
 
+
 def clean_mac_address(mac_address: str):
     """Remove any separators from the MAC address and convert to uppercase."""
     return mac_address.replace(":", "").replace("-", "").upper()

@@ -1,5 +1,6 @@
 # Standard Python Libraries
 from typing import Union, Literal
+from typing import NamedTuple
 
 # External/Third-party Python Libraries
 from PyQt6.QtCore import Qt
@@ -15,27 +16,16 @@ from PyQt6.QtWidgets import (
 )
 
 
-class InterfaceSelectionData:
-    def __init__(self,
-        index: int,
-        interface_name: str,
-        packets_sent: Union[Literal["N/A"], int],
-        packets_recv: Union[Literal["N/A"], int],
-        ip_address: Union[Literal["N/A"], str],
-        mac_address: Union[Literal["N/A"], str],
-        adapter_name: Union[Literal["N/A"], str],
-        manufacturer: Union[Literal["N/A"], str],
-        is_arp = False
-    ):
-        self.index = index
-        self.interface_name = interface_name
-        self.packets_sent = packets_sent
-        self.packets_recv = packets_recv
-        self.ip_address = ip_address
-        self.mac_address = mac_address
-        self.adapter_name = adapter_name
-        self.manufacturer = manufacturer
-        self.is_arp = is_arp
+class InterfaceSelectionData(NamedTuple):
+    index: int
+    interface_name: str
+    packets_sent: Union[Literal["N/A"], int]
+    packets_recv: Union[Literal["N/A"], int]
+    ip_address: Union[Literal["N/A"], str]
+    mac_address: Union[Literal["N/A"], str]
+    adapter_name: Union[Literal["N/A"], str]
+    manufacturer: Union[Literal["N/A"], str]
+    is_arp: bool = False
 
 class InterfaceSelectionDialog(QDialog):
     def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
@@ -158,6 +148,7 @@ class InterfaceSelectionDialog(QDialog):
             # Retrieve the selected interface data
             self.selected_interface_data = self.interfaces[selected_row]  # Get the selected interface data
             self.accept()  # Close the dialog and set its result to QDialog.Accepted
+
 
 def show_interface_selection_dialog(screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
     # Create and show the interface selection dialog
