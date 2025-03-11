@@ -96,7 +96,7 @@ def terminate_script(
         if terminate_gracefully is False:
             return False
 
-        for thread_name in ("capture_core__thread", "rendering_core__thread", "iplookup_core__thread", "pinger_core__thread"):
+        for thread_name in ("capture_core__thread", "rendering_core__thread", "hostname_core__thread", "iplookup_core__thread", "pinger_core__thread"):
             if thread_name in globals():
                 thread = globals()[thread_name]
                 if isinstance(thread, threading.Thread):
@@ -1024,71 +1024,14 @@ class PlayersRegistry:
         return cls.players_registry.get(ip)
 
     @classmethod
-    def iterate_players_from_registry(cls):
+    def iterate_players_from_registry(
+        cls,
+        sort_order: str = "datetime.last_seen",
+        reverse: bool = False
+    ):
         # Using list() ensures a static snapshot of the dictionary's values is used, avoiding the 'RuntimeError: dictionary changed size during iteration'.
-        for player in list(cls.players_registry.values()):
+        for player in sorted(list(cls.players_registry.values()), key=attrgetter(sort_order), reverse=reverse):
             yield player
-
-class IPLookup:
-    lock =  threading.Lock()
-    _lock_pending_ips = threading.Lock()
-    _lock_results_ips = threading.Lock()
-
-    _pending_ips_for_lookup: list[str] = []
-    _results_ips_for_lookup: dict[str, IPAPI] = {}
-
-    @classmethod
-    def add_pending_ip(cls, ip: str):
-        with cls._lock_pending_ips:
-            if ip in cls._pending_ips_for_lookup:
-                raise ValueError(f"IP address '{ip}' is already in the pending IP lookup list.")
-            cls._pending_ips_for_lookup.append(ip)
-
-    @classmethod
-    def remove_pending_ip(cls, ip: str):
-        with cls._lock_pending_ips:
-            if ip in cls._pending_ips_for_lookup:
-                cls._pending_ips_for_lookup.remove(ip)
-
-    @classmethod
-    def get_pending_ips(cls):
-        with cls._lock_pending_ips:
-            return cls._pending_ips_for_lookup
-
-    @classmethod
-    def get_pending_ips_slice(cls, start: int, end: int):
-        with cls._lock_pending_ips:
-            return cls._pending_ips_for_lookup[start:end]
-
-    @classmethod
-    def update_results(cls, ip: str, result: IPAPI):
-        with cls._lock_results_ips:
-            cls._results_ips_for_lookup[ip] = result
-
-    @classmethod
-    def get_results(cls, ip: str):
-        with cls._lock_results_ips:
-            return cls._results_ips_for_lookup.get(ip)
-
-    @classmethod
-    def ip_in_pending(cls, ip: str):
-        with cls._lock_pending_ips:
-            return ip in cls._pending_ips_for_lookup
-
-    @classmethod
-    def ip_in_results(cls, ip: str):
-        with cls._lock_results_ips:
-            return ip in cls._results_ips_for_lookup
-
-    @classmethod
-    def ip_exists(cls, ip: str):
-        with cls._lock_pending_ips:
-            if ip in cls._pending_ips_for_lookup:
-                return "pending"
-        with cls._lock_results_ips:
-            if  ip in cls._results_ips_for_lookup:
-                return "results"
-        return "not found"
 
 class SessionHost:
     player: Optional[Player] = None
@@ -1954,6 +1897,8 @@ Settings.load_from_settings_file(SETTINGS_PATH)
 cls()
 title(f"Searching for a new update - {TITLE}")
 print("\nSearching for a new update ...\n")
+from Modules.constants.standalone import GITHUB_RELEASES_URL
+
 CURRENT_VERSION = Version(VERSION)
 
 try:
@@ -1971,7 +1916,7 @@ except:
     msgbox_style = MsgBox.Style.YesNo | MsgBox.Style.Exclamation | MsgBox.Style.MsgBoxSetForeground
     errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
     if errorlevel == MsgBox.ReturnValues.IDYES:
-        webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer/releases")
+        webbrowser.open(GITHUB_RELEASES_URL)
         terminate_script("EXIT")
 else:
     versions_json: dict[str, str] = response.json()
@@ -2004,8 +1949,10 @@ else:
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
         if errorlevel == MsgBox.ReturnValues.IDYES:
-            webbrowser.open("https://github.com/BUZZARDGTA/Session-Sniffer/releases")
+            webbrowser.open(GITHUB_RELEASES_URL)
             terminate_script("EXIT")
+
+del GITHUB_RELEASES_URL
 
 cls()
 title(f'Checking that "Npcap" driver is installed on your system - {TITLE}')
@@ -2570,22 +2517,14 @@ def hostname_core():
             if ScriptControl.has_crashed():
                 return
 
-            players_connected_to_resolve: list[str] = []
-            players_disconnected_to_resolve: list[str] = []
+            ips_to_resolve: list[str] = []
 
-            # Collect IPs based on player status (same logic as before)
-            for player in PlayersRegistry.iterate_players_from_registry():
+            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
                 if player.hostname != "N/A":
                     continue
 
-                if player.datetime.left:
-                    players_disconnected_to_resolve.append(player.ip)
-                else:
-                    players_connected_to_resolve.append(player.ip)
+                ips_to_resolve.append(player.ip)
 
-            ips_to_resolve = players_connected_to_resolve + players_disconnected_to_resolve
-
-            # If there are no IPs to resolve, wait for a cooldown period before continuing.
             if not ips_to_resolve:
                 gui_closed__event.wait(1)
                 continue
@@ -2609,10 +2548,7 @@ def hostname_core():
 
 def iplookup_core():
     with Threads_ExceptionHandler():
-        def throttle_until(response: requests.Response):
-            requests_remaining = int(response.headers["X-Rl"])
-            throttle_time = int(response.headers["X-Ttl"])
-
+        def throttle_until(requests_remaining: int, throttle_time: int):
             # Calculate sleep time only if there are remaining requests
             sleep_time = throttle_time / requests_remaining if requests_remaining > 0 else throttle_time
 
@@ -2625,45 +2561,38 @@ def iplookup_core():
         MAX_BATCH_IP_API_IPS = 100
         FIELDS_TO_LOOKUP = "continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query"
 
+        def validate_and_get_field(
+            player_ip: str,
+            data: dict[str, Any],
+            field: str,
+            expected_types: tuple[Type[Any], ...]
+        ):
+            """Retrieve a field from a dictionary and validate its type."""
+            result = data.get(field, "N/A")
+
+            if result != "N/A" and not isinstance(result, expected_types):
+                expected_names = " or ".join(t.__name__ for t in expected_types)
+                raise TypeError(f'Expected "{expected_names}" for "{field}", got "{type(result).__name__}" ({player_ip})')
+
+            return result
+
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
                 return
 
-            players_connected_to_lookup: list[str] = []
-            players_disconnected_to_lookup: list[str] = []
-            removed_disconnected_ip = None
+            ips_to_lookup: list[str] = []
 
-            for player in PlayersRegistry.iterate_players_from_registry():
+            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
                 if player.iplookup.ipapi.is_initialized:
                     continue
 
-                if player.datetime.left:
-                    players_disconnected_to_lookup.append(player.ip)
-                else:
-                    players_connected_to_lookup.append(player.ip)
+                ips_to_lookup.append(player.ip)
 
-                if (len(players_connected_to_lookup) + len(players_disconnected_to_lookup)) == MAX_BATCH_IP_API_IPS:
-                    if players_disconnected_to_lookup:
-                        removed_disconnected_ip = players_disconnected_to_lookup.pop(-1)
-                    else:
-                        break
+                if len(ips_to_lookup) == MAX_BATCH_IP_API_IPS:
+                    break
 
-            ips_to_lookup = players_connected_to_lookup + players_disconnected_to_lookup
-            if len(ips_to_lookup) < MAX_BATCH_IP_API_IPS:
-                if (
-                    len(ips_to_lookup) == (MAX_BATCH_IP_API_IPS - 1)
-                    and removed_disconnected_ip
-                ):
-                    ips_to_lookup.append(removed_disconnected_ip)
-                else:
-                    remaining_space = MAX_BATCH_IP_API_IPS - len(ips_to_lookup)
-                    items_to_add = IPLookup.get_pending_ips_slice(0, remaining_space)
-                    ips_to_lookup.extend(items_to_add)
-
-            # Ensure the final list is no longer than 100 elements
-            ips_to_lookup = ips_to_lookup[:MAX_BATCH_IP_API_IPS]
-            if len(ips_to_lookup) == 0:
-                gui_closed__event.wait(1) # If there are no new players to lookup, sleep for 1 second to reduce CPU usage.
+            if not ips_to_lookup:
+                gui_closed__event.wait(1)
                 continue
 
             try:
@@ -2679,12 +2608,11 @@ def iplookup_core():
                 continue
             except requests.exceptions.HTTPError as e:
                 if isinstance(e.response, requests.Response) and e.response.status_code == 429:  # Handle rate limiting
-                    throttle_until(e.response)
+                    throttle_until(int(e.response.headers["X-Rl"]), int(e.response.headers["X-Ttl"]))
                     continue
                 raise  # Re-raise other HTTP errors
 
-            iplookup_results: list[dict[str]] = response.json()
-
+            iplookup_results: list[dict[str, Any]] = response.json()
             if not isinstance(iplookup_results, list):
                 raise TypeError(f'Expected "list" object, got "{type(iplookup_results).__name__}"')
 
@@ -2699,122 +2627,34 @@ def iplookup_core():
                 ip_api_instance = IPAPI()
                 ip_api_instance.is_initialized = True
 
-                continent = iplookup.get("continent", "N/A")
-                if continent != "N/A" and not isinstance(continent, str):
-                    raise TypeError(f'Expected "str" object, got "{type(continent).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.continent = continent
-
-                continent_code = iplookup.get("continentCode", "N/A")
-                if continent_code != "N/A" and not isinstance(continent_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(continent_code).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.continent_code = continent_code
-
-                country = iplookup.get("country", "N/A")
-                if country != "N/A" and not isinstance(country, str):
-                    raise TypeError(f'Expected "str" object, got "{type(country).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.country = country
-
-                country_code = iplookup.get("countryCode", "N/A")
-                if country_code != "N/A" and not isinstance(country_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(country_code).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.country_code = country_code
-
-                region = iplookup.get("regionName", "N/A")
-                if region != "N/A" and not isinstance(region, str):
-                    raise TypeError(f'Expected "str" object, got "{type(region).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.region = region
-
-                region_code = iplookup.get("region", "N/A")
-                if region_code != "N/A" and not isinstance(region_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(region_code).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.region_code = region_code
-
-                city = iplookup.get("city", "N/A")
-                if city != "N/A" and not isinstance(city, str):
-                    raise TypeError(f'Expected "str" object, got "{type(city).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.city = city
-
-                district = iplookup.get("district", "N/A")
-                if district != "N/A" and not isinstance(district, str):
-                    raise TypeError(f'Expected "str" object, got "{type(district).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.district = district
-
-                zip_code = iplookup.get("zip", "N/A")
-                if zip_code != "N/A" and not isinstance(zip_code, str):
-                    raise TypeError(f'Expected "str" object, got "{type(zip_code).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.zip_code = zip_code
-
-                lat = iplookup.get("lat", "N/A")
-                if lat != "N/A" and not isinstance(lat, (float, int)):
-                    raise TypeError(f'Expected "float | int" object, got "{type(lat).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.lat = lat
-
-                lon = iplookup.get("lon", "N/A")
-                if lon != "N/A" and not isinstance(lon, (float, int)):
-                    raise TypeError(f'Expected "float | int" object, got "{type(lon).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.lon = lon
-
-                time_zone = iplookup.get("timezone", "N/A")
-                if time_zone != "N/A" and not isinstance(time_zone, str):
-                    raise TypeError(f'Expected "str" object, got "{type(time_zone).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.time_zone = time_zone
-
-                offset = iplookup.get("offset", "N/A")
-                if offset != "N/A" and not isinstance(offset, int):
-                    raise TypeError(f'Expected "int" object, got "{type(offset).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.offset = offset
-
-                currency = iplookup.get("currency", "N/A")
-                if currency != "N/A" and not isinstance(currency, str):
-                    raise TypeError(f'Expected "str" object, got "{type(currency).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.currency = currency
-
-                isp = iplookup.get("isp", "N/A")
-                if isp != "N/A" and not isinstance(isp, str):
-                    raise TypeError(f'Expected "str" object, got "{type(isp).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.isp = isp
-
-                org = iplookup.get("org", "N/A")
-                if org != "N/A" and not isinstance(org, str):
-                    raise TypeError(f'Expected "str" object, got "{type(org).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.org = org
-
-                _as = iplookup.get("as", "N/A")
-                if _as != "N/A" and not isinstance(_as, str):
-                    raise TypeError(f'Expected "str" object, got "{type(_as).__name__}" ({player_ip_looked_up})')
-                ip_api_instance._as = _as
-
-                as_name = iplookup.get("asname", "N/A")
-                if as_name != "N/A" and not isinstance(as_name, str):
-                    raise TypeError(f'Expected "str" object, got "{type(as_name).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.as_name = as_name
-
-                mobile = iplookup.get("mobile", "N/A")
-                if mobile != "N/A" and not isinstance(mobile, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(mobile).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.mobile = mobile
-
-                proxy = iplookup.get("proxy", "N/A")
-                if proxy != "N/A" and not isinstance(proxy, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(proxy).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.proxy = proxy
-
-                hosting = iplookup.get("hosting", "N/A")
-                if hosting != "N/A" and not isinstance(hosting, bool):
-                    raise TypeError(f'Expected "bool" object, got "{type(hosting).__name__}" ({player_ip_looked_up})')
-                ip_api_instance.hosting = hosting
+                ip_api_instance.continent      = validate_and_get_field(player_ip_looked_up, iplookup, "continent",     (str,))
+                ip_api_instance.continent_code = validate_and_get_field(player_ip_looked_up, iplookup, "continentCode", (str,))
+                ip_api_instance.country        = validate_and_get_field(player_ip_looked_up, iplookup, "country",       (str,))
+                ip_api_instance.country_code   = validate_and_get_field(player_ip_looked_up, iplookup, "countryCode",   (str,))
+                ip_api_instance.region         = validate_and_get_field(player_ip_looked_up, iplookup, "regionName",    (str,))
+                ip_api_instance.region_code    = validate_and_get_field(player_ip_looked_up, iplookup, "region",        (str,))
+                ip_api_instance.city           = validate_and_get_field(player_ip_looked_up, iplookup, "city",          (str,))
+                ip_api_instance.district       = validate_and_get_field(player_ip_looked_up, iplookup, "district",      (str,))
+                ip_api_instance.zip_code       = validate_and_get_field(player_ip_looked_up, iplookup, "zip",           (str,))
+                ip_api_instance.lat            = validate_and_get_field(player_ip_looked_up, iplookup, "lat",           (float, int))
+                ip_api_instance.lon            = validate_and_get_field(player_ip_looked_up, iplookup, "lon",           (float, int))
+                ip_api_instance.time_zone      = validate_and_get_field(player_ip_looked_up, iplookup, "timezone",      (str,))
+                ip_api_instance.offset         = validate_and_get_field(player_ip_looked_up, iplookup, "offset",        (int,))
+                ip_api_instance.currency       = validate_and_get_field(player_ip_looked_up, iplookup, "currency",      (str,))
+                ip_api_instance.isp            = validate_and_get_field(player_ip_looked_up, iplookup, "isp",           (str,))
+                ip_api_instance.org            = validate_and_get_field(player_ip_looked_up, iplookup, "org",           (str,))
+                ip_api_instance._as            = validate_and_get_field(player_ip_looked_up, iplookup, "as",            (str,))
+                ip_api_instance.as_name        = validate_and_get_field(player_ip_looked_up, iplookup, "asname",        (str,))
+                ip_api_instance.mobile         = validate_and_get_field(player_ip_looked_up, iplookup, "mobile",        (bool,))
+                ip_api_instance.proxy          = validate_and_get_field(player_ip_looked_up, iplookup, "proxy",         (bool,))
+                ip_api_instance.hosting        = validate_and_get_field(player_ip_looked_up, iplookup, "hosting",       (bool,))
 
                 ip_api_instance.compile()
 
-                with IPLookup.lock:
-                    IPLookup.remove_pending_ip(player_ip_looked_up)
-                    IPLookup.update_results(player_ip_looked_up, ip_api_instance)
-
-                player_to_update = PlayersRegistry.get_player(player_ip_looked_up)
-                if isinstance(player_to_update, Player):
+                if player_to_update := PlayersRegistry.get_player(player_ip_looked_up):
                     player_to_update.iplookup.ipapi = ip_api_instance
 
-            throttle_until(response)
+            throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
 def pinger_core():
     with Threads_ExceptionHandler():
@@ -2825,22 +2665,14 @@ def pinger_core():
             if ScriptControl.has_crashed():
                 return
 
-            players_connected_to_ping: list[str] = []
-            players_disconnected_to_ping: list[str] = []
+            ips_to_ping: list[str] = []
 
-            # Collect IPs based on player status.
-            for player in PlayersRegistry.iterate_players_from_registry():
+            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
                 if player.ping.is_initialized:
                     continue
 
-                if player.datetime.left:
-                    players_disconnected_to_ping.append(player.ip)
-                else:
-                    players_connected_to_ping.append(player.ip)
+                ips_to_ping.append(player.ip)
 
-            ips_to_ping = players_connected_to_ping + players_disconnected_to_ping
-
-            # If there are no IPs to ping, wait for a cooldown period before continuing.
             if not ips_to_ping:
                 gui_closed__event.wait(1)
                 continue
@@ -5469,7 +5301,7 @@ class GUIWorkerThread(QThread):
             GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = self.connected_table_view.get_sorted_column()
             GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = self.disconnected_table_view.get_sorted_column()
 
-            # Wait for the gui_rendering data to be ready (timeout of 1 second)
+            # Wait for the gui_rendering data to be ready (timeout of 0.1 second)
             # If the event is not set within the timeout, just continue
             if not GUIrenderingData.gui_rendering_ready_event.wait(timeout=0.1):
                 continue
@@ -5482,7 +5314,7 @@ class GUIWorkerThread(QThread):
                 GUIrenderingData.session_connected_table__num_rows,
                 GUIrenderingData.session_disconnected_table__processed_data,
                 GUIrenderingData.session_disconnected_table__compiled_colors,
-                GUIrenderingData.session_disconnected_table__num_rows,
+                GUIrenderingData.session_disconnected_table__num_rows
             )
 
 class MainWindow(QMainWindow):
