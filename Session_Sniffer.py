@@ -928,10 +928,16 @@ class Player:
 class PlayersRegistry:
     players_registry: dict[str, Player] = {}
 
+    _sorted_players_cache: list[Player] = []
+    _cache_lock = threading.Lock()
+
+    # Constant for the default sort order
+    DEFAULT_SORT_ORDER = "datetime.last_rejoin"
+
     @classmethod
     def add_player(cls, player: Player):
         if player.ip in cls.players_registry:
-            raise ValueError(f"Player with IP \"{player.ip}\" already exists.")
+            raise ValueError(f'Player with IP "{player.ip}" already exists.')
         cls.players_registry[player.ip] = player
         return player
 
@@ -940,14 +946,42 @@ class PlayersRegistry:
         return cls.players_registry.get(ip)
 
     @classmethod
-    def iterate_players_from_registry(
-        cls,
-        sort_order: str = "datetime.last_seen",
-        reverse = False
-    ):
+    def iterate_players_from_registry(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse = False):
         # Using list() ensures a static snapshot of the dictionary's values is used, avoiding the 'RuntimeError: dictionary changed size during iteration'.
-        for player in sorted(list(cls.players_registry.values()), key=attrgetter(sort_order), reverse=reverse):
+        for player in sorted(
+            list(cls.players_registry.values()),
+            key=attrgetter(sort_order),
+            reverse=reverse
+        ):
             yield player
+
+    @classmethod
+    def _update_sorted_cache(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse = False):
+        """Refresh the cached sorted player list every second."""
+        while not gui_closed__event.is_set():
+            with cls._cache_lock:
+                cls._sorted_players_cache = sorted(
+                    cls.players_registry.values(),
+                    key=attrgetter(sort_order),
+                    reverse=reverse
+                )
+            gui_closed__event.wait(1)  # Sleep for 1 second
+
+    @classmethod
+    def get_sorted_players(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse = False):
+        """Return the cached sorted players list (thread-safe)."""
+        with cls._cache_lock:
+            if sort_order == cls.DEFAULT_SORT_ORDER:
+                # Return the list as is if the default sort order is requested
+                return cls._sorted_players_cache.copy()
+            else:
+                return sorted(cls._sorted_players_cache, key=attrgetter(sort_order), reverse=reverse)
+
+    @classmethod
+    def start_cache_updater(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse = False):
+        """Start the background thread to update the player cache."""
+        thread = threading.Thread(target=cls._update_sorted_cache, args=(sort_order, reverse), daemon=True)
+        thread.start()
 
 class SessionHost:
     player: Optional[Player] = None
@@ -2417,7 +2451,7 @@ def hostname_core():
 
             ips_to_resolve: list[str] = []
 
-            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
+            for player in PlayersRegistry.get_sorted_players():
                 if player.hostname != "...":
                     continue
 
@@ -2441,8 +2475,6 @@ def hostname_core():
 
                     if player := PlayersRegistry.get_player(ip):
                         player.hostname = hostname
-
-                    gui_closed__event.wait(0.1)
 
 def iplookup_core():
     with Threads_ExceptionHandler():
@@ -2480,7 +2512,7 @@ def iplookup_core():
 
             ips_to_lookup: list[str] = []
 
-            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
+            for player in PlayersRegistry.get_sorted_players():
                 if player.iplookup.ipapi.is_initialized:
                     continue
 
@@ -2518,75 +2550,89 @@ def iplookup_core():
                 if not isinstance(iplookup, dict):
                     raise TypeError(f'Expected "dict" object, got "{type(iplookup).__name__}"')
 
-                player_ip_looked_up = iplookup.get("query")
-                if not isinstance(player_ip_looked_up, str):
-                    raise TypeError(f'Expected "str" object, got "{type(player_ip_looked_up).__name__}"')
+                player_ip = iplookup.get("query")
+                if not isinstance(player_ip, str):
+                    raise TypeError(f'Expected "str" object, got "{type(player_ip).__name__}"')
 
-                if player_to_update := PlayersRegistry.get_player(player_ip_looked_up):
-                    player_to_update.iplookup.ipapi.is_initialized = True
-                    player_to_update.iplookup.ipapi.continent      = validate_and_get_field(player_ip_looked_up, iplookup, "continent",     (str,))
-                    player_to_update.iplookup.ipapi.continent_code = validate_and_get_field(player_ip_looked_up, iplookup, "continentCode", (str,))
-                    player_to_update.iplookup.ipapi.country        = validate_and_get_field(player_ip_looked_up, iplookup, "country",       (str,))
-                    player_to_update.iplookup.ipapi.country_code   = validate_and_get_field(player_ip_looked_up, iplookup, "countryCode",   (str,))
-                    player_to_update.iplookup.ipapi.region         = validate_and_get_field(player_ip_looked_up, iplookup, "regionName",    (str,))
-                    player_to_update.iplookup.ipapi.region_code    = validate_and_get_field(player_ip_looked_up, iplookup, "region",        (str,))
-                    player_to_update.iplookup.ipapi.city           = validate_and_get_field(player_ip_looked_up, iplookup, "city",          (str,))
-                    player_to_update.iplookup.ipapi.district       = validate_and_get_field(player_ip_looked_up, iplookup, "district",      (str,))
-                    player_to_update.iplookup.ipapi.zip_code       = validate_and_get_field(player_ip_looked_up, iplookup, "zip",           (str,))
-                    player_to_update.iplookup.ipapi.lat            = validate_and_get_field(player_ip_looked_up, iplookup, "lat",           (float, int))
-                    player_to_update.iplookup.ipapi.lon            = validate_and_get_field(player_ip_looked_up, iplookup, "lon",           (float, int))
-                    player_to_update.iplookup.ipapi.time_zone      = validate_and_get_field(player_ip_looked_up, iplookup, "timezone",      (str,))
-                    player_to_update.iplookup.ipapi.offset         = validate_and_get_field(player_ip_looked_up, iplookup, "offset",        (int,))
-                    player_to_update.iplookup.ipapi.currency       = validate_and_get_field(player_ip_looked_up, iplookup, "currency",      (str,))
-                    player_to_update.iplookup.ipapi.isp            = validate_and_get_field(player_ip_looked_up, iplookup, "isp",           (str,))
-                    player_to_update.iplookup.ipapi.org            = validate_and_get_field(player_ip_looked_up, iplookup, "org",           (str,))
-                    player_to_update.iplookup.ipapi._as            = validate_and_get_field(player_ip_looked_up, iplookup, "as",            (str,))
-                    player_to_update.iplookup.ipapi.as_name        = validate_and_get_field(player_ip_looked_up, iplookup, "asname",        (str,))
-                    player_to_update.iplookup.ipapi.mobile         = validate_and_get_field(player_ip_looked_up, iplookup, "mobile",        (bool,))
-                    player_to_update.iplookup.ipapi.proxy          = validate_and_get_field(player_ip_looked_up, iplookup, "proxy",         (bool,))
-                    player_to_update.iplookup.ipapi.hosting        = validate_and_get_field(player_ip_looked_up, iplookup, "hosting",       (bool,))
+                if player := PlayersRegistry.get_player(player_ip):
+                    player.iplookup.ipapi.is_initialized = True
+
+                    field_mappings: dict[str, tuple[str, tuple[Type[Any], ...]]] = {
+                        "continent": ("continent", str),
+                        "continent_code": ("continentCode", str),
+                        "country": ("country", str),
+                        "country_code": ("countryCode", str),
+                        "region": ("regionName", str),
+                        "region_code": ("region", str),
+                        "city": ("city", str),
+                        "district": ("district", str),
+                        "zip_code": ("zip", str),
+                        "lat": ("lat", (float, int)),
+                        "lon": ("lon", (float, int)),
+                        "time_zone": ("timezone", str),
+                        "offset": ("offset", int),
+                        "currency": ("currency", str),
+                        "isp": ("isp", str),
+                        "org": ("org", str),
+                        "_as": ("as", str),
+                        "as_name": ("asname", str),
+                        "mobile": ("mobile", bool),
+                        "proxy": ("proxy", bool),
+                        "hosting": ("hosting", bool),
+                    }
+
+                    for attr, (field, field_type) in field_mappings.items():
+                        setattr(player.iplookup.ipapi, attr, validate_and_get_field(player_ip, iplookup, field, field_type))
 
             throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
 def pinger_core():
     with Threads_ExceptionHandler():
-        import concurrent.futures
-        from Modules.networking.endpoint_ping_manager import AllEndpointsExhausted, fetch_and_parse_ping
+        from concurrent.futures import ThreadPoolExecutor, Future
+        from Modules.networking.endpoint_ping_manager import AllEndpointsExhausted, PingResult, fetch_and_parse_ping
 
-        while not gui_closed__event.is_set():
-            if ScriptControl.has_crashed():
-                return
+        with ThreadPoolExecutor(max_workers=32) as executor:
+            futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
+            pending_ips: set[str] = set()   # Tracks IPs currently being processed
 
-            ips_to_ping: list[str] = []
+            while not gui_closed__event.is_set():
+                if ScriptControl.has_crashed():
+                    return
 
-            for player in PlayersRegistry.iterate_players_from_registry(sort_order="datetime.last_rejoin"):
-                if player.ping.is_initialized:
-                    continue
+                # Add new IPs to the pool, respecting the 32-task limit
+                for player in PlayersRegistry.get_sorted_players():
+                    if player.ping.is_initialized or player.ip in pending_ips:
+                        continue
 
-                ips_to_ping.append(player.ip)
+                    future = executor.submit(fetch_and_parse_ping, player.ip)
+                    futures[future] = player.ip
+                    pending_ips.add(player.ip)
 
-            if not ips_to_ping:
-                gui_closed__event.wait(1)
-                continue
+                completed_futures: list[tuple[Future, str]] = []
 
-            # Use a thread pool to fetch ping data concurrently.
-            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-                # Map each IP to its future.
-                future_to_ip = {
-                    executor.submit(fetch_and_parse_ping, ip): ip for ip in ips_to_ping
-                }
+                for future, ip in futures.items():
+                    if not future.done():
+                        continue
 
-                for future in concurrent.futures.as_completed(future_to_ip):
-                    ip = future_to_ip[future]
+                    completed_futures.append((future, ip))
+
+                for future, ip in completed_futures:
+                    futures.pop(future)
+                    pending_ips.remove(ip)
+
                     try:
-                        ping_data = future.result()
+                        ping_data: Union[PingResult, None] = future.result()
                     except AllEndpointsExhausted:
                         continue
 
-                    # Skip if no valid ping data.
+                    if ping_data is None:
+                        continue
+
+                    if not isinstance(ping_data, PingResult):
+                        raise TypeError(f'Expected "PingResult" object, got "{type(ping_data).__name__}"')
+
                     if (
-                           ping_data                     is None
-                        or ping_data.packets_transmitted is None
+                           ping_data.packets_transmitted is None
                         or ping_data.packets_received    is None
                         or ping_data.packet_loss         is None
                         or ping_data.packet_errors       is None
@@ -2606,6 +2652,9 @@ def pinger_core():
                         player.ping.rtt_avg = ping_data.rtt_avg
                         player.ping.rtt_max = ping_data.rtt_max
                         player.ping.rtt_mdev = ping_data.rtt_mdev
+
+                gui_closed__event.wait(1)
+
 
 def capture_core():
     with Threads_ExceptionHandler():
@@ -3886,7 +3935,7 @@ def rendering_core():
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
 
-            for player in PlayersRegistry.iterate_players_from_registry():
+            for player in PlayersRegistry.get_sorted_players():
                 if player.ip in UserIP_Databases.ips_set:
                     UserIP_Databases.update_player_userip_info(player)
                 else:
@@ -4000,6 +4049,8 @@ title(f"DEBUG CONSOLE - {TITLE}")
 
 tshark_restarted_times = 0
 global_pps_counter = 0
+
+PlayersRegistry.start_cache_updater()
 
 rendering_core__thread = threading.Thread(target=rendering_core, daemon=True)
 rendering_core__thread.start()
