@@ -15,6 +15,16 @@ from Modules.networking.unsafe_https import s
 from Modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
 
 
+class InvalidPingResult(Exception):
+    """Exception raised when the parsed ping result contains invalid or missing data."""
+
+    def __init__(self, ip: str, response_content: str, ping_result: "PingResult"):
+        attributes = "\n".join(f"{attr}={getattr(ping_result, attr)}"
+                               for attr in ping_result._fields)
+        super().__init__(f"Invalid ping result for {ip}:\n"
+                         f"Response: {response_content}\n"
+                         f"{attributes}")
+
 class AllEndpointsExhausted(Exception):
     """Exception raised when all endpoints have been exhausted."""
     pass
@@ -62,13 +72,20 @@ class PingResult(NamedTuple):
     ping_times:          list[float]
     packets_transmitted: Optional[int]
     packets_received:    Optional[int]
-    packet_loss:         Optional[int]
+    packet_loss:         Optional[float]
     packet_errors:       Optional[int]
     rtt_min:             Optional[float]
     rtt_avg:             Optional[float]
     rtt_max:             Optional[float]
     rtt_mdev:            Optional[float]
 
+    def is_invalid(self, ping_response: str):
+        """
+        Returns True if the ping data is invalid (missing critical information).
+        """
+        return ping_response.strip() == "null" or any(
+            getattr(self, attr) is None for attr in ("packets_transmitted", "packets_received", "packet_loss", "packet_errors")
+        )
 
 # Global dictionary to track semaphores per endpoint host
 host_locks: dict[str, threading.Semaphore] = {}
@@ -108,28 +125,22 @@ def get_sorted_endpoints():
             # If all are cooling down, sort all.
             return sorted(endpoints_info.values(), key=lambda info: info.score(now))
 
-def parse_ping_response(response_content: bytes):
-    decoded_text = response_content.decode("utf-8")
-    unescaped_text = decoded_text.replace("\\/", "/")
-
-    if unescaped_text.strip() == "null":
-        return None
-
+def parse_ping_response(ping_response: str):
     # Extract individual ping times
-    ping_times = [float(match.group("TIME_MS")) for match in RE_BYTES_PATTERN.finditer(unescaped_text)]
+    ping_times = [float(match.group("TIME_MS")) for match in RE_BYTES_PATTERN.finditer(ping_response)]
 
     # Extract packet statistics
     packets_transmitted = packets_received = packet_loss = packet_errors = None
-    packets_match = RE_PACKET_STATS_PATTERN.search(unescaped_text)
+    packets_match = RE_PACKET_STATS_PATTERN.search(ping_response)
     if packets_match:
-        packets_transmitted = int(packets_match.group("PACKETS_TRANSMITTED"))
-        packets_received    = int(packets_match.group("PACKETS_RECEIVED"))
-        packet_loss         = int(packets_match.group("PACKET_LOSS_PERCENTAGE"))
-        packet_errors       = int(packets_match.group("ERRORS") or 0)
+        packets_transmitted = int(  packets_match.group("PACKETS_TRANSMITTED"))
+        packets_received    = int(  packets_match.group("PACKETS_RECEIVED"))
+        packet_loss         = float(packets_match.group("PACKET_LOSS_PERCENTAGE"))
+        packet_errors       = int(  packets_match.group("ERRORS") or 0)
 
     # Extract RTT statistics
     rtt_min = rtt_avg = rtt_max = rtt_mdev = None
-    rtt_match = RE_RTT_STATS_PATTERN.search(unescaped_text)
+    rtt_match = RE_RTT_STATS_PATTERN.search(ping_response)
     if rtt_match:
         rtt_min  = float(rtt_match.group("RTT_MIN"))
         rtt_avg  = float(rtt_match.group("RTT_AVG"))
@@ -164,7 +175,6 @@ def fetch_and_parse_ping(ip: str):
             if ip in endpoint_info.failed_ips and endpoint_info.failed_ips[ip] >= 3:
                 continue  # Skip this endpoint for this ip
 
-
             if time.monotonic() < endpoint_info.cooldown_until:
                 now = time.monotonic()
                 continue  # Skip if still in cooldown
@@ -181,9 +191,12 @@ def fetch_and_parse_ping(ip: str):
                 if not isinstance(response.content, bytes):
                     raise TypeError(f'Expected "bytes", got "{type(response.content).__name__}"')
 
-                ping_result = parse_ping_response(response.content)
-                if ping_result is None:
-                    raise TypeError(f'Expected "PingResult", got "None"')
+                decoded_text = response.content.decode("utf-8")
+                unescaped_text = decoded_text.replace("\\/", "/")
+
+                ping_result = parse_ping_response(unescaped_text)
+                if ping_result.is_invalid(unescaped_text):
+                    raise InvalidPingResult(ip, unescaped_text, ping_result)
 
                 duration = time.monotonic() - start
 

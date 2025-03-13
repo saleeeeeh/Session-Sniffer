@@ -741,6 +741,12 @@ class ThirdPartyServers(enum.Enum):
         """Returns a flat list of all IP ranges from the Enum."""
         return [ip_range for server in cls for ip_range in server.value]
 
+@dataclass
+class Player_ReverseDNS:
+    is_initialized = False
+
+    hostname: Union[Literal["..."], str] = "..."
+
 class Player_PPS:
     def __init__(self):
         self._initialize()
@@ -865,7 +871,7 @@ class Player_Ping:
     ping_times:          Union[Literal["..."], list[float]]     = "..."
     packets_transmitted: Union[Literal["..."], Optional[int]]   = "..."
     packets_received:    Union[Literal["..."], Optional[int]]   = "..."
-    packet_loss:         Union[Literal["..."], Optional[int]]   = "..."
+    packet_loss:         Union[Literal["..."], Optional[float]] = "..."
     packet_errors:       Union[Literal["..."], Optional[int]]   = "..."
     rtt_min:             Union[Literal["..."], Optional[float]] = "..."
     rtt_avg:             Union[Literal["..."], Optional[float]] = "..."
@@ -903,12 +909,12 @@ class Player:
 
     def _initialize(self, ip: str, port: int, packet_datetime: datetime):
         self.ip = ip
-        self.hostname = "..."
         self.rejoins = 0
         self.packets = 1
         self.total_packets = 1
         self.usernames: list[str] = []
 
+        self.reverse_dns = Player_ReverseDNS()
         self.pps = Player_PPS()
         self.ppm = Player_PPM()
         self.ports = Player_Ports(port)
@@ -2438,44 +2444,6 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
                 msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
-def hostname_core():
-    with Threads_ExceptionHandler():
-        import concurrent.futures
-        from Modules.networking.reverse_dns_lookup import ReverseDNS
-
-        reverse_dns = ReverseDNS()
-
-        while not gui_closed__event.is_set():
-            if ScriptControl.has_crashed():
-                return
-
-            ips_to_resolve: list[str] = []
-
-            for player in PlayersRegistry.get_sorted_players():
-                if player.hostname != "...":
-                    continue
-
-                ips_to_resolve.append(player.ip)
-
-            if not ips_to_resolve:
-                gui_closed__event.wait(1)
-                continue
-
-            # Use a thread pool to resolve hostnames concurrently
-            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
-                # Map each IP to its future
-                future_to_ip = {
-                    executor.submit(reverse_dns.lookup, ip): ip for ip in ips_to_resolve
-                }
-
-                # Process results as they complete
-                for future in concurrent.futures.as_completed(future_to_ip):
-                    ip = future_to_ip[future]
-                    hostname = future.result()
-
-                    if player := PlayersRegistry.get_player(ip):
-                        player.hostname = hostname
-
 def iplookup_core():
     with Threads_ExceptionHandler():
         def throttle_until(requests_remaining: int, throttle_time: int):
@@ -2586,6 +2554,50 @@ def iplookup_core():
 
             throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
+def hostname_core():
+    with Threads_ExceptionHandler():
+        from concurrent.futures import ThreadPoolExecutor, Future
+        from Modules.networking.reverse_dns_lookup import ReverseDNS
+
+        reverse_dns = ReverseDNS()
+
+        with ThreadPoolExecutor(max_workers=32) as executor:
+            futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
+            pending_ips: set[str] = set()   # Tracks IPs currently being processed
+
+            while not gui_closed__event.is_set():
+                if ScriptControl.has_crashed():
+                    return
+
+                for player in PlayersRegistry.get_sorted_players():
+                    if player.reverse_dns.is_initialized or player.ip in pending_ips:
+                        continue
+
+                    future = executor.submit(reverse_dns.lookup, player.ip)
+                    futures[future] = player.ip
+                    pending_ips.add(player.ip)
+
+                if not futures:
+                    gui_closed__event.wait(1)
+                    continue
+
+                for future, ip in list(futures.items()):
+                    if not future.done():
+                        continue
+
+                    futures.pop(future)
+
+                    hostname: str = future.result()
+                    if not isinstance(hostname, str):
+                        raise TypeError(f'Expected "PingResult" object, got "{type(hostname).__name__}"')
+
+                    if player := PlayersRegistry.get_player(ip):
+                        player.reverse_dns.is_initialized = True
+
+                        player.reverse_dns.hostname = hostname
+
+                gui_closed__event.wait(0.1)
+
 def pinger_core():
     with Threads_ExceptionHandler():
         from concurrent.futures import ThreadPoolExecutor, Future
@@ -2599,7 +2611,6 @@ def pinger_core():
                 if ScriptControl.has_crashed():
                     return
 
-                # Add new IPs to the pool, respecting the 32-task limit
                 for player in PlayersRegistry.get_sorted_players():
                     if player.ping.is_initialized or player.ip in pending_ips:
                         continue
@@ -2608,53 +2619,43 @@ def pinger_core():
                     futures[future] = player.ip
                     pending_ips.add(player.ip)
 
-                completed_futures: list[tuple[Future, str]] = []
+                if not futures:
+                    gui_closed__event.wait(1)
+                    continue
 
-                for future, ip in futures.items():
+                for future, ip in list(futures.items()):
                     if not future.done():
                         continue
 
-                    completed_futures.append((future, ip))
-
-                for future, ip in completed_futures:
                     futures.pop(future)
                     pending_ips.remove(ip)
 
                     try:
-                        ping_data: Union[PingResult, None] = future.result()
+                        ping_result: Union[PingResult, None] = future.result()
                     except AllEndpointsExhausted:
                         continue
 
-                    if ping_data is None:
+                    if ping_result is None:
                         continue
 
-                    if not isinstance(ping_data, PingResult):
-                        raise TypeError(f'Expected "PingResult" object, got "{type(ping_data).__name__}"')
-
-                    if (
-                           ping_data.packets_transmitted is None
-                        or ping_data.packets_received    is None
-                        or ping_data.packet_loss         is None
-                        or ping_data.packet_errors       is None
-                    ):
-                        continue
+                    if not isinstance(ping_result, PingResult):
+                        raise TypeError(f'Expected "PingResult" object, got "{type(ping_result).__name__}"')
 
                     if player := PlayersRegistry.get_player(ip):
                         player.ping.is_initialized = True
-                        player.ping.is_pinging = ping_data.packets_received > 0
+                        player.ping.is_pinging = ping_result.packets_received > 0
 
-                        player.ping.ping_times = ping_data.ping_times
-                        player.ping.packets_transmitted = ping_data.packets_transmitted
-                        player.ping.packets_received = ping_data.packets_received
-                        player.ping.packet_loss = ping_data.packet_loss
-                        player.ping.packet_errors = ping_data.packet_errors
-                        player.ping.rtt_min = ping_data.rtt_min
-                        player.ping.rtt_avg = ping_data.rtt_avg
-                        player.ping.rtt_max = ping_data.rtt_max
-                        player.ping.rtt_mdev = ping_data.rtt_mdev
+                        player.ping.ping_times = ping_result.ping_times
+                        player.ping.packets_transmitted = ping_result.packets_transmitted
+                        player.ping.packets_received = ping_result.packets_received
+                        player.ping.packet_loss = ping_result.packet_loss
+                        player.ping.packet_errors = ping_result.packet_errors
+                        player.ping.rtt_min = ping_result.rtt_min
+                        player.ping.rtt_avg = ping_result.rtt_avg
+                        player.ping.rtt_max = ping_result.rtt_max
+                        player.ping.rtt_mdev = ping_result.rtt_mdev
 
-                gui_closed__event.wait(1)
-
+                gui_closed__event.wait(0.1)
 
 def capture_core():
     with Threads_ExceptionHandler():
@@ -3396,7 +3397,7 @@ def rendering_core():
                 row_texts.append(f"{player.ppm.rate}")
                 row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
-                row_texts.append(f"{player.hostname}")
+                row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
@@ -3438,7 +3439,7 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.ip}")
-                row_texts.append(f"{player.hostname}")
+                row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
                 row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
@@ -3612,7 +3613,7 @@ def rendering_core():
                     row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
                 if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.hostname}")
+                    row_texts.append(f"{player.reverse_dns.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3692,7 +3693,7 @@ def rendering_core():
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.ip}")
                 if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.hostname}")
+                    row_texts.append(f"{player.reverse_dns.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -4896,7 +4897,7 @@ class SessionTableView(QTableView):
         msgbox_message = textwrap.dedent(f"""
             ############ Player Infos #############
             IP Address: {player.ip}
-            Hostname: {player.hostname}
+            Hostname: {player.reverse_dns.hostname}
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
             In UserIP database: {player.userip.database_path and f"{player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}" or "No"}
             Last Port: {player.ports.last}
