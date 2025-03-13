@@ -1,0 +1,13 @@
+/.devfolder
+/.vscode
+/Modules/**/__pycache__/
+/GeoLite2 Databases
+*.pyc
+.dccache
+Settings.ini
+error.log
+debug.log
+UserIP_Logging.log
+/Sessions Logging
+/UserIP Databases
+Session_Sniffer.exe
