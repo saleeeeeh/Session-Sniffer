@@ -72,14 +72,14 @@ For more detailed information, check out the [**Project Wiki**](https://github.c
 We'd love to have **you** in our community!  
 Join us on Discord to chat, get support, and stay updated on all our latest happenings!
 
-[![Join Our Discord](https://img.shields.io/badge/Join%20Our%20Discord-%235865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/DkHTwY3dgr)
+[![Join Our Discord](https://img.shields.io/badge/Join%20Our%20Discord-%235865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/hMZ7MsPX7G)
 
 ## 🛠️ Contact Support
 
 Need help? You can reach out via:
 - [GitHub Issues](https://github.com/BUZZARDGTA/Session-Sniffer/issues)
 - [GitHub Discussions](https://github.com/BUZZARDGTA/Session-Sniffer/discussions)
-- [Discord Server](https://discord.gg/DkHTwY3dgr)
+- [Discord Server](https://discord.gg/hMZ7MsPX7G)
 
 Or privately:
 - **Email**: BUZZARDGTA@protonmail.com
