@@ -8,7 +8,7 @@
 
 ---
 
-## Description
+## 📝 Description
 
 **Session Sniffer** is a powerful packet sniffer (also known as an IP grabber/puller/sniffer) designed specifically for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox). It helps you monitor session activity, such as:
 - Players joining your session.
@@ -17,7 +17,7 @@
 
 ---
 
-### Key Features
+### 🔑 Key Features
 
 - **Free & Open Source**: Completely free to use and modify, unlike other similar software.
 - **No Mods Required**: Works without mods, no risk of banning.
@@ -28,7 +28,7 @@
 
 ---
 
-## Officially Tested and Supported Video Games
+## 🎮 Officially Tested and Supported Video Games
 
 | Supported Video Games               | Tested Platforms                         |
 | :---------------------------------- | :--------------------------------------: |
@@ -40,7 +40,7 @@
 
 ---
 
-## About Usernames Decryption/Resolving
+## 🔐 About Usernames Decryption/Resolving
 
 The script **does not decrypt or resolve usernames automatically**\*.  
 This functionality was available on PS3 and Xbox 360 but is patched on current-gen platforms.  
@@ -53,7 +53,7 @@ However, it does allow for manual assignment using [UserIP INI databases Configu
 
 ---
 
-## Requirements
+## ⚙️ Requirements
 
 - **OS**: [Windows](https://www.microsoft.com/windows) 10 or 11 (x64)
 - **Network Driver**: [Npcap](https://nmap.org/npcap/)
@@ -61,17 +61,25 @@ However, it does allow for manual assignment using [UserIP INI databases Configu
 
 ---
 
-## Learn More
+## 📖 Learn More
 
-📖 For more detailed information, check out the [**Project Wiki**](https://github.com/BUZZARDGTA/Session-Sniffer/wiki).
+For more detailed information, check out the [**Project Wiki**](https://github.com/BUZZARDGTA/Session-Sniffer/wiki).
 
 ---
 
-## Contact Support
+## 🌟 Connect with Us!
+
+We'd love to have you in our community!
+Join us on Discord to chat, get support, and stay updated on all our latest happenings!
+
+[![Join Our Discord](https://img.shields.io/badge/Join%20Our%20Discord-%235865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/DkHTwY3dgr)
+
+## 🛠️ Contact Support
 
 Need help? You can reach out via:
 - [GitHub Issues](https://github.com/BUZZARDGTA/Session-Sniffer/issues)
 - [GitHub Discussions](https://github.com/BUZZARDGTA/Session-Sniffer/discussions)
+- [Discord Server](https://discord.gg/DkHTwY3dgr)
 
 Or privately:
 - **Email**: BUZZARDGTA@protonmail.com
