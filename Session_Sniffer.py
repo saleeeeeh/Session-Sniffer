@@ -4755,7 +4755,7 @@ class SessionTableView(QTableView):
                 add_action(
                     ping_menu,
                     "Spoofed (check-host.net API)",
-                    tooltip="Checks if selected IP address responds to pings from 'check-host.net'.",
+                    tooltip="Checks if selected IP address responds to pings from 'check-host.net'.\n\nNOTE: This only works if Python is installed on your system.",
                     handler=lambda: self.ping_spoofed(ip_address),
                 )
                 add_action(
