@@ -69,7 +69,7 @@ For more detailed information, check out the [**Project Wiki**](https://github.c
 
 ## 🌟 Connect with Us!
 
-We'd love to have you in our community!  
+We'd love to have **you** in our community!  
 Join us on Discord to chat, get support, and stay updated on all our latest happenings!
 
 [![Join Our Discord](https://img.shields.io/badge/Join%20Our%20Discord-%235865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/DkHTwY3dgr)
