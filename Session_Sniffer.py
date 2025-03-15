@@ -43,8 +43,8 @@ from colorama import Fore
 from rich.text import Text
 from rich.console import Console
 from rich.traceback import Traceback
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex
-from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer
+from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout
 from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction
 
 # -----------------------------------------------------
@@ -306,6 +306,7 @@ class DefaultSettings:
     GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY = "Last Seen"
     GUI_DISCONNECTED_PLAYERS_TIMER = 10.0
     DISCORD_PRESENCE = True
+    SHOW_DISCORD_POPUP = True
     UPDATER_CHANNEL = "Stable"
 
 class Settings(DefaultSettings):
@@ -580,6 +581,11 @@ class Settings(DefaultSettings):
                 elif setting_name == "DISCORD_PRESENCE":
                     try:
                         Settings.DISCORD_PRESENCE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
+                    except InvalidBooleanValueError:
+                        need_rewrite_settings = True
+                elif setting_name == "SHOW_DISCORD_POPUP":
+                    try:
+                        Settings.SHOW_DISCORD_POPUP, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
                 elif setting_name == "UPDATER_CHANNEL":
@@ -5270,10 +5276,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(800, 600)
         self.resize_window_for_screen(screen_width, screen_height)
 
-        # Raise and activate window to ensure it gets focus
-        self.raise_()
-        self.activateWindow()
-
         # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -5339,6 +5341,10 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(self.tables_separator)
         self.main_layout.addWidget(self.session_disconnected_header)
         self.main_layout.addWidget(self.disconnected_table_view)
+
+        # Raise and activate window to ensure it gets focus
+        self.raise_()
+        self.activateWindow()
 
         # Create the worker thread for table updates
         self.worker_thread = GUIWorkerThread(
@@ -5417,9 +5423,181 @@ class MainWindow(QMainWindow):
         self.disconnected_table_model.sort_current_column()
         self.disconnected_table_view.adjust_table_column_widths()
 
+class DiscordIntro(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        # Ensure the dialog is modal, blocking interaction with the main window
+        self.setModal(True)
+
+        WINDOW_TITLE = "🏆 Join our Discord Community! 🤝"
+
+        self.setWindowTitle(WINDOW_TITLE)
+        self.setMinimumSize(460, 160)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.Dialog)  # | Qt.WindowType.WindowStaysOnTopHint
+
+        # Set window opacity to 0 for fade-in animation
+        self.setWindowOpacity(0)
+
+        # Styling for the main container window
+        self.setStyleSheet("""
+            background-color: #222244;  /* Dark blueish background */
+            border-radius: 15px;        /* Rounded corners */
+            color: white;
+        """)
+
+        # Exit button in the top right corner
+        self.exit_button = QPushButton("x", self)
+        self.exit_button.setFixedSize(16, 16)  # Make the width and height equal
+        self.exit_button.setStyleSheet("""
+            font-size: 10px;
+            color: white;
+            background-color: #FF4C4C;  /* Light red background */
+            border-radius: 15px;        /* Make it circular */
+        """)
+        self.exit_button.clicked.connect(self.close_popup)
+        self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Layout for the window content
+        layout = QVBoxLayout()
+
+        # Add the exit button to the top right
+        exit_layout = QHBoxLayout()
+        exit_layout.addStretch(1)  # Spacer
+        exit_layout.addWidget(self.exit_button)
+        layout.addLayout(exit_layout)
+
+        # Label for the Discord message
+        self.label = QLabel(
+            f"<font size='6' color='#5865F2'><b>{WINDOW_TITLE}</b></font>"
+            , self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(self.label)
+
+        layout.addItem(QSpacerItem(0, 4, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))  # Spacer
+
+        # Join button container
+        self.join_button = QPushButton("🔥 Join Now - Session Sniffer Discord! 🔥", self)
+        self.join_button.setStyleSheet("""
+            font-size: 14px;
+            padding: 7px;
+            background-color: #5865F2;  /* Discord blue */
+            color: white;
+            border-radius: 10px;
+            border: none;
+        """)
+        self.join_button.clicked.connect(self.open_discord)
+        self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        # Set button width to 75% of the window width
+        self.join_button.setMaximumWidth(int(self.width() * 0.75))
+
+        # Center the button horizontally using a layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)  # Spacer before the button
+        button_layout.addWidget(self.join_button)
+        button_layout.addStretch(1)  # Spacer after the button
+
+        layout.addLayout(button_layout)  # Add the button layout to the main layout
+
+        # Clickable text "Don't remind me again"
+        self.dont_remind_text = QLabel("<font size='3' color='#B0B0B0'><u>Don't remind me again</u></font>", self)
+        self.dont_remind_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.dont_remind_text.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.dont_remind_text.mousePressEvent = self.dont_remind_clicked
+
+        layout.addItem(QSpacerItem(0, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))  # Spacer
+        layout.addWidget(self.dont_remind_text)
+
+        # Apply margin here to adjust widget spacing
+        layout.setContentsMargins(10, 10, 10, 10)  # Add margin to the layout
+
+        # Set the main layout of the window
+        self.setLayout(layout)
+
+        # Show the window to allow size calculations
+        self.show()
+
+        # After the window is shown, center it
+        self.center_window()
+
+        # Fade-in animation
+        self.fade_in = QPropertyAnimation(self, b"windowOpacity")
+        self.fade_in.setDuration(1000)
+        self.fade_in.setStartValue(0)
+        self.fade_in.setEndValue(1)
+        self.fade_in.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.fade_in.start()
+
+        # Raise and activate window to ensure it gets focus
+        self.raise_()
+        self.activateWindow()
+
+        # Initialize variables to track mouse position
+        self._drag_pos = None
+
+    def mousePressEvent(self, event):
+        if isinstance(event, QMouseEvent):
+            # Check if the mouse click is not on the buttons
+            if event.button() == Qt.LeftButton:
+                # Only allow dragging if the click is not on a button
+                if not self.exit_button.underMouse() and not self.join_button.underMouse():
+                    self._drag_pos = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if isinstance(event, QMouseEvent):
+            # If mouse is pressed, move the window
+            if self._drag_pos:
+                delta = event.globalPosition().toPoint() - self._drag_pos
+                self.move(self.pos() + delta)
+                self._drag_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        if isinstance(event, QMouseEvent):
+            # Reset drag position when mouse is released
+            self._drag_pos = None
+
+    def center_window(self):
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.width()) // 2
+        y = (screen.height() - self.height()) // 2
+        self.move(x, y)
+
+    def open_discord(self):
+        from Modules.constants.standalone import DISCORD_INVITE_URL
+
+        webbrowser.open(DISCORD_INVITE_URL)
+
+        Settings.SHOW_DISCORD_POPUP = False
+        Settings.reconstruct_settings()
+
+        self.close_popup()
+
+    def close_popup(self):
+        # Smooth fade-out before closing
+        self.fade_out = QPropertyAnimation(self, b"windowOpacity")
+        self.fade_out.setDuration(500)
+        self.fade_out.setStartValue(1)  # Start from fully opaque
+        self.fade_out.setEndValue(0)    # Fade to fully transparent
+        self.fade_out.setEasingCurve(QEasingCurve.Type.InCubic)
+        self.fade_out.finished.connect(self.close)  # Close the window after the fade-out finishes
+        self.fade_out.start()
+
+    def dont_remind_clicked(self, event):
+        Settings.SHOW_DISCORD_POPUP = False
+        Settings.reconstruct_settings()
+
+        self.close_popup()
 
 if __name__ == "__main__":
+    # Initialize the main application
     window = MainWindow(screen_width, screen_height)
     window.show()
 
+    if Settings.SHOW_DISCORD_POPUP:
+        # Delay the popup opening by 3 seconds
+        QTimer.singleShot(3000, lambda: DiscordIntro().exec())
+
+    # Start the application's event loop
     sys.exit(app.exec())

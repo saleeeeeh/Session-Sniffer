@@ -37,10 +37,6 @@ class InterfaceSelectionDialog(QDialog):
         self.setMinimumSize(800, 600)
         self.resize_window_for_screen(screen_width, screen_height)
 
-        # Raise and activate window to ensure it gets focus
-        self.raise_()
-        self.activateWindow()
-
         # Custom variables
         self.selected_interface_data = None
         self.interfaces = interfaces  # Store the list of interface data
@@ -121,6 +117,10 @@ class InterfaceSelectionDialog(QDialog):
         layout.addWidget(self.table)
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
+
+        # Raise and activate window to ensure it gets focus
+        self.raise_()
+        self.activateWindow()
 
         # Connect selection change signal to enable/disable Select button
         self.table.selectionModel().selectionChanged.connect(self.update_select_button_state)
