@@ -5543,7 +5543,7 @@ class DiscordIntro(QDialog):
     def mousePressEvent(self, event):
         if isinstance(event, QMouseEvent):
             # Check if the mouse click is not on the buttons
-            if event.button() == Qt.LeftButton:
+            if event.button() == Qt.MouseButton.LeftButton:
                 # Only allow dragging if the click is not on a button
                 if not self.exit_button.underMouse() and not self.join_button.underMouse():
                     self._drag_pos = event.globalPosition().toPoint()
