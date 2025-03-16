@@ -1,17 +1,25 @@
 TITLE = "Session Sniffer"
 VERSION = "v1.3.6 - 15/03/2025 (21:09)"
+
 GITHUB_REPO_URL = "https://github.com/BUZZARDGTA/Session-Sniffer"
 GITHUB_RELEASES_URL = "https://github.com/BUZZARDGTA/Session-Sniffer/releases"
 DISCORD_INVITE_URL = "https://discord.gg/hMZ7MsPX7G"
-USER_SHELL_FOLDERS_REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
-USERIP_INI_SETTINGS_LIST = ["ENABLED", "COLOR", "NOTIFICATIONS", "VOICE_NOTIFICATIONS", "LOG", "PROTECTION", "PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH", "PROTECTION_SUSPEND_PROCESS_MODE"]
+OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
+GITHUB_RELEASE_API__GEOLITE2__URL = "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest"
+GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL = "https://api.github.com/repos/PrxyHunter/GeoLite2/releases/latest"
+
 TSHARK_RECOMMENDED_FULL_VERSION = "TShark (Wireshark) 4.2.11 (v4.2.11-0-g53ee01efc521)."
 TSHARK_RECOMMENDED_VERSION_NUMBER = "4.2.11"
 # TODO: NPCAP_RECOMMENDED_VERSION_NUMBER = "1.78"
+
 DISCORD_APPLICATION_ID = 1313304495958261781
-GITHUB_RELEASE_API__GEOLITE2 = "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest"
-GITHUB_RELEASE_API__GEOLITE2__BACKUP = "https://api.github.com/repos/PrxyHunter/GeoLite2/releases/latest"
-GUI_COLUMN_HEADERS_TOOLTIP_MAPPING = {
+USER_SHELL_FOLDERS__REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+USERIP_INI_SETTINGS = ["ENABLED", "COLOR", "NOTIFICATIONS", "VOICE_NOTIFICATIONS", "LOG", "PROTECTION", "PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH", "PROTECTION_SUSPEND_PROCESS_MODE"]
+EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
+    "Adapter for loopback traffic capture",
+    "Event Tracing for Windows (ETW) reader"
+}
+GUI_COLUMN_HEADERS_TOOLTIPS = {
     "Usernames": "Displays the username(s) of players from your UserIP database files.\n\nFor GTA V PC users who have used the Session Sniffer mod menu plugin,\nit automatically resolves usernames while the plugin is running,\nor shows previously resolved players that were seen by the plugin.",
     "First Seen": "The very first time the player was observed across all sessions.",
     "Last Rejoin": "The most recent time the player rejoined your session.",

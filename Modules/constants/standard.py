@@ -4,19 +4,22 @@ import textwrap
 from pathlib import Path
 from datetime import datetime
 
-EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
-    "Adapter for loopback traffic capture",
-    "Event Tracing for Windows (ETW) reader"
-}
 SETTINGS_PATH = Path("Settings.ini")
-ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
 SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now().strftime("%Y/%m/%d") / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
 USERIP_LOGGING_PATH = Path("UserIP_Logging.log")
 GEOLITE2_DATABASES_FOLDER_PATH = Path("GeoLite2 Databases")
 TWO_TAKE_ONE__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/PopstarDevs/2Take1Menu/scripts/GTA_V_Session_Sniffer-plugin/log.txt"
 STAND__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/Stand/Lua Scripts/GTA_V_Session_Sniffer-plugin/log.txt"
+
+# Compiled regex for matching the optional time component in the version string
+RE_VERSION_TIME = re.compile(r" \((\d{2}:\d{2})\)$")
+RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$", re.IGNORECASE)
+RE_OUI_MAC_ADDRESS_PATTERN = re.compile(r"^[0-9A-F]{6}$", re.IGNORECASE)
+RE_OUI_ENTRY_PATTERN = re.compile(
+    r"^(?P<OUI>[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}) {3}\(hex\)\t{2}(?P<ORGANIZATION_NAME>.*)\r\n(?P<COMPANY_ID>[0-9A-Fa-f]{6}) {5}\(base 16\)\t{2}(?P<ORGANIZATION_NAME_BIS>.*)\r\n\t{4}(?P<ADDRESS_LINE_1>.*)\r\n\t{4}(?P<ADDRESS_LINE_2>.*)\r\n\t{4}(?P<ADDRESS_COUNTRY_ISO_CODE>.*)",
+    re.M
+)
 RE_SETTINGS_INI_PARSER_PATTERN = re.compile(r"^(?![;#])(?P<key>[^=]+)=(?P<value>[^;#]+)")
 RE_USERIP_INI_PARSER_PATTERN = re.compile(r"^(?![;#])(?P<username>[^=]+)=(?P<ip>[^;#]+)")
 RE_MODMENU_LOGS_USER_PATTERN = re.compile(r"^user:(?P<username>[\w._-]{1,16}), scid:\d{1,9}, ip:(?P<ip>[\d.]+), timestamp:\d{10}$")
@@ -26,6 +29,7 @@ RE_BYTES_PATTERN = re.compile(r"(?P<NUM_OF_BYTES>[\d]+) bytes? from (?P<IP>\d+\.
 # RE_HOST_UNREACHABLE_PATTERN = re.compile(r"From (?P<IP>\d+\.\d+\.\d+\.\d+) icmp_seq=(?P<ICMP_SEQ>\d+) Destination Host Unreachable")
 RE_PACKET_STATS_PATTERN = re.compile(r"(?P<PACKETS_TRANSMITTED>\d+) packets? transmitted, (?P<PACKETS_RECEIVED>\d+) received(?:, \+(?P<ERRORS>\d+) errors?)?, (?P<PACKET_LOSS_PERCENTAGE>\d+(?:\.\d+)?)% packet loss, time (?P<TIME>\d+)ms")
 RE_RTT_STATS_PATTERN = re.compile(r"rtt min/avg/max/mdev = (?P<RTT_MIN>[\d\.]+)/(?P<RTT_AVG>[\d\.]+)/(?P<RTT_MAX>[\d\.]+)/(?P<RTT_MDEV>[\d\.]+) ms")
+
 # TODO: Implement a better way to retrieve the default background color for table cells.
 # Currently hardcoded to Gray.B10, which should be the same color for everyone.
 CUSTOM_CONTEXT_MENU_STYLESHEET = textwrap.dedent("""

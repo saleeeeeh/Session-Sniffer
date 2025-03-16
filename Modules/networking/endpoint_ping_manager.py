@@ -133,10 +133,10 @@ def parse_ping_response(ping_response: str):
     packets_transmitted = packets_received = packet_loss = packet_errors = None
     packets_match = RE_PACKET_STATS_PATTERN.search(ping_response)
     if packets_match:
-        packets_transmitted = int(  packets_match.group("PACKETS_TRANSMITTED"))
-        packets_received    = int(  packets_match.group("PACKETS_RECEIVED"))
+        packets_transmitted =   int(packets_match.group("PACKETS_TRANSMITTED"))
+        packets_received    =   int(packets_match.group("PACKETS_RECEIVED"))
         packet_loss         = float(packets_match.group("PACKET_LOSS_PERCENTAGE"))
-        packet_errors       = int(  packets_match.group("ERRORS") or 0)
+        packet_errors       =   int(packets_match.group("ERRORS") or 0)
 
     # Extract RTT statistics
     rtt_min = rtt_avg = rtt_max = rtt_mdev = None

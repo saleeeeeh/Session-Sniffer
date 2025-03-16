@@ -24,7 +24,6 @@ from datetime import datetime, timedelta
 from traceback import TracebackException
 from types import FrameType, TracebackType
 from typing import Optional, Literal, Union, Type, NamedTuple, Any
-from ipaddress import IPv4Address, AddressValueError
 from dataclasses import dataclass, field
 
 # --------------------------------------------
@@ -56,6 +55,7 @@ from Modules.utils import Version
 from Modules.msgbox import MsgBox
 from Modules.networking.oui_lookup import MacLookup
 from Modules.networking.unsafe_https import s
+from Modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address
 from Modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashException
 from Modules.capture.utils.tshark_validator import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path
 from Modules.capture.utils.npcap_checker import is_npcap_installed
@@ -90,6 +90,7 @@ def terminate_script(
         terminate_gracefully = True,
         force_terminate_errorlevel: Union[int, Literal[False]] = False
     ):
+    from Modules.utils import terminate_process_tree
 
     def should_terminate_gracefully():
         if terminate_gracefully is False:
@@ -175,12 +176,6 @@ def signal_handler(sig: int, frame: FrameType):
 sys.excepthook = handle_exception
 signal.signal(signal.SIGINT, signal_handler)
 
-
-class InvalidBooleanValueError(Exception):
-    pass
-
-class InvalidNoneTypeValueError(Exception):
-    pass
 
 class InvalidFileError(Exception):
     def __init__(self, path: str):
@@ -398,11 +393,71 @@ class Settings(DefaultSettings):
         SETTINGS_PATH.write_text(text, encoding="utf-8")
 
     @staticmethod
+    def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "last", "all"]):
+        from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN
+
+        def process_ini_line_output(line: str):
+            return line.rstrip("\n")
+
+        if not ini_path.exists():
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
+        if not ini_path.is_file():
+            raise InvalidFileError(str(ini_path.absolute()))
+
+        ini_data = ini_path.read_text("utf-8")
+
+        need_rewrite_ini = False
+        ini_database: dict[str, str | list[str]] = {}
+
+        for line in map(process_ini_line_output, ini_data.splitlines(keepends=False)):
+            corrected_line = line.strip()
+            if not corrected_line == line:
+                need_rewrite_ini = True
+
+            match = RE_SETTINGS_INI_PARSER_PATTERN.search(corrected_line)
+            if not match:
+                continue
+            setting_name = match.group("key")
+            if not isinstance(setting_name, str):
+                raise TypeError(f'Expected "str" object, got "{type(setting_name).__name__}"')
+            setting_value = match.group("value")
+            if not isinstance(setting_value, str):
+                raise TypeError(f'Expected "str" object, got "{type(setting_value).__name__}"')
+
+            corrected_setting_name = setting_name.strip()
+            if corrected_setting_name == "":
+                continue
+            elif not corrected_setting_name == setting_name:
+                need_rewrite_ini = True
+
+            corrected_setting_value = setting_value.strip()
+            if corrected_setting_value == "":
+                continue
+            elif not corrected_setting_value == setting_value:
+                need_rewrite_ini = True
+
+            if values_handling == "first":
+                if corrected_setting_name not in ini_database:
+                    ini_database[corrected_setting_name] = corrected_setting_value
+            elif values_handling == "last":
+                ini_database[corrected_setting_name] = corrected_setting_value
+            elif values_handling == "all":
+                if corrected_setting_name in ini_database:
+                    ini_database[corrected_setting_name].append(corrected_setting_value)
+                else:
+                    ini_database[corrected_setting_name] = [corrected_setting_value]
+
+        return ini_database, need_rewrite_ini
+
+    @staticmethod
     def load_from_settings_file(settings_path: Path):
+        from Modules.networking.utils import format_mac_address, is_mac_address
+        from Modules.utils import InvalidBooleanValueError, InvalidNoneTypeValueError, custom_str_to_bool, custom_str_to_nonetype, check_case_insensitive_and_exact_match
+
         matched_settings_count = 0
 
         try:
-            settings, need_rewrite_settings = parse_settings_ini_file(settings_path, values_handling="first")
+            settings, need_rewrite_settings = Settings.parse_settings_ini_file(settings_path, values_handling="first")
             settings: dict[str, str]
         except FileNotFoundError:
             need_rewrite_settings = True
@@ -1002,6 +1057,8 @@ class SessionHost:
 
     @staticmethod
     def get_host_player(session_connected: list[Player]):
+        from Modules.utils import take
+
         connected_players: list[Player] = take(2, sorted(session_connected, key=attrgetter("datetime.last_rejoin")))
 
         potential_session_host_player = None
@@ -1174,94 +1231,19 @@ def title(title: str):
 def cls():
     print("\033c", end="")
 
-def take(n: int, input_list: list[Any]):
-    """Return first n items from the given input list."""
-    return input_list[:n]
-
-def tail(n: int, input_list: list[Any]):
-    """Return last n items from the given input list."""
-    return input_list[-n:]
-
-def concat_lists_no_duplicates(*lists: list[Any]):
-    """
-    Concatenates multiple lists while removing duplicates and preserving order.
-
-    Args:
-        *lists: One or more lists to concatenate.
-    """
-    unique_list: list[Any] = []
-    seen = set()
-
-    for lst in lists:
-        for item in lst:
-            if item not in seen:
-                unique_list.append(item)
-                seen.add(item)
-
-    return unique_list
-
 def pluralize(variable: int):
     return "s" if variable > 1 else ""
-
-def hex_to_int(hex_string: str):
-    return int(hex_string, 16)
-
-def is_hex(string: str):
-    try:
-        int(string, 16)
-        return True
-    except (ValueError, TypeError):
-        return False
-
-def is_ipv4_address(ip_address: str):
-    try:
-        return IPv4Address(ip_address).version == 4
-    except AddressValueError:
-        return False
-
-def is_mac_address(mac_address: str):
-    from Modules.constants.standard import RE_MAC_ADDRESS_PATTERN
-    return bool(RE_MAC_ADDRESS_PATTERN.match(mac_address))
-
-def is_private_device_ipv4(ip_address: str):
-    return IPv4Address(ip_address).is_private
-
-def is_valid_non_special_ipv4(ip_address: str):
-    try:
-        ipv4_obj = IPv4Address(ip_address)
-    except AddressValueError:
-        return False
-
-    if (
-        not ipv4_obj.version == 4
-        or ipv4_obj.packed[-1] == 255
-        or ipv4_obj.is_link_local # might wants to disable this
-        or ipv4_obj.is_loopback
-        or ipv4_obj.is_reserved
-        or ipv4_obj.is_unspecified
-        or ipv4_obj.is_global
-        or ipv4_obj.is_multicast
-    ):
-        return False
-
-    return True
-
-def get_pid_by_path(filepath: Path):
-    for process in psutil.process_iter(["pid", "exe"]):
-        if process.info["exe"] == str(filepath.absolute()):
-            return process.pid
-    return None
 
 def get_mac_address_organization_name(mac_address: Optional[str]):
     if mac_address is None:
         return None
 
-    oui_or_mal_infos: list[dict[str, str]] = mac_lookup.lookup(mac_address)
-    if oui_or_mal_infos is None:
+    oui_infos = mac_lookup.lookup(mac_address)
+    if oui_infos is None:
         return None
 
-    for oui_or_mal in oui_or_mal_infos:
-        organization_name = oui_or_mal["organization_name"]
+    for oui_info in oui_infos:
+        organization_name = oui_info["organization_name"]
         if not organization_name == "":
             return organization_name
 
@@ -1277,7 +1259,7 @@ def get_filtered_tshark_interfaces():
         - Device name (str)
         - Interface name (str)
     """
-    from Modules.constants.standard import EXCLUDED_CAPTURE_NETWORK_INTERFACES
+    from Modules.constants.standalone import EXCLUDED_CAPTURE_NETWORK_INTERFACES
 
     def process_stdout(stdout: str):
         return stdout.strip().split(" ", maxsplit=2)
@@ -1364,27 +1346,9 @@ def iterate_network_ip_details(**kwargs):
 
         yield(configuration)
 
-def format_mac_address(mac_address: str):
-    if not is_mac_address(mac_address):
-        stdout_crash_text = textwrap.dedent(f"""
-            ERROR:
-                Developer didn't expect this scenario to be possible.
-
-            INFOS:
-                It seems like a MAC address does not follow
-                \"xx:xx:xx:xx:xx:xx\" or \"xx-xx-xx-xx-xx-xx\"
-                format.
-
-            DEBUG:
-                mac_address: {mac_address}
-        """.removeprefix("\n").removesuffix("\n"))
-        terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
-
-    return mac_address.replace("-", ":").upper()
-
 def update_and_initialize_geolite2_readers():
     def update_geolite2_databases():
-        from Modules.constants.standalone import GITHUB_RELEASE_API__GEOLITE2 # TODO: Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP` in case the first one fails.
+        from Modules.constants.standalone import GITHUB_RELEASE_API__GEOLITE2__URL # TODO: Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
         from Modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / "version.json"
@@ -1415,17 +1379,17 @@ def update_and_initialize_geolite2_readers():
                     geolite2_databases[database_name]["current_version"] = database_info.get("version", None)
 
         try:
-            response = s.get(GITHUB_RELEASE_API__GEOLITE2)
+            response = s.get(GITHUB_RELEASE_API__GEOLITE2__URL)
         except Exception as e:
             return {
                 "exception": e,
-                "url": GITHUB_RELEASE_API__GEOLITE2,
+                "url": GITHUB_RELEASE_API__GEOLITE2__URL,
                 "http_code": None
             }
         if response.status_code != 200:
             return {
                 "exception": None,
-                "url": GITHUB_RELEASE_API__GEOLITE2,
+                "url": GITHUB_RELEASE_API__GEOLITE2__URL,
                 "http_code": response.status_code
             }
 
@@ -1480,7 +1444,7 @@ def update_and_initialize_geolite2_readers():
                             try:
                                 shutil.move(temp_path, destination_file_path)
                             except OSError as e:
-                                # The file is currently open and in use by another process. Abort updating this db.
+                                # The file is currently open and in use by another process. Abort updating this database.
                                 if e.winerror == 1224:  # https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-
                                     if temp_path.is_file():
                                         temp_path.unlink()
@@ -1501,7 +1465,7 @@ def update_and_initialize_geolite2_readers():
                     These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
 
                 DEBUG:
-                    GITHUB_RELEASE_API__GEOLITE2={GITHUB_RELEASE_API__GEOLITE2}
+                    GITHUB_RELEASE_API__GEOLITE2__URL={GITHUB_RELEASE_API__GEOLITE2__URL}
                     failed_fetching_flag_list={failed_fetching_flag_list}
             """.removeprefix("\n").removesuffix("\n")), "    ")
             msgbox_style = MsgBox.Style.OKOnly | MsgBox.Style.Exclamation | MsgBox.Style.SystemModal | MsgBox.Style.MsgBoxSetForeground
@@ -1580,198 +1544,6 @@ def update_and_initialize_geolite2_readers():
 
     return geoip2_enabled, geolite2_asn_reader, geolite2_city_reader, geolite2_country_reader
 
-def parse_settings_ini_file(ini_path: Path, values_handling: Literal["first", "last", "all"]):
-    from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN
-
-    def process_ini_line_output(line: str):
-        return line.rstrip("\n")
-
-    if not ini_path.exists():
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
-    if not ini_path.is_file():
-        raise InvalidFileError(str(ini_path.absolute()))
-
-    ini_data = ini_path.read_text("utf-8")
-
-    need_rewrite_ini = False
-    ini_database: dict[str, str | list[str]] = {}
-
-    for line in map(process_ini_line_output, ini_data.splitlines(keepends=False)):
-        corrected_line = line.strip()
-        if not corrected_line == line:
-            need_rewrite_ini = True
-
-        match = RE_SETTINGS_INI_PARSER_PATTERN.search(corrected_line)
-        if not match:
-            continue
-        setting_name = match.group("key")
-        if not isinstance(setting_name, str):
-            raise TypeError(f'Expected "str" object, got "{type(setting_name).__name__}"')
-        setting_value = match.group("value")
-        if not isinstance(setting_value, str):
-            raise TypeError(f'Expected "str" object, got "{type(setting_value).__name__}"')
-
-        corrected_setting_name = setting_name.strip()
-        if corrected_setting_name == "":
-            continue
-        elif not corrected_setting_name == setting_name:
-            need_rewrite_ini = True
-
-        corrected_setting_value = setting_value.strip()
-        if corrected_setting_value == "":
-            continue
-        elif not corrected_setting_value == setting_value:
-            need_rewrite_ini = True
-
-        if values_handling == "first":
-            if corrected_setting_name not in ini_database:
-                ini_database[corrected_setting_name] = corrected_setting_value
-        elif values_handling == "last":
-            ini_database[corrected_setting_name] = corrected_setting_value
-        elif values_handling == "all":
-            if corrected_setting_name in ini_database:
-                ini_database[corrected_setting_name].append(corrected_setting_value)
-            else:
-                ini_database[corrected_setting_name] = [corrected_setting_value]
-
-    return ini_database, need_rewrite_ini
-
-def is_file_need_newline_ending(file: Union[str, Path]):
-    if isinstance(file, Path):
-        file_path = file
-    else:
-        file_path = Path(file)
-
-    if file_path.stat().st_size == 0:
-        return False
-
-    return not file.read_bytes().endswith(b"\n")
-
-def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[str]):
-    """
-    Writes or appends a list of lines to a file, ensuring proper newline handling.
-
-    Args:
-        file: The path to the file.
-        mode: The file mode ('w', 'x' or 'a').
-        lines: A list of lines to write to the file.
-    """
-    # Copy the input lines to avoid modifying the original list
-    content = lines[:]
-
-    # If the content list is empty, exit early without writing to the file
-    if not content:
-        return
-
-    # If appending to a file, ensure a leading newline is added if the file exists, otherwise creates it.
-    if mode == "a":
-        if file.is_file():
-            if is_file_need_newline_ending(file):
-                content.insert(0, "")
-        else:
-            file.touch()
-
-    # Ensure the last line ends with a newline character
-    if not content[-1].endswith("\n"):
-        content[-1] += "\n"
-
-    # Write content to the file
-    with file.open(mode, encoding="utf-8") as f:
-        f.writelines(content)
-
-def terminate_process_tree(pid: int = None):
-    """Terminates the process with the given PID and all its child processes.
-       Defaults to the current process if no PID is specified."""
-    pid = pid or psutil.Process().pid
-
-    try:
-        parent = psutil.Process(pid)
-        children = parent.children(recursive=True)
-        for child in children:
-            try:
-                child.terminate()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        psutil.wait_procs(children, timeout=5)
-        try:
-            parent.terminate()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-        parent.wait(5)
-    except psutil.NoSuchProcess:
-        pass
-
-def check_case_insensitive_and_exact_match(input_value: str, custom_values_list: list[str]):
-    """
-    Checks if the input value matches any string in the list case-insensitively, and whether it also matches exactly (case-sensitive).
-
-    It also returns the correctly capitalized version of the matched value from the list if a case-insensitive match is found.
-
-    Returns a tuple of three values:
-    - The first boolean is True if a case-insensitive match is found.
-    - The second boolean is True if the exact case-sensitive match is found.
-    - The third value is the correctly capitalized version of the matched string if found, otherwise None.
-    """
-    case_insensitive_match = False
-    case_sensitive_match = False
-    normalized_match = None
-
-    lowered_input_value = input_value.lower()
-    for value in custom_values_list:
-        if value.lower() == lowered_input_value:
-            case_insensitive_match = True
-            normalized_match = value
-            if value == input_value:
-                case_sensitive_match = True
-                break
-
-    return case_insensitive_match, case_sensitive_match, normalized_match
-
-def custom_str_to_bool(string: str, only_match_against: Optional[bool] = None):
-    """
-    This function returns the boolean value represented by the string for lowercase or any case variation;\n
-    otherwise, it raises an \"InvalidBooleanValueError\".
-
-    Args:
-        string: The boolean string to be checked.
-        only_match_against (optional): If provided, the only boolean value to match against.
-    """
-    need_rewrite_current_setting = False
-    resolved_value = None
-
-    string_lower = string.lower()
-
-    if string_lower == "true":
-        resolved_value = True
-    elif string_lower == "false":
-        resolved_value = False
-
-    if resolved_value is None:
-        raise InvalidBooleanValueError("Input is not a valid boolean value")
-
-    if (
-        only_match_against is not None
-        and only_match_against is not resolved_value
-    ):
-        raise InvalidBooleanValueError("Input does not match the specified boolean value")
-
-    if not string == str(resolved_value):
-        need_rewrite_current_setting = True
-
-    return resolved_value, need_rewrite_current_setting
-
-def custom_str_to_nonetype(string: str):
-    """
-    This function returns the NoneType value represented by the string for lowercase or any case variation; otherwise, it raises an \"InvalidNoneTypeValueError\".
-
-    Args:
-        string: The NoneType string to be checked.
-    """
-    if not string.lower() == "none":
-        raise InvalidNoneTypeValueError("Input is not a valid NoneType value")
-
-    is_string_literal_none = string == "None"
-    return None, is_string_literal_none
 
 colorama.init(autoreset=True)
 
@@ -2122,6 +1894,8 @@ for config in iterate_network_ip_details():
         i.mac_address = config.MACAddress
 
 if Settings.CAPTURE_ARP:
+    from Modules.networking.utils import format_mac_address, is_mac_address
+
     cached_arp_dict = get_arp_table()
 
     for cached_arp_interface_index, cached_arp_infos in cached_arp_dict.items():
@@ -2135,6 +1909,21 @@ if Settings.CAPTURE_ARP:
         for entry in cached_arp_infos:
             if entry["mac_address"] in ("00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"):
                 continue
+
+            if not is_mac_address(entry["mac_address"]):
+                stdout_crash_text = textwrap.dedent(f"""
+                    ERROR:
+                        Developer didn't expect this scenario to be possible.
+
+                    INFOS:
+                        It seems like a MAC address does not follow
+                        \"xx:xx:xx:xx:xx:xx\" or \"xx-xx-xx-xx-xx-xx\"
+                        format.
+
+                    DEBUG:
+                        mac_address: {entry["mac_address"]}
+                """.removeprefix("\n").removesuffix("\n"))
+                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
             if is_valid_non_special_ipv4(entry["ip_address"]):
                 interface_arp_infos.append({
@@ -2169,8 +1958,8 @@ interfaces_selection_data: list[InterfaceSelectionData] = []
 for i in Interface.iterate_safely():
     if (
         Settings.CAPTURE_INTERFACE_NAME is not None
-        and Settings.CAPTURE_INTERFACE_NAME.lower() == i.interface_name.lower()
-        and not Settings.CAPTURE_INTERFACE_NAME == i.interface_name
+        and Settings.CAPTURE_INTERFACE_NAME.casefold() == i.interface_name.casefold()
+        and Settings.CAPTURE_INTERFACE_NAME != i.interface_name
     ):
         Settings.CAPTURE_INTERFACE_NAME = i.interface_name
         Settings.reconstruct_settings()
@@ -2364,6 +2153,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
 
         from Modules.constants.standard import USERIP_LOGGING_PATH
         from Modules.constants.local import TTS_PATH
+        from Modules.utils import get_pid_by_path, terminate_process_tree, write_lines_to_file
 
         # We wants to run this as fast as possible so it's on top of the function.
         if connection_type == "connected":
@@ -2666,6 +2456,8 @@ def pinger_core():
 def capture_core():
     with Threads_ExceptionHandler():
         def packet_callback(packet: Packet):
+            from Modules.networking.utils import is_private_device_ipv4
+
             global tshark_restarted_times, global_pps_counter
 
             packet_datetime = packet.frame.datetime
@@ -2890,7 +2682,7 @@ def rendering_core():
             elif sorted_column_name in ("Mobile", "VPN", "Hosting", "Pinging"):
                 return sorted(
                     session_list,
-                    key=lambda item: str(get_nested_attr(item, Settings.gui_fields_mapping[sorted_column_name])).lower(),
+                    key=lambda item: str(get_nested_attr(item, Settings.gui_fields_mapping[sorted_column_name])).casefold(),
                     reverse=not sort_order_to_reverse(sort_order)
                 )
             else:
@@ -2902,11 +2694,12 @@ def rendering_core():
                 )
 
         def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]):
-            from Modules.constants.standalone import USERIP_INI_SETTINGS_LIST
-            from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
-
             def process_ini_line_output(line: str):
                 return line.strip()
+
+            from Modules.constants.standalone import USERIP_INI_SETTINGS
+            from Modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
+            from Modules.utils import InvalidBooleanValueError, InvalidNoneTypeValueError, custom_str_to_bool, custom_str_to_nonetype, check_case_insensitive_and_exact_match
 
             if not ini_path.exists():
                 raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
@@ -2968,7 +2761,7 @@ def rendering_core():
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
 
-                    if not setting in USERIP_INI_SETTINGS_LIST:
+                    if not setting in USERIP_INI_SETTINGS:
                         if corrected_ini_data_lines:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
@@ -3134,7 +2927,7 @@ def rendering_core():
                     else:
                         userip[username] = [ip]
 
-            list_of_missing_settings = [setting for setting in USERIP_INI_SETTINGS_LIST if setting not in matched_settings]
+            list_of_missing_settings = [setting for setting in USERIP_INI_SETTINGS if setting not in matched_settings]
             number_of_settings_missing = len(list_of_missing_settings)
 
             if number_of_settings_missing > 0:
@@ -3863,6 +3656,7 @@ def rendering_core():
 
         from Modules.constants.standard import TWO_TAKE_ONE__PLUGIN__LOG_PATH, STAND__PLUGIN__LOG_PATH, RE_MODMENU_LOGS_USER_PATTERN
         from Modules.constants.local import CHERAX__PLUGIN__LOG_PATH
+        from Modules.utils import concat_lists_no_duplicates
 
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
         (
@@ -3916,7 +3710,7 @@ def rendering_core():
 
                     # Read the content and split it into lines
                     for line in log_path.read_text(encoding="utf-8").splitlines():
-                        match = RE_MODMENU_LOGS_USER_PATTERN.match(line)
+                        match = RE_MODMENU_LOGS_USER_PATTERN.fullmatch(line)
                         if not match:
                             continue
 
@@ -3928,10 +3722,7 @@ def rendering_core():
                         if not isinstance(ip, str):
                             continue
 
-                        if ip not in modmenu__plugins__ip_to_usernames:
-                            modmenu__plugins__ip_to_usernames[ip] = []
-                        if not username in modmenu__plugins__ip_to_usernames[ip]:
-                            modmenu__plugins__ip_to_usernames[ip].append(username)
+                        modmenu__plugins__ip_to_usernames.setdefault(ip, []).append(username)
 
             if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases(last_userip_parse_time)
@@ -4145,14 +3936,15 @@ class SessionTableModel(QAbstractTableModel):
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        from Modules.constants.standalone import GUI_COLUMN_HEADERS_TOOLTIPS
+
         if orientation == Qt.Orientation.Horizontal:
             if role == Qt.ItemDataRole.DisplayRole:
                 return self._headers[section]  # Display the header name
             elif role == Qt.ItemDataRole.ToolTipRole:
-                from Modules.constants.standalone import GUI_COLUMN_HEADERS_TOOLTIP_MAPPING
                 # Fetch the header name and return the corresponding tooltip
                 header_name = self._headers[section]
-                return GUI_COLUMN_HEADERS_TOOLTIP_MAPPING.get(header_name, None)
+                return GUI_COLUMN_HEADERS_TOOLTIPS.get(header_name, None)
 
         return None
 
@@ -4237,7 +4029,7 @@ class SessionTableModel(QAbstractTableModel):
             # Sort by other columns: numerically if the strings represent numbers, otherwise case-insensitively
             combined.sort(
                 key=lambda row: (
-                    float(row[0][column]) if row[0][column].replace('.', '', 1).isdigit() else row[0][column].lower()
+                    float(row[0][column]) if row[0][column].replace('.', '', 1).isdigit() else row[0][column].casefold()
                 ),
                 reverse=sort_order_bool
             )
@@ -5015,6 +4807,7 @@ class SessionTableView(QTableView):
 
     def userip_manager__add(self, ip_addresses: list[str], selected_database: Path):
         from Modules.constants.standard import USERIP_DATABASES_PATH
+        from Modules.utils import write_lines_to_file
 
         # Prompt the user for a username
         username, ok = QInputDialog.getText(self, "Input Username", f"Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:")
@@ -5030,6 +4823,7 @@ class SessionTableView(QTableView):
 
     def userip_manager__move(self, ip_addresses: list[str], selected_database: Path):
         from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
+        from Modules.utils import write_lines_to_file
 
         # Dictionary to store removed entries by database
         deleted_entries_by_database: dict[Path, list[str]] = {}
@@ -5087,6 +4881,7 @@ class SessionTableView(QTableView):
 
     def userip_manager__del(self, ip_addresses: list[str]):
         from Modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
+        from Modules.utils import write_lines_to_file
 
         # Dictionary to store removed entries by database
         deleted_entries_by_database: dict[Path, list[str]] = {}
