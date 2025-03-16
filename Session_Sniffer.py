@@ -4468,6 +4468,8 @@ class SessionTableView(QTableView):
                 if not isinstance(selection_model, QItemSelectionModel):
                     raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
+                selection_flag = None
+
                 if event.button() == Qt.MouseButton.RightButton:
                     if not selection_model.isSelected(index):
                         selection_model.select(index, QItemSelectionModel.SelectionFlag.ClearAndSelect)
@@ -4496,6 +4498,7 @@ class SessionTableView(QTableView):
                             else QItemSelectionModel.SelectionFlag.Select
                         )
 
+                if selection_flag is not None:
                     # Apply the determined selection flag
                     selection_model.select(index, selection_flag)
                     return
