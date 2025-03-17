@@ -1698,7 +1698,7 @@ print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 cls()
-title(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
+title(f'Verifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
 print(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match ...\n')
 
 from Modules.constants.local import BIN_PATH
