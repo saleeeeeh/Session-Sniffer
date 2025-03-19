@@ -2119,10 +2119,15 @@ capture = PacketCapture(
     tshark_version = tshark_version
 )
 
-userip_logging_file_write_lock = threading.Lock()
 gui_closed__event = threading.Event()
 
-def process_userip_task(player: Player, connection_type: Literal["connected", "disconnected"]):
+def process_userip_task(
+    player: Player,
+    connection_type: Literal["connected", "disconnected"],
+    *,  # Prevents further positional arguments
+    _userip_logging_file_write_lock=threading.Lock()  # Internal static lock
+    ):
+
     with Threads_ExceptionHandler():
         def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: Union[int, float, Literal["Auto", "Manual"]]):
             """
@@ -2198,7 +2203,7 @@ def process_userip_task(player: Player, connection_type: Literal["connected", "d
             from Modules.constants.standard import USERIP_DATABASES_PATH
             relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")
 
-            with userip_logging_file_write_lock:
+            with _userip_logging_file_write_lock:
                 write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
                     f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
