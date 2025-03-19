@@ -1289,7 +1289,7 @@ def get_arp_table():
     import win32com
     from win32com.client import CDispatch
 
-    objWMI = win32com.client.GetObject("winmgmts:\\\\.\\root\\StandardCimv2")
+    objWMI = win32com.client.GetObject(R"winmgmts:\\.\root\StandardCimv2")
     arp_entries = objWMI.ExecQuery("SELECT * FROM MSFT_NetNeighbor WHERE AddressFamily=2")
     if not isinstance(arp_entries, CDispatch):
         raise TypeError(f'Expected "CDispatch", got "{type(mac_address).__name__}"')
