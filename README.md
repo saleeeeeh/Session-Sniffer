@@ -36,7 +36,7 @@
 | Red Dead Online                     | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
 | Minecraft Bedrock Edition (Friends) | PC, PS3                                  |
 | PlayStation Party Chat              | PS4, PS5                                 |
-| Xbox Party Chat                     | Xbox One, Xbox Series X|S                |
+| Xbox Party Chat                     | Xbox One, Xbox Series X\|S               |
 
 > _Note_: The script works for all P2P (Peer-To-Peer) games, but only the games listed above have servers filtering.
 
