@@ -1,5 +1,5 @@
 TITLE = "Session Sniffer"
-VERSION = "v1.3.6 - 20/03/2025 (11:28)"
+VERSION = "v1.3.7 - 20/03/2025 (11:29)"
 
 GITHUB_REPO_URL = "https://github.com/BUZZARDGTA/Session-Sniffer"
 GITHUB_RELEASES_URL = "https://github.com/BUZZARDGTA/Session-Sniffer/releases"
