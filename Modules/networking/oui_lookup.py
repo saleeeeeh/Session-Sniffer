@@ -63,11 +63,13 @@ def fetch_and_parse_oui_database():
         if not RE_OUI_MAC_ADDRESS_PATTERN.fullmatch(company_id):
             raise ValueError(f"Invalid OUI format: '{company_id}'. Expected exactly 6 hexadecimal characters.")
 
-        oui_database.setdefault(company_id.upper(), []).append({
+        entry = {
             "organization_name": organization_name,
             "address_line_1": address_line_1,
             "address_line_2": address_line_2,
             "address_country_iso_code": address_country_iso_code
-        })
+        }
+        if entry not in oui_database.setdefault(company_id.upper(), []):
+            oui_database[company_id.upper()].append(entry)
 
     return oui_database

@@ -1314,10 +1314,12 @@ def get_arp_table():
             continue
 
         # Append ARP info directly to the dictionary entry
-        cached_arp_dict.setdefault(interface_index, []).append({
+        entry = {
             "ip_address": ip_address,
             "mac_address": mac_address
-        })
+        }
+        if entry not in cached_arp_dict.setdefault(interface_index, []):
+            cached_arp_dict[interface_index].append(entry)
 
     return cached_arp_dict
 
@@ -3640,7 +3642,7 @@ def rendering_core():
                     The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
-                    Scanning with TShark {tshark_version_color}v{capture.extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span>
+                    Scanning with TShark {tshark_version_color}v{capture.extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span> | Preset:<span style="color: yellow;">{Settings.CAPTURE_PROGRAM_PRESET}</span>
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}
@@ -3727,7 +3729,8 @@ def rendering_core():
                         if not isinstance(ip, str):
                             continue
 
-                        modmenu__plugins__ip_to_usernames.setdefault(ip, []).append(username)
+                        if username not in modmenu__plugins__ip_to_usernames.setdefault(ip, []):
+                            modmenu__plugins__ip_to_usernames[ip].append(username)
 
             if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases(last_userip_parse_time)
