@@ -1108,13 +1108,14 @@ class UserIP(NamedTuple):
     usernames: list[str]
 
 class UserIP_Databases:
+    _update_userip_database_lock = threading.Lock()
+
     userip_databases: list[tuple[Path, UserIP_Settings, dict[str, list[str]]]] = []
     userip_infos_by_ip: dict[str, UserIP] = {}
     ips_set: set[str] = set()
     notified_settings_corrupted: set[Path] = set()
     notified_ip_invalid: set[str] = set()
     notified_ip_conflicts: set[str] = set()
-    update_userip_database_lock = threading.Lock()
 
     @staticmethod
     def _notify_conflict(initial_userip_entry: UserIP, conflicting_database: Path, conflicting_username: str, conflicting_ip: str):
@@ -1149,7 +1150,7 @@ class UserIP_Databases:
         Args:
             database_entries: A list of tuples containing database_path, settings, and user_ips.
         """
-        with cls.update_userip_database_lock:
+        with cls._update_userip_database_lock:
             cls.userip_databases = [
                 (database_path, settings, user_ips)
                 for database_path, settings, user_ips in database_entries
@@ -1162,7 +1163,7 @@ class UserIP_Databases:
         Build the userip_infos_by_ip dictionaries from the current databases.
         This method updates the dictionaries without clearing their content entirely, and avoids duplicates.
         """
-        with cls.update_userip_database_lock:
+        with cls._update_userip_database_lock:
             userip_infos_by_ip: dict[str, UserIP] = {}
             unresolved_conflicts: set[str] = set()
             ips_set: set[str] = set()
@@ -1198,13 +1199,13 @@ class UserIP_Databases:
 
     @classmethod
     def get_userip_database_filepaths(cls):
-        with cls.update_userip_database_lock:
+        with cls._update_userip_database_lock:
             return [database_path for database_path, _, _ in cls.userip_databases]
 
     @classmethod
     def get_userip_info(cls, ip: str):
         """Returns a UserIP object for the specified IP."""
-        with cls.update_userip_database_lock:
+        with cls._update_userip_database_lock:
             return cls.userip_infos_by_ip.get(ip)
 
     @classmethod
@@ -3692,6 +3693,7 @@ def rendering_core():
             discord_rpc_manager = DiscordRPC(client_id=DISCORD_APPLICATION_ID)
 
         modmenu__plugins__ip_to_usernames: dict[str, list[str]] = {}
+        file_mod_time_cache: dict[Path, float] = {}
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
@@ -3714,6 +3716,13 @@ def rendering_core():
                 for log_path in (STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH):
                     if not log_path.is_file():
                         continue
+
+                    # Check modification time
+                    mod_time = log_path.stat().st_mtime
+                    if file_mod_time_cache.get(log_path) == mod_time:
+                        continue  # Skip unchanged files
+
+                    file_mod_time_cache[log_path] = mod_time
 
                     # Read the content and split it into lines
                     for line in log_path.read_text(encoding="utf-8").splitlines():
