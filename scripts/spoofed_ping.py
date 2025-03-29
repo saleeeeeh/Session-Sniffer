@@ -55,7 +55,7 @@ def ping_loop(target_ip: str):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
         "Accept": "application/json"
     })
-    # s.verify = False
+    #s.verify = False
 
     def send_ping_request(ip: str):
         """Sends a ping request to the Check-Host API."""
