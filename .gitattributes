@@ -1,3 +1,2 @@
-bin/**
-setup/**
-linguist-vendored
+bin/** linguist-vendored
+setup/** linguist-vendored
