@@ -1709,6 +1709,7 @@ if not is_pyinstaller_compiled():
         "QDarkStyle": "3.2.3",
         "requests": "2.32.3",
         "rich": "13.9.4",
+        "sentinel": "1.0.0",
         "urllib3": "2.2.3",
         "WMI": "1.5.1"
     }
