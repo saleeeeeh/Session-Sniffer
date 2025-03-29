@@ -1,6 +1,6 @@
 """
 This module provides functionality for performing reverse DNS lookups.
-It includes a class `ReverseDNS` which resolves hostnames from IP addresses.
+It includes a function `lookup` which resolves hostnames from IP addresses.
 """
 
 # External/Third-party Python Libraries
