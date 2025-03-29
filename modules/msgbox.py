@@ -5,7 +5,7 @@ It defines two main components:
 - MsgBox.ReturnValues: Enum class representing the possible return values from a MessageBox.
 - MsgBox.Style: IntFlag class representing the different styles and options available for the MessageBox.
 
-The MsgBox.show() method can be used to display a message box with custom buttons, icons, and behavior.
+The MsgBox.show() method can be used to display a message box with custom buttons, and behavior.
 """
 import enum
 import ctypes
