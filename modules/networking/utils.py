@@ -47,7 +47,6 @@ def is_valid_non_special_ipv4(ip_address: str):
     except AddressValueError:
         return False
 
-    # Grouping the conditions into a list and checking with any()
     invalid_conditions = [
         ipv4_obj.version != 4,
         ipv4_obj.packed[-1] == 255,
