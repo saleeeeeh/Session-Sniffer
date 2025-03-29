@@ -1,36 +1,64 @@
+"""
+This module provides functionality for MAC address lookup using the OUI database.
+It includes functions to fetch, parse, and search the database.
+"""
+
+# Standard Python Libraries
+from typing import Optional
+
 # Local Python Libraries (Included with Project)
-from Modules.constants.standalone import OUI_URL
-from Modules.constants.standard import RE_OUI_MAC_ADDRESS_PATTERN, RE_OUI_ENTRY_PATTERN
-from Modules.networking.unsafe_https import s
-from Modules.networking.utils import is_mac_address, get_mac_oui
+from modules.constants.standalone import OUI_URL
+from modules.constants.standard import RE_OUI_MAC_ADDRESS_PATTERN, RE_OUI_ENTRY_PATTERN
+from modules.networking.unsafe_https import s
+from modules.networking.utils import is_mac_address, get_mac_oui
+
+
+OuiDatabaseType = dict[str, list[dict[str, str]]]
 
 
 class FetchError(Exception):
-    pass
+    """Raised when fetching the OUI database fails."""
+
 
 class InvalidMacError(Exception):
-    pass
+    """Raised when an invalid MAC address is found."""
 
-class MacLookup():
-    def __init__(self, bypass_fetch_error=False):
-        try:
-            self.oui_database = fetch_and_parse_oui_database()
-        except FetchError:
-            if not bypass_fetch_error:
-                raise
-            self.oui_database = {}
+
+class MacLookup:
+    def __init__(self, load_on_init: bool = False):
+        """
+        Initializes the MacLookup instance.
+
+        :param load_on_init: If True, fetches and loads the OUI database immediately.
+        """
+        self.oui_database: Optional[OuiDatabaseType] = None
+        if load_on_init:
+            self.refresh_oui_database()
+
+    def refresh_oui_database(self):
+        """Fetch and load the OUI database, forcing an update to the latest data."""
+        self.oui_database = fetch_and_parse_oui_database()
 
     def lookup(self, mac_address: str):
+        """
+        Lookup the MAC address in the OUI database.
+        Will load the database if it's not already loaded.
+        """
         if not is_mac_address(mac_address):
             raise InvalidMacError(
                 f"Invalid MAC address: {mac_address}\n"
-                 "A MAC address must be 12-digit hexadecimal number long."
+                "A MAC address must be a 12-digit hexadecimal number long."
             )
 
+        # Ensure the database is loaded before performing lookup
+        if self.oui_database is None:
+            self.refresh_oui_database()
+
+        if self.oui_database is None:
+            return None
+
         oui = get_mac_oui(mac_address)
-        if oui in self.oui_database:
-            return self.oui_database[oui]
-        return None
+        return self.oui_database.get(oui)
 
 
 def fetch_and_parse_oui_database():
@@ -43,7 +71,7 @@ def fetch_and_parse_oui_database():
         # TODO:
         raise FetchError("Failed to retrieve data from OUI URL.") from e
 
-    oui_database: dict[str, list[dict[str, str]]] = {}
+    oui_database: OuiDatabaseType = {}
 
     for match in map(strip_tuple, RE_OUI_ENTRY_PATTERN.findall(response.text)):
         oui = match[0]

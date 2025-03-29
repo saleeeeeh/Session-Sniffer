@@ -1,8 +1,13 @@
+"""
+Module for defining constants that don't require imports or functions, using only pure Python.
+"""
+
 TITLE = "Session Sniffer"
-VERSION = "v1.3.7 - 20/03/2025 (11:29)"
+VERSION = "v1.3.7 - 29/03/2025 (20:44)"
 
 GITHUB_REPO_URL = "https://github.com/BUZZARDGTA/Session-Sniffer"
 GITHUB_RELEASES_URL = "https://github.com/BUZZARDGTA/Session-Sniffer/releases"
+GITHUB_VERSIONS_URL = "https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/versions.json"
 DISCORD_INVITE_URL = "https://discord.gg/hMZ7MsPX7G"
 OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
 GITHUB_RELEASE_API__GEOLITE2__URL = "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest"

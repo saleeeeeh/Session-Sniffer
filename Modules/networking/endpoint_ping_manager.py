@@ -1,18 +1,21 @@
+"""
+Module for managing ping requests to various endpoints, handling their success/failure states,
+and parsing ping responses. It is used to determine whether each player's IP is responsive to pings.
+"""
+
 # Standard Python Libraries
-import sys
 import time
 import threading
-from pathlib import Path
-from requests import exceptions
 from typing import Optional, NamedTuple, Dict
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
 
+# External/Third-party Python Libraries
+from requests import exceptions
+
 # Local Python Libraries (Included with Project)
-parent_dir = Path(__file__).resolve().parent.parent
-sys.path.append(str(parent_dir))
-from Modules.networking.unsafe_https import s
-from Modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
+from modules.networking.unsafe_https import s
+from modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
 
 
 class InvalidPingResult(Exception):
@@ -25,9 +28,9 @@ class InvalidPingResult(Exception):
                          f"Response: {response_content}\n"
                          f"{attributes}")
 
+
 class AllEndpointsExhausted(Exception):
     """Exception raised when all endpoints have been exhausted."""
-    pass
 
 
 @dataclass
@@ -68,6 +71,7 @@ class EndpointInfo:
         penalty = self.failures * 1000  # Adjust penalty factor as needed.
         return self.average_time() + penalty
 
+
 class PingResult(NamedTuple):
     ping_times:          list[float]
     packets_transmitted: Optional[int]
@@ -87,6 +91,7 @@ class PingResult(NamedTuple):
             getattr(self, attr) is None for attr in ("packets_transmitted", "packets_received", "packet_loss", "packet_errors")
         )
 
+
 # Global dictionary to track semaphores per endpoint host
 host_locks: dict[str, threading.Semaphore] = {}
 
@@ -103,6 +108,7 @@ endpoints_info: Dict[str, EndpointInfo] = {
     "https://api.justyy.workers.dev/api/ping/": EndpointInfo("https://api.justyy.workers.dev/api/ping/"),
 }
 
+
 def get_host_semaphore(url: str):
     """
     Returns a semaphore for the given endpoint host, ensuring at most 10 concurrent requests.
@@ -113,17 +119,17 @@ def get_host_semaphore(url: str):
             host_locks[hostname] = threading.Semaphore(10)
         return host_locks[hostname]
 
+
 def get_sorted_endpoints():
     now = time.monotonic()
 
     with endpoints_lock:
         # Only consider endpoints not in cooldown first.
-        available = [info for info in endpoints_info.values() if now >= info.cooldown_until]
-        if available:
-            return sorted(available, key=lambda info: info.score(now))
-        else:
-            # If all are cooling down, sort all.
-            return sorted(endpoints_info.values(), key=lambda info: info.score(now))
+        if available_endpoints := [info for info in endpoints_info.values() if now >= info.cooldown_until]:
+            return sorted(available_endpoints, key=lambda info: info.score(now))
+        # If all are cooling down, sort all.
+        return sorted(endpoints_info.values(), key=lambda info: info.score(now))
+
 
 def parse_ping_response(ping_response: str):
     # Extract individual ping times
@@ -159,6 +165,7 @@ def parse_ping_response(ping_response: str):
         rtt_mdev=rtt_mdev
     )
 
+
 def fetch_and_parse_ping(ip: str):
     """
     Attempts to fetch and parse ping data for the given ip using the available endpoints.
@@ -176,7 +183,6 @@ def fetch_and_parse_ping(ip: str):
                 continue  # Skip this endpoint for this ip
 
             if time.monotonic() < endpoint_info.cooldown_until:
-                now = time.monotonic()
                 continue  # Skip if still in cooldown
 
             semaphore = get_host_semaphore(endpoint_info.url)
@@ -184,8 +190,9 @@ def fetch_and_parse_ping(ip: str):
             if not semaphore.acquire(blocking=False):
                 continue  # Skip this endpoint host if already at the 10-request limit
 
+            start = time.monotonic()
+
             try:
-                start = time.monotonic()
                 response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
                 response.raise_for_status()
                 if not isinstance(response.content, bytes):

@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['..\\..\\Session_Sniffer.py'],
+    ['..\\..\\session_sniffer.py'],
     pathex=[],
     binaries=[],
     datas=[('..\\..\\TTS', 'TTS'), ('..\\..\\scripts', 'scripts'), ('..\\..\\bin', 'bin')],

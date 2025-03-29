@@ -1,30 +1,37 @@
+"""
+This module provides a custom HTTP session with a relaxed SSL context.
+It disables certificate verification and allows insecure ciphers for compatibility with legacy systems.
+"""
+
 # Standard Python Libraries
 import ssl
 from ssl import SSLContext
 from typing import Optional
 
 # External/Third-party Python Libraries
-import requests
 import urllib3
+import requests
+from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
-from urllib3.util import create_urllib3_context
 from urllib3.exceptions import InsecureRequestWarning
+from urllib3.util import create_urllib3_context
 
 
 # Workaround unsecure request warnings
 urllib3.disable_warnings(InsecureRequestWarning)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:136.0) Gecko/20100101 Firefox/136.0"
 }
 
+
 # Allow custom ssl context for adapters
-class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
+class CustomSSLContextHTTPAdapter(HTTPAdapter):
     def __init__(self, ssl_context: Optional[SSLContext], **kwargs):
         self.ssl_context = ssl_context
         super().__init__(**kwargs)
 
-    def init_poolmanager(self, connections: int, maxsize: int, block=False):
+    def init_poolmanager(self, connections: int, maxsize: int, block=False, **pool_kwargs):
         self.poolmanager = PoolManager(
             num_pools=connections,
             maxsize=maxsize,
@@ -32,7 +39,8 @@ class CustomSSLContextHTTPAdapter(requests.adapters.HTTPAdapter):
             ssl_context=self.ssl_context,
         )
 
-def create_unsafe_https_session(headers: dict[str, str] = None):
+
+def create_unsafe_https_session(headers: Optional[dict[str, str]] = None):
     context = create_urllib3_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE

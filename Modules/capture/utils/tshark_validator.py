@@ -1,19 +1,23 @@
+"""
+Module for validating TShark executable paths and versions, including exception handling for invalid versions.
+"""
+
 # Standard Python Libraries
 import subprocess
 from pathlib import Path
 from typing import NamedTuple
 
 # Local Python Libraries (Included with Project)
-from Modules.constants.standalone import TSHARK_RECOMMENDED_FULL_VERSION
+from modules.constants.standalone import TSHARK_RECOMMENDED_FULL_VERSION
 
 
 class TSharkNotFoundException(Exception):
     """Exception raised when TShark is not found at the specified path."""
-    pass
+
 
 class TSharkVersionNotFoundException(Exception):
     """Exception raised when TShark's version cannot be determined."""
-    pass
+
 
 class InvalidTSharkVersionException(Exception):
     def __init__(self, path: Path, version: str):
@@ -40,6 +44,7 @@ def validate_tshark_path(tshark_path: Path):
         TSharkVersionNotFoundException: If the TShark version cannot be determined.
         InvalidTSharkVersionException: If the found TShark version is unsupported.
     """
+
     def get_tshark_version(path: Path):
         """Attempts to retrieve TShark's version from the given path."""
         try:

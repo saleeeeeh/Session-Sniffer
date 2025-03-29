@@ -1,3 +1,7 @@
+"""
+Module for checking support for broadcast and multicast capture filters on a specified network interface using tshark.
+"""
+
 # Standard Python Libraries
 import subprocess
 from typing import Optional, NamedTuple
@@ -23,16 +27,17 @@ def check_broadcast_multicast_support(tshark_path: Path, interface: str):
     Returns:
         A named tuple containing test results.
     """
+
     def run_tshark_test(filter_type: str):
         """Runs tshark with a given filter and returns whether it was successful."""
         cmd = [
-            tshark_path,
+            str(tshark_path),
             "-i", interface,
             "-f", filter_type,
             "-a", "duration:0",
             "-Q"
         ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         return result.returncode == 0, result.stderr.strip() if result.returncode != 0 else None
 
     broadcast_supported, broadcast_error = run_tshark_test("broadcast")

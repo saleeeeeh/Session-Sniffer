@@ -1,9 +1,15 @@
+"""
+Module for handling the selection of network interfaces in a GUI dialog.
+It displays a list of interfaces with relevant details and allows users to select an interface
+for further network sniffing operations.
+"""
+
 # Standard Python Libraries
-from typing import Union, Literal
-from typing import NamedTuple
+from typing import NamedTuple, Union, Literal, Optional
 
 # External/Third-party Python Libraries
-from PyQt6.QtCore import Qt
+# pylint: disable=no-name-in-module
+from PyQt6.QtCore import Qt, QItemSelectionModel
 from PyQt6.QtWidgets import (
     QDialog,
     QTableWidget,
@@ -14,18 +20,20 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QHBoxLayout
 )
+# pylint: enable = no-name-in-module
 
 
 class InterfaceSelectionData(NamedTuple):
-    index: int
-    interface_name: str
-    packets_sent: Union[Literal["N/A"], int]
-    packets_recv: Union[Literal["N/A"], int]
-    ip_address: Union[Literal["N/A"], str]
-    mac_address: Union[Literal["N/A"], str]
-    adapter_name: Union[Literal["N/A"], str]
-    manufacturer: Union[Literal["N/A"], str]
-    is_arp: bool = False
+    interface_selection_index: int
+    interface_name:            str
+    interface_description:     Union[Literal["N/A"], str]
+    packets_sent:              Union[Literal["N/A"], int]
+    packets_recv:              Union[Literal["N/A"], int]
+    ip_address:                Union[Literal["N/A"], str]
+    mac_address:               Union[Literal["N/A"], str]
+    manufacturer:              Union[Literal["N/A"], str]
+    is_arp:                    bool                       = False
+
 
 class InterfaceSelectionDialog(QDialog):
     def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
@@ -38,7 +46,7 @@ class InterfaceSelectionDialog(QDialog):
         self.resize_window_for_screen(screen_width, screen_height)
 
         # Custom variables
-        self.selected_interface_data = None
+        self.selected_interface_data: Optional[InterfaceSelectionData] = None
         self.interfaces = interfaces  # Store the list of interface data
 
         # Layout for the dialog
@@ -48,20 +56,28 @@ class InterfaceSelectionDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(
-            ["Interface Name", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Adapter Name", "Manufacturer"]
+            ["Interface Name", "Interface Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"]
         )
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+
+        horizontal_header = self.table.horizontalHeader()
+        if not isinstance(horizontal_header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
+        horizontal_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        horizontal_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        horizontal_header.setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        horizontal_header.setStretchLastSection(True)
+
+        vertical_header = self.table.verticalHeader()
+        if not isinstance(vertical_header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(vertical_header).__name__}"')
+        vertical_header.setVisible(False)
 
         # Populate the table with interface data
         for idx, interface in enumerate(self.interfaces):
@@ -70,22 +86,22 @@ class InterfaceSelectionDialog(QDialog):
             item = QTableWidgetItem(interface.interface_name if not interface.is_arp else f"{interface.interface_name} (ARP)")
             self.table.setItem(idx, 0, item)
 
-            item = QTableWidgetItem(str(interface.packets_sent))
+            item = QTableWidgetItem(interface.interface_description)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(idx, 1, item)
 
-            item = QTableWidgetItem(str(interface.packets_recv))
+            item = QTableWidgetItem(str(interface.packets_sent))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(idx, 2, item)
 
-            item = QTableWidgetItem(interface.ip_address)
+            item = QTableWidgetItem(str(interface.packets_recv))
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(idx, 3, item)
 
-            item = QTableWidgetItem(interface.mac_address)
+            item = QTableWidgetItem(interface.ip_address)
             self.table.setItem(idx, 4, item)
 
-            item = QTableWidgetItem(interface.adapter_name)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            item = QTableWidgetItem(interface.mac_address)
             self.table.setItem(idx, 5, item)
 
             item = QTableWidgetItem(interface.manufacturer)
@@ -123,7 +139,10 @@ class InterfaceSelectionDialog(QDialog):
         self.activateWindow()
 
         # Connect selection change signal to enable/disable Select button
-        self.table.selectionModel().selectionChanged.connect(self.update_select_button_state)
+        selection_model = self.table.selectionModel()
+        if not isinstance(selection_model, QItemSelectionModel):
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+        selection_model.selectionChanged.connect(self.update_select_button_state)
 
     def resize_window_for_screen(self, screen_width: int, screen_height: int):
         # Resize the window based on screen size
@@ -155,5 +174,4 @@ def show_interface_selection_dialog(screen_width: int, screen_height: int, inter
     dialog = InterfaceSelectionDialog(screen_width, screen_height, interfaces)
     if dialog.exec() == QDialog.DialogCode.Accepted:  # Blocks until the dialog is accepted or rejected
         return dialog.selected_interface_data
-    else:
-        return None
+    return None

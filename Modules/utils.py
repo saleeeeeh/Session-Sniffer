@@ -1,26 +1,43 @@
+"""
+Utility Module
+
+This module contains a variety of helper functions and custom exceptions used across the project.
+"""
+
 # Standard Python Libraries
 from pathlib import Path
-from typing import Optional, Literal, Union, Any
+from typing import Optional, Literal, Any
 
 
 class InvalidBooleanValueError(Exception):
     pass
 
+
 class InvalidNoneTypeValueError(Exception):
     pass
+
+
+class NoMatchFoundError(Exception):
+    """
+    Custom exception raised when no case-insensitive match is found.
+    """
+    def __init__(self, input_value: str, message: str = "No matching value found in the provided list"):
+        self.input_value = input_value
+        self.message = f"{message}: '{input_value}'"
+        super().__init__(self.message)
 
 
 class Version:
     def __init__(self, version: str):
         from datetime import datetime
-        from Modules.constants.standard import RE_VERSION_TIME
+        from modules.constants.standard import RE_VERSION_TIME
 
         version = version.strip()
 
         self.major, self.minor, self.patch = map(int, version[1:6:2])
         self.date = datetime.strptime(version[9:19], "%d/%m/%Y").date().strftime("%d/%m/%Y")
 
-        # Check if the version string contains the time component
+        # Initialize time as an empty string (no None)
         if (
             len(version) == 27
             and RE_VERSION_TIME.search(version)
@@ -28,14 +45,15 @@ class Version:
             self.time = datetime.strptime(version[21:26], "%H:%M").time().strftime("%H:%M")
             self.date_time = datetime.strptime(version[9:27], "%d/%m/%Y (%H:%M)")
         else:
-            self.time = None
+            self.time = ""
             self.date_time = datetime.strptime(version[9:19], "%d/%m/%Y")
 
     def __str__(self):
+        # If time is an empty string, don't display the time part
         return f"v{self.major}.{self.minor}.{self.patch} - {self.date}{f' ({self.time})' if self.time else ''}"
 
 
-def get_documents_folder(use_alternative_method = False):
+def get_documents_folder(use_alternative_method=False):
     """
     Retrieves the Path object to the current user's \"Documents\" folder by querying the Windows registry.
 
@@ -51,14 +69,15 @@ def get_documents_folder(use_alternative_method = False):
     """
     if use_alternative_method:
         # Alternative method using SHGetKnownFolderPath from WinAPI
-        from win32com.shell import shell, shellcon # type:ignore # Seems like we can also use `win32comext.shell`
+        # pylint: disable=import-error,no-name-in-module
+        from win32com.shell import shell, shellcon  # type:ignore # Seems like we can also use `win32comext.shell`
 
         # Get the Documents folder path
         documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)
     else:
         # Default method using Windows registry
         import winreg
-        from Modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
+        from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
 
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
             documents_path, _ = winreg.QueryValueEx(key, "Personal")
@@ -68,18 +87,21 @@ def get_documents_folder(use_alternative_method = False):
 
     return Path(documents_path)
 
+
 def resource_path(relative_path: Path):
     """Get absolute path to resource, works for dev and for PyInstaller."""
     import sys
 
-    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent) # .parent twice because of modularizing bruh
+    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
     if not isinstance(base_path, Path):
         base_path = Path(base_path)
     return base_path / relative_path
 
+
 def take(n: int, input_list: list[Any]):
     """Return first n items from the given input list."""
     return input_list[:n]
+
 
 def concat_lists_no_duplicates(*lists: list[Any]):
     """
@@ -99,6 +121,7 @@ def concat_lists_no_duplicates(*lists: list[Any]):
 
     return unique_list
 
+
 def get_pid_by_path(filepath: Path):
     import psutil
 
@@ -107,16 +130,13 @@ def get_pid_by_path(filepath: Path):
             return process.pid
     return None
 
-def is_file_need_newline_ending(file: Union[str, Path]):
-    if isinstance(file, Path):
-        file_path = file
-    else:
-        file_path = Path(file)
 
-    if file_path.stat().st_size == 0:
+def is_file_need_newline_ending(file: Path):
+    if file.stat().st_size == 0:
         return False
 
     return not file.read_bytes().endswith(b"\n")
+
 
 def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[str]):
     """
@@ -150,7 +170,8 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
     with file.open(mode, encoding="utf-8") as f:
         f.writelines(content)
 
-def terminate_process_tree(pid: int = None):
+
+def terminate_process_tree(pid: Optional[int] = None):
     """Terminates the process with the given PID and all its child processes.
        Defaults to the current process if no PID is specified."""
     import psutil
@@ -174,31 +195,32 @@ def terminate_process_tree(pid: int = None):
     except psutil.NoSuchProcess:
         pass
 
+
 def check_case_insensitive_and_exact_match(input_value: str, custom_values_list: list[str]):
     """
     Checks if the input value matches any string in the list case-insensitively, and whether it also matches exactly (case-sensitive).
 
     It also returns the correctly capitalized version of the matched value from the list if a case-insensitive match is found.
+    If no match is found, raises a NoMatchFoundError.
 
     Returns a tuple of three values:
-    - The first boolean is True if a case-insensitive match is found.
-    - The second boolean is True if the exact case-sensitive match is found.
-    - The third value is the correctly capitalized version of the matched string if found, otherwise None.
+    - The first boolean is True if the exact case-sensitive match is found.
+    - The second value is the correctly capitalized version of the matched string, never None.
     """
-    case_insensitive_match = False
     case_sensitive_match = False
     normalized_match = None
 
     lowered_input_value = input_value.lower()
     for value in custom_values_list:
         if value.lower() == lowered_input_value:
-            case_insensitive_match = True
             normalized_match = value
-            if value == input_value:
+            if normalized_match == input_value:
                 case_sensitive_match = True
-                break
 
-    return case_insensitive_match, case_sensitive_match, normalized_match
+            return case_sensitive_match, normalized_match
+
+    raise NoMatchFoundError(input_value)
+
 
 def custom_str_to_bool(string: str, only_match_against: Optional[bool] = None):
     """
@@ -232,6 +254,7 @@ def custom_str_to_bool(string: str, only_match_against: Optional[bool] = None):
         need_rewrite_current_setting = True
 
     return resolved_value, need_rewrite_current_setting
+
 
 def custom_str_to_nonetype(string: str):
     """

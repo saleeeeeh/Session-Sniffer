@@ -1,40 +1,42 @@
+"""
+This module manages the integration with Discord Rich Presence (RPC) to display custom status updates.
+
+It connects to Discord using a provided client ID, updates the presence state with a message, and provides
+functionality to update or close the presence. It uses threading to run the update process asynchronously.
+"""
+
 # Standard Python Libraries
 import time
-import queue
 import threading
 from typing import Union
+from queue import SimpleQueue
 
 # External/Third-party Python Libraries
+import sentinel
 from pypresence import Presence, DiscordNotFound, PipeClosed, ResponseTimeout, exceptions
 
 
-QueueHint = queue.SimpleQueue[Union[str, None, "ShutdownSignal"]]
+QueueType = SimpleQueue[Union[str, object]]
 
-
-class ShutdownSignal(object):
-    """A unique type to represent the shutdown signal."""
-    pass
-
-
-_SHUT_DOWN = ShutdownSignal()
+SHUTDOWN_SIGNAL = sentinel.create("ShutdownSignal")
 
 
 class DiscordRPC:
     """Manages Discord Rich Presence updates and connection."""
 
     def __init__(self, client_id: int):
-        self._RPC = Presence(client_id)
+        self._rpc = Presence(client_id)
         self._closed = False
-        self._queue: QueueHint = queue.SimpleQueue()
+        self._queue: QueueType = SimpleQueue()
 
         self.connection_status = threading.Event()
 
-        self._thread = threading.Thread(target=_run, args=(self._RPC, self._queue, self.connection_status))
+        self._thread = threading.Thread(target=_run, args=(self._rpc, self._queue, self.connection_status))
         self._thread.start()
 
         self.last_update_time: float | None = None
 
-    def update(self, state_message: str | None = None):
+    def update(self, state_message: str = ""):
         """
         Attempts to update the Discord Rich Presence.
 
@@ -55,38 +57,40 @@ class DiscordRPC:
             return
 
         self._closed = True
-        self._queue.put(_SHUT_DOWN)
+        self._queue.put(SHUTDOWN_SIGNAL)
         self._thread.join(timeout=3)
 
 
-def _run(RPC: Presence, queue: QueueHint, connection_status: threading.Event):
+def _run(rpc: Presence, queue: QueueType, connection_status: threading.Event):
     DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
-    START_TIME = time.time()
+    START_TIME_INT = int(time.time())
     DISCORD_RPC_BUTTONS = [
         {"label": "GitHub Repo", "url": "https://github.com/BUZZARDGTA/Session-Sniffer"},
     ]
 
     while True:
-        status_message = queue.get()
-        if status_message is _SHUT_DOWN:
+        queue_item = queue.get()
+        if queue_item is SHUTDOWN_SIGNAL:
             if connection_status.is_set():
-                RPC.clear()
-                RPC.close()
+                rpc.clear()
+                rpc.close()
             return
+
+        state_message = queue_item
 
         if not connection_status.is_set():
             try:
-                RPC.connect()
+                rpc.connect()
             except (DiscordNotFound, exceptions.DiscordError):
                 continue
             else:
                 connection_status.set()
 
         try:
-            RPC.update(
-                state=status_message or None,
+            rpc.update(
+                state=state_message,
                 details=DISCORD_RPC_TITLE,
-                start=START_TIME,
+                start=START_TIME_INT,
                 buttons=DISCORD_RPC_BUTTONS,
             )
         except (PipeClosed, ResponseTimeout):
