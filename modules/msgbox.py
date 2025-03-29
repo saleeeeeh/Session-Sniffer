@@ -15,10 +15,7 @@ class MsgBox:
     """
     A class to interact with the Windows MessageBox API.
 
-    Provides functionality to display a message box with various button options, icons, and default behaviors.
-
-    Methods:
-        show(title: str, message: str, style: Style): Displays a message box with the given title, message, and style.
+    Provides functionality to display a message box with various button options, and behaviors.
     """
 
     # https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-messageboxw#return-value
