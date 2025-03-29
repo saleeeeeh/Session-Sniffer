@@ -48,7 +48,6 @@ class Version:
             self.date_time = datetime.strptime(version[9:19], "%d/%m/%Y")
 
     def __str__(self):
-        # If time is an empty string, don't display the time part
         return f"v{self.major}.{self.minor}.{self.patch} - {self.date}{f' ({self.time})' if self.time else ''}"
 
 
