@@ -2,7 +2,6 @@
 Module for defining constants that include only imports from standard Python libraries.
 """
 
-
 # Standard Python Libraries
 import re
 import textwrap
