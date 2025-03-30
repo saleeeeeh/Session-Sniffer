@@ -50,9 +50,9 @@ from rich.text import Text
 from rich.console import Console
 from rich.traceback import Traceback
 # pylint: disable=no-name-in-module
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer
-from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout
-from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer, QObject, QEvent
+from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout, QToolTip
+from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction, QPixmap, QIcon, QHoverEvent
 # pylint: enable=no-name-in-module
 
 # -----------------------------------------------------
@@ -961,6 +961,7 @@ class PlayerIPAPI:
 
 class PlayerIPLookup:
     def __init__(self):
+        self.country_flag: Optional[Path] = None
         self.geolite2 = PlayerGeoLite2()
         self.ipapi = PlayerIPAPI()
 
@@ -3739,6 +3740,19 @@ def rendering_core():
                     player.userip.usernames if player.userip else []
                 )
 
+                if player.iplookup.country_flag is None:
+                    if country_code := (
+                        player.iplookup.geolite2.country_code
+                        if player.iplookup.geolite2.country_code != "..."
+                        else player.iplookup.ipapi.country_code
+                        if player.iplookup.ipapi.country_code != "..."
+                        else None
+                    ):
+                        if (flag_path := Path(f"images/country_flags/{country_code.upper()}.png")).exists():
+                            pixmap = QPixmap()
+                            pixmap.loadFromData(flag_path.read_bytes())
+                            player.iplookup.country_flag = QIcon(pixmap)
+
                 if (
                     not player.datetime.left
                     and (datetime.now() - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
@@ -3890,6 +3904,16 @@ class SessionTableModel(QAbstractTableModel):
         # Check bounds
         if row_idx >= len(self._data) or col_idx >= len(self._data[row_idx]):
             return None  # Return None for invalid index
+
+        if role == Qt.ItemDataRole.DecorationRole:
+            if self.get_column_index("Country") == col_idx:
+                ip = self._data[row_idx][self.IP_COLUMN_INDEX]
+
+                player = PlayersRegistry.get_player(ip)
+                if not isinstance(player, Player):
+                    raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
+
+                return player.iplookup.country_flag
 
         if role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
@@ -4197,6 +4221,11 @@ class SessionTableView(QTableView):
         self._is_dragging = False  # Track if the mouse is being dragged with Ctrl key
         self._previous_sort_section_index: Optional[int] = None
 
+        self.setMouseTracking(True)  # Track mouse without clicks
+        viewport = self.viewport()
+        if not isinstance(viewport, QWidget):
+            raise TypeError(f'Expected "QWidget", got "{type(viewport).__name__}"')
+        viewport.installEventFilter(self)  # Install event filter
         # Configure table view settings
         vertical_header = self.verticalHeader()
         if not isinstance(vertical_header, QHeaderView):
@@ -4222,6 +4251,42 @@ class SessionTableView(QTableView):
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+
+    def eventFilter(self, obj: Optional[QObject], event: Optional[QEvent]):  # pylint: disable=invalid-name
+        if (
+            obj is not None
+            and event is not None
+            and isinstance(obj, QWidget)
+            and isinstance(event, QHoverEvent)
+        ):
+            index = self.indexAt(event.position().toPoint())  # Get hovered cell
+            if index.isValid():
+                col_idx = index.column()
+                model = self.model()
+                if not isinstance(model, SessionTableModel):
+                    raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
+
+                if model.get_column_index("Country") == col_idx:  # Check if it's the country column
+                    ip = model._data[index.row()][model.IP_COLUMN_INDEX]
+
+                    player = PlayersRegistry.get_player(ip)
+                    if isinstance(player, Player):
+                        country_name = player.iplookup.geolite2.country
+
+                        # Show tooltip only if hovering over the flag (assumed flag size)
+                        cell_rect = self.visualRect(index)   # Get cell rectangle
+                        flag_x_start = cell_rect.left() + 4  # Assuming flag starts with a 4px horizontal padding
+                        flag_x_end = flag_x_start + 14       # Assuming flag ends with a 14px horizontal padding
+                        flag_y_start = cell_rect.top() + 10  # Assuming flag starts with a 10px vertical padding
+                        flag_y_end = flag_y_start + 10       # Assuming flag ends with a 10px vertical padding
+
+                        # Check if the mouse is over the flag both horizontally and vertically
+                        if flag_x_start <= event.position().toPoint().x() <= flag_x_end and flag_y_start <= event.position().toPoint().y() <= flag_y_end:
+                            QToolTip.showText(event.globalPosition().toPoint(), country_name, self)
+                        else:
+                            QToolTip.hideText()
+
+        return super().eventFilter(obj, event)
 
     # pylint: disable=invalid-name
     def keyPressEvent(self, event):
@@ -4257,10 +4322,7 @@ class SessionTableView(QTableView):
         Fall back to default behavior for non-cell areas.
         """
         if isinstance(event, QMouseEvent):
-            # Determine the index of the clicked item
-            index = self.indexAt(event.pos())
-
-            # Check if the index is valid
+            index = self.indexAt(event.pos())  # Determine the index of the clicked item
             if index.isValid():
                 selection_model = self.selectionModel()
                 if not isinstance(selection_model, QItemSelectionModel):
@@ -4310,9 +4372,7 @@ class SessionTableView(QTableView):
         """
         if isinstance(event, QMouseEvent):
             if self._is_dragging and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                # Get the index under the cursor
-                index = self.indexAt(event.pos())
-
+                index = self.indexAt(event.pos())  # Get the index under the cursor
                 if index.isValid():
                     selection_model = self.selectionModel()
                     if not isinstance(selection_model, QItemSelectionModel):
