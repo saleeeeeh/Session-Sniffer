@@ -2,48 +2,41 @@
 
 # Standard Python Libraries
 import subprocess
-from typing import NamedTuple
 from pathlib import Path
 
 
-class InterfaceSupportResult(NamedTuple):
-    interface: str
-    broadcast_supported: bool
-    multicast_supported: bool
-    broadcast_error: str | None
-    multicast_error: str | None
-
-
 def check_broadcast_multicast_support(tshark_path: Path, interface: str):
-    """Check if the given network interface supports broadcast or multicast capture filters in tshark.
+    """Check if the given network interface supports 'broadcast' and 'multicast' capture filters using tshark.
 
     Args:
-        tshark_path: Path to the tshark executable.
-        interface: The name of the network interface to check.
+        tshark_path (Path): Path to the tshark executable.
+        interface (str): The name of the network interface to check.
 
     Returns:
-        A named tuple containing test results.
+        tuple: A tuple where the first value indicates support for 'broadcast',
+               and the second indicates support for 'multicast' capture filters.
     """
 
-    def run_tshark_test(filter_type: str):
-        """Run tshark with a given filter and returns whether it was successful."""
+    def run_tshark_filter_test(tshark_filter: str):
+        """Run tshark with a given capture filter and return whether it was successful.
+
+        Args:
+            tshark_filter (str): The capture filter to test (e.g. "broadcast" or "multicast").
+
+        Returns:
+            bool: True if tshark ran successfully with the given filter, False otherwise.
+        """
         cmd = [
             str(tshark_path),
             "-i", interface,
-            "-f", filter_type,
+            "-f", tshark_filter,
             "-a", "duration:0",
             "-Q",
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return (result.returncode == 0, result.stderr.strip() if result.returncode != 0 else None)
+        try:
+            subprocess.run(cmd, capture_output=True, check=True, text=True)
+        except subprocess.CalledProcessError:
+            return False
+        return True
 
-    broadcast_supported, broadcast_error = run_tshark_test("broadcast")
-    multicast_supported, multicast_error = run_tshark_test("multicast")
-
-    return InterfaceSupportResult(
-        interface=interface,
-        broadcast_supported=broadcast_supported,
-        multicast_supported=multicast_supported,
-        broadcast_error=broadcast_error,
-        multicast_error=multicast_error,
-    )
+    return (run_tshark_filter_test("broadcast"), run_tshark_filter_test("multicast"))

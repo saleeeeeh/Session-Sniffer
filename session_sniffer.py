@@ -1964,8 +1964,7 @@ force_enable_capture_vpn_mode = False
 if not Settings.CAPTURE_VPN_MODE:
     from modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
 
-    result = check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)
-    if result.broadcast_supported and result.multicast_supported:
+    if all(check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)):
         capture_filter.append("not (broadcast or multicast)")
     else:
         force_enable_capture_vpn_mode = True

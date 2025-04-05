@@ -60,9 +60,6 @@ def validate_file(file_path: Path):
 def format_project_version(version: Version):
     from datetime import datetime, UTC as DT_UTC
 
-    print(version)
-    print(version.local)
-    print()
     if version.local:
         date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=DT_UTC).strftime("%Y/%m/%d (%H:%M)")
 
