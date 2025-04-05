@@ -90,9 +90,13 @@ jobs:
         with:
           ref: version
 
-      - name: Copy update_release_versions.py from main branch
+      - name: Verify File and Checkout from Main Branch
         run: |
-          git checkout main -- .github/workflows/scripts/update_release_versions.py
+          # Verify that the correct branch exists
+          git fetch --all
+
+          # Checkout the file from the main branch
+          git checkout origin/main -- .github/workflows/scripts/update_release_versions.py
 
       - name: Update Files, Commit, and Push
         env:
