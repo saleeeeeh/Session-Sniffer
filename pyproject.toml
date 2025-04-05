@@ -1,15 +1,107 @@
 [project]
 name = "session_sniffer"
 description = "A packet sniffer (also known as an IP grabber/puller/sniffer) specifically designed for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox)."
-version = "v1.3.7 - 30/03/2025 (16:16)"
+version = "1.3.7+20250405.1644"
+readme = "README.md"
+requires-python = ">= 3.12"
+authors = [
+    { name = "BUZZARDGTA", email = "BUZZARDGTA@protonmail.com" },
+]
+maintainers = [
+    { name = "BUZZARDGTA", email = "BUZZARDGTA@protonmail.com" },
+]
+dependencies = [
+    "colorama==0.4.6",
+    "dnspython==2.7.0",
+    "geoip2==4.8.1",
+    "packaging==24.2",
+    "prettytable==3.12.0",
+    "psutil==6.1.0",
+    "pypresence==4.3.0",
+    "PyQt6==6.8.0",
+    "pywin32==308; platform_system == 'Windows'",
+    "QDarkStyle==3.2.3",
+    "requests==2.32.3",
+    "rich==13.9.4",
+    "sentinel==1.0.0",
+    "toml==0.10.2",
+    "urllib3==2.2.3",
+    "WMI==1.5.1; platform_system == 'Windows'",
+
+    # Snyk security fixes
+    "aiohttp>=3.11.10",
+    "certifi>=2024.7.4",
+    "idna>=3.7",
+    "setuptools>=70.0.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/BUZZARDGTA/Session-Sniffer/wiki"
+Repository = "https://github.com/BUZZARDGTA/Session-Sniffer"
+Issues = "https://github.com/BUZZARDGTA/Session-Sniffer/issues"
+Discord = "https://discord.gg/hMZ7MsPX7G"
+
 
 [tool.ruff]
-select = ["ALL"]  # Enables all rules
-ignore = []       # Ensures nothing is ignored
+include = [
+    "pyproject.toml",
+    "session_sniffer.py",
+    "modules/**/*.{py,pyi,ipynb}",
+    "scripts/**/*.{py,pyi,ipynb}",
+]
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN003",  # missing-type-kwargs
+    "ANN201",  # missing-return-type-undocumented-public-function
+    "ANN202",  # missing-return-type-private-function
+    "ANN204",  # missing-return-type-special-method
+    "ANN205",  # missing-return-type-static-method
+    "ANN206",  # missing-return-type-class-method
+    "C901",    # complex-structure
+    "D101",    # undocumented-public-class
+    "D102",    # undocumented-public-method
+    "D103",    # undocumented-public-function
+    "D105",    # undocumented-magic-method
+    "D107",    # undocumented-public-init
+    "E222",    # multiple-spaces-after-operator
+    "E501",    # line-too-long
+    "EM101",   # raw-string-in-exception
+    "EM102",   # f-string-in-exception
+    "ERA001",  # commented-out-code
+    "FIX002",  # line-contains-todo
+    "I001",    # unsorted-imports
+    "N806",    # non-lowercase-variable-in-function
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "PYI051",  # redundant-literal-union
+    "S602",    # subprocess-popen-with-shell-equals-true
+    "S603",    # subprocess-without-shell-equals-true
+    "T201",    # print
+    "TD003",   # missing-todo-link
+    "TD005",   # missing-todo-description
+    "TRY003",  # raise-vanilla-args
+    "UP036",   # outdated-version-block
+]
+select = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 
 [tool.mypy]
-ignore_missing_imports = true
 check_untyped_defs = true
+ignore_missing_imports = true
+
 
 [tool.pylint]
-disable = ["line-too-long", "missing-class-docstring", "missing-function-docstring", "import-outside-toplevel"]
+disable = [
+    "import-outside-toplevel",
+    "line-too-long",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+]

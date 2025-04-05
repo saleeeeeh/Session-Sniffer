@@ -1,12 +1,19 @@
-"""
-Utility Module
+"""Utility Module.
 
 This module contains a variety of helper functions and custom exceptions used across the project.
 """
 
 # Standard Python Libraries
+import contextlib
 from pathlib import Path
-from typing import Optional, Literal, Any
+from typing import Literal, Any
+
+# External/Third-party Python Libraries
+from packaging.version import Version
+
+
+class InvalidFileError(Exception):
+    """Custom exception to raise when a file is not valid."""
 
 
 class InvalidBooleanValueError(Exception):
@@ -18,45 +25,55 @@ class InvalidNoneTypeValueError(Exception):
 
 
 class NoMatchFoundError(Exception):
-    """
-    Custom exception raised when no case-insensitive match is found.
-    """
+    """Custom exception raised when no case-insensitive match is found."""
     def __init__(self, input_value: str, message: str = "No matching value found in the provided list"):
         self.input_value = input_value
         self.message = f"{message}: '{input_value}'"
         super().__init__(self.message)
 
 
-class Version:
-    def __init__(self, version: str):
-        from datetime import datetime
-        from modules.constants.standard import RE_VERSION_TIME
+def is_pyinstaller_compiled():
+    import sys
 
-        version = version.strip()
-
-        self.major, self.minor, self.patch = map(int, version[1:6:2])
-        self.date = datetime.strptime(version[9:19], "%d/%m/%Y").date().strftime("%d/%m/%Y")
-
-        if (
-            len(version) == 27
-            and RE_VERSION_TIME.search(version)
-        ):
-            self.time = datetime.strptime(version[21:26], "%H:%M").time().strftime("%H:%M")
-            self.date_time = datetime.strptime(version[9:27], "%d/%m/%Y (%H:%M)")
-        else:
-            self.time = ""
-            self.date_time = datetime.strptime(version[9:19], "%d/%m/%Y")
-
-    def __str__(self):
-        return f"v{self.major}.{self.minor}.{self.patch} - {self.date}{f' ({self.time})' if self.time else ''}"
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
 
 
-def get_documents_folder(use_alternative_method=False):
-    """
-    Retrieves the Path object to the current user's \"Documents\" folder by querying the Windows registry.
+def set_window_title(title: str):
+    print(f"\033]0;{title}\007", end="")
+
+
+def clear_screen():
+    print("\033c", end="")
+
+
+def pluralize(variable: int):
+    return "s" if variable > 1 else ""
+
+
+def validate_file(file_path: Path):
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path.absolute()}")
+    if not file_path.is_file():
+        raise InvalidFileError(f"Invalid file: {file_path.absolute()}")
+
+
+def format_project_version(version: Version):
+    from datetime import datetime, UTC as DT_UTC
+
+    print(version)
+    print(version.local)
+    print()
+    if version.local:
+        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=DT_UTC).strftime("%Y/%m/%d (%H:%M)")
+
+    return f"v{version.public} - {date_time}" if version.local else f"v{version.public}"
+
+
+def get_documents_folder(*, use_alternative_method: bool = False):
+    """Retrieve the Path object to the current user's "Documents" folder by querying the Windows registry.
 
     Args:
-        use_alternative_method: If set to `True`, the alternative method will be used to retrieve the "Documents" folder.\n
+        use_alternative_method: If set to `True`, the alternative method will be used to retrieve the "Documents" folder.
         If set to `False` (default), the registry-based method will be used.
 
     Returns:
@@ -67,7 +84,7 @@ def get_documents_folder(use_alternative_method=False):
     """
     if use_alternative_method:
         # Alternative method using SHGetKnownFolderPath from WinAPI
-        from win32com.shell import shell, shellcon  # pylint: disable=import-error,no-name-in-module  # type:ignore  # Seems like we can also use `win32comext.shell`
+        from win32com.shell import shell, shellcon  # pylint: disable=import-error,no-name-in-module  # type: ignore[import-error]  # Seems like we can also use `win32comext.shell`
 
         # Get the Documents folder path
         documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)
@@ -101,8 +118,7 @@ def take(n: int, input_list: list[Any]):
 
 
 def concat_lists_no_duplicates(*lists: list[Any]):
-    """
-    Concatenates multiple lists while removing duplicates and preserving order.
+    """Concatenate multiple lists while removing duplicates and preserving order.
 
     Args:
         *lists: One or more lists to concatenate.
@@ -136,8 +152,7 @@ def is_file_need_newline_ending(file: Path):
 
 
 def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[str]):
-    """
-    Writes or appends a list of lines to a file, ensuring proper newline handling.
+    """Writes or appends a list of lines to a file, ensuring proper newline handling.
 
     Args:
         file: The path to the file.
@@ -168,9 +183,11 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
         f.writelines(content)
 
 
-def terminate_process_tree(pid: Optional[int] = None):
+def terminate_process_tree(pid: int | None = None):
     """Terminates the process with the given PID and all its child processes.
-       Defaults to the current process if no PID is specified."""
+
+    Defaults to the current process if no PID is specified.
+    """
     import psutil
 
     pid = pid or psutil.Process().pid
@@ -179,23 +196,18 @@ def terminate_process_tree(pid: Optional[int] = None):
         parent = psutil.Process(pid)
         children = parent.children(recursive=True)
         for child in children:
-            try:
+            with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                 child.terminate()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
         psutil.wait_procs(children, timeout=5)
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
             parent.terminate()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
         parent.wait(5)
     except psutil.NoSuchProcess:
         pass
 
 
 def check_case_insensitive_and_exact_match(input_value: str, custom_values_list: list[str]):
-    """
-    Checks if the input value matches any string in the list case-insensitively, and whether it also matches exactly (case-sensitive).
+    """Check if the input value matches any string in the list case-insensitively, and whether it also matches exactly (case-sensitive).
 
     It also returns the correctly capitalized version of the matched value from the list if a case-insensitive match is found.
     If no match is found, raises a NoMatchFoundError.
@@ -219,10 +231,10 @@ def check_case_insensitive_and_exact_match(input_value: str, custom_values_list:
     raise NoMatchFoundError(input_value)
 
 
-def custom_str_to_bool(string: str, only_match_against: Optional[bool] = None):
-    """
-    This function returns the boolean value represented by the string for lowercase or any case variation;\n
-    otherwise, it raises an \"InvalidBooleanValueError\".
+def custom_str_to_bool(string: str, only_match_against: bool | None = None):
+    """Return the boolean value represented by the string, regardless of case.
+
+    Raise an "InvalidBooleanValueError" if the string does not match a boolean value.
 
     Args:
         string: The boolean string to be checked.
@@ -247,15 +259,14 @@ def custom_str_to_bool(string: str, only_match_against: Optional[bool] = None):
     ):
         raise InvalidBooleanValueError("Input does not match the specified boolean value")
 
-    if not string == str(resolved_value):
+    if string != str(resolved_value):
         need_rewrite_current_setting = True
 
     return resolved_value, need_rewrite_current_setting
 
 
 def custom_str_to_nonetype(string: str):
-    """
-    This function returns the NoneType value represented by the string for lowercase or any case variation; otherwise, it raises an \"InvalidNoneTypeValueError\".
+    """Return the NoneType value represented by the string for lowercase or any case variation; otherwise, it raises an "InvalidNoneTypeValueError".
 
     Args:
         string: The NoneType string to be checked.

@@ -1,12 +1,12 @@
-"""
-Module for managing ping requests to various endpoints, handling their success/failure states,
-and parsing ping responses. It is used to determine whether each player's IP is responsive to pings.
+"""Module for managing ping requests to various endpoints, handling their success/failure states, and parsing ping responses.
+
+It is used to determine whether each player's IP is responsive to pings.
 """
 
 # Standard Python Libraries
 import time
 import threading
-from typing import Optional, NamedTuple, Dict
+from typing import NamedTuple
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
 
@@ -18,7 +18,7 @@ from modules.networking.unsafe_https import s
 from modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
 
 
-class InvalidPingResult(Exception):
+class InvalidPingResultError(Exception):
     """Exception raised when the parsed ping result contains invalid or missing data."""
 
     def __init__(self, ip: str, response_content: str, ping_result: "PingResult"):
@@ -29,7 +29,7 @@ class InvalidPingResult(Exception):
                          f"{attributes}")
 
 
-class AllEndpointsExhausted(Exception):
+class AllEndpointsExhaustedError(Exception):
     """Exception raised when all endpoints have been exhausted."""
 
 
@@ -40,7 +40,7 @@ class EndpointInfo:
     failures: int = 0
     total_time: float = 0.0
     cooldown_until: float = 0.0
-    failed_ips: Dict[str, int] = field(default_factory=dict)
+    failed_ips: dict[str, int] = field(default_factory=dict)
 
     def update_success(self, duration: float, ip: str):
         self.calls += 1
@@ -74,32 +74,34 @@ class EndpointInfo:
 
 class PingResult(NamedTuple):
     ping_times:          list[float]
-    packets_transmitted: Optional[int]
-    packets_received:    Optional[int]
-    packet_loss:         Optional[float]
-    packet_errors:       Optional[int]
-    rtt_min:             Optional[float]
-    rtt_avg:             Optional[float]
-    rtt_max:             Optional[float]
-    rtt_mdev:            Optional[float]
+    packets_transmitted: int   | None
+    packets_received:    int   | None
+    packet_loss:         float | None
+    packet_errors:       int   | None
+    rtt_min:             float | None
+    rtt_avg:             float | None
+    rtt_max:             float | None
+    rtt_mdev:            float | None
 
     def is_invalid(self, ping_response: str):
-        """
-        Returns True if the ping data is invalid (missing critical information).
-        """
+        """Return True if the ping data is invalid (missing critical information)."""
         return ping_response.strip() == "null" or any(
             getattr(self, attr) is None for attr in ("packets_transmitted", "packets_received", "packet_loss", "packet_errors")
         )
+
+
+MAX_RETRIES_PER_IP  = 3
+DEFAULT_RETRY_COOLDOWN = 3.0
 
 
 # Global dictionary to track semaphores per endpoint host
 host_locks: dict[str, threading.Semaphore] = {}
 
 # Global lock to protect shared endpoint metrics.
-endpoints_lock = threading.Lock()
+_endpoints_lock = threading.Lock()
 
 # Create a mapping of endpoint URL to its EndpointInfo instance.
-endpoints_info: Dict[str, EndpointInfo] = {
+endpoints_info: dict[str, EndpointInfo] = {
     "https://steakovercooked.com/api/ping/":    EndpointInfo("https://steakovercooked.com/api/ping/"),
     "https://helloacm.com/api/ping/":           EndpointInfo("https://helloacm.com/api/ping/"),
     "https://uploadbeta.com/api/ping/":         EndpointInfo("https://uploadbeta.com/api/ping/"),
@@ -110,11 +112,9 @@ endpoints_info: Dict[str, EndpointInfo] = {
 
 
 def get_host_semaphore(url: str):
-    """
-    Returns a semaphore for the given endpoint host, ensuring at most 10 concurrent requests.
-    """
+    """Return a semaphore for the given endpoint host, ensuring at most 10 concurrent requests."""
     hostname = urlparse(url).netloc
-    with endpoints_lock:
+    with _endpoints_lock:
         if hostname not in host_locks:
             host_locks[hostname] = threading.Semaphore(10)
         return host_locks[hostname]
@@ -123,7 +123,7 @@ def get_host_semaphore(url: str):
 def get_sorted_endpoints():
     now = time.monotonic()
 
-    with endpoints_lock:
+    with _endpoints_lock:
         # Only consider endpoints not in cooldown first.
         if available_endpoints := [info for info in endpoints_info.values() if now >= info.cooldown_until]:
             return sorted(available_endpoints, key=lambda info: info.score(now))
@@ -162,24 +162,22 @@ def parse_ping_response(ping_response: str):
         rtt_min=rtt_min,
         rtt_avg=rtt_avg,
         rtt_max=rtt_max,
-        rtt_mdev=rtt_mdev
+        rtt_mdev=rtt_mdev,
     )
 
 
 def fetch_and_parse_ping(ip: str):
-    """
-    Attempts to fetch and parse ping data for the given ip using the available endpoints.
+    """Attempt to fetch and parse ping data for the given ip using the available endpoints.
+
     Limits to 10 concurrent requests per ip but prioritizes trying other available endpoints before waiting.
     """
-    DEFAULT_COOLDOWN = 3.0
-
     for _ in range(len(endpoints_info)):  # Try all available endpoints
         time.sleep(0.1)
 
         for endpoint_info in get_sorted_endpoints():
             time.sleep(0.1)
 
-            if ip in endpoint_info.failed_ips and endpoint_info.failed_ips[ip] >= 3:
+            if ip in endpoint_info.failed_ips and endpoint_info.failed_ips[ip] >= MAX_RETRIES_PER_IP:
                 continue  # Skip this endpoint for this ip
 
             if time.monotonic() < endpoint_info.cooldown_until:
@@ -190,7 +188,7 @@ def fetch_and_parse_ping(ip: str):
             if not semaphore.acquire(blocking=False):
                 continue  # Skip this endpoint host if already at the 10-request limit
 
-            start = time.monotonic()
+            request_start_time = time.monotonic()
 
             try:
                 response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
@@ -198,30 +196,26 @@ def fetch_and_parse_ping(ip: str):
                 if not isinstance(response.content, bytes):
                     raise TypeError(f'Expected "bytes", got "{type(response.content).__name__}"')
 
-                decoded_text = response.content.decode("utf-8")
-                unescaped_text = decoded_text.replace("\\/", "/")
+                unescaped_response_text = response.content.decode("utf-8").replace("\\/", "/")
 
-                ping_result = parse_ping_response(unescaped_text)
-                if ping_result.is_invalid(unescaped_text):
-                    raise InvalidPingResult(ip, unescaped_text, ping_result)
-
-                duration = time.monotonic() - start
-
-                with endpoints_lock:
-                    endpoint_info.update_success(duration, ip)
-
-                return ping_result
+                ping_result = parse_ping_response(unescaped_response_text)
+                if ping_result.is_invalid(unescaped_response_text):
+                    raise InvalidPingResultError(ip, unescaped_response_text, ping_result)
 
             except exceptions.RequestException as e:
-                duration = time.monotonic() - start
-                cooldown = DEFAULT_COOLDOWN
+                cooldown = DEFAULT_RETRY_COOLDOWN
                 if e.response is not None and (retry_after := e.response.headers.get("Retry-After")):
                     cooldown = float(retry_after)
 
-                with endpoints_lock:
-                    endpoint_info.update_failure(duration, cooldown, ip)
+                with _endpoints_lock:
+                    endpoint_info.update_failure(time.monotonic() - request_start_time, cooldown, ip)
+
+            else:
+                with _endpoints_lock:
+                    endpoint_info.update_success(time.monotonic() - request_start_time, ip)
+                return ping_result
 
             finally:
                 semaphore.release()  # Release slot after request
 
-    raise AllEndpointsExhausted
+    raise AllEndpointsExhaustedError

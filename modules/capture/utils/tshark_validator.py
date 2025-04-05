@@ -1,6 +1,4 @@
-"""
-Module for validating TShark executable paths and versions, including exception handling for invalid versions.
-"""
+"""Module for validating TShark executable paths and versions, including exception handling for invalid versions."""
 
 # Standard Python Libraries
 import subprocess
@@ -11,15 +9,15 @@ from typing import NamedTuple
 from modules.constants.standalone import TSHARK_RECOMMENDED_FULL_VERSION
 
 
-class TSharkNotFoundException(Exception):
+class TSharkNotFoundError(Exception):
     """Exception raised when TShark is not found at the specified path."""
 
 
-class TSharkVersionNotFoundException(Exception):
+class TSharkVersionNotFoundError(Exception):
     """Exception raised when TShark's version cannot be determined."""
 
 
-class InvalidTSharkVersionException(Exception):
+class InvalidTSharkVersionError(Exception):
     def __init__(self, path: Path, version: str):
         self.path = path
         self.version = version
@@ -33,34 +31,33 @@ class TSharkValidationResult(NamedTuple):
 
 
 def validate_tshark_path(tshark_path: Path):
-    """
-    Validate the path and version of the given tshark executable.
+    """Validate the path and version of the given tshark executable.
 
     Args:
         tshark_path: The path of the tshark executable.
 
     Raises:
-        TSharkNotFoundException: If TShark is not found at the specified location.
-        TSharkVersionNotFoundException: If the TShark version cannot be determined.
-        InvalidTSharkVersionException: If the found TShark version is unsupported.
+        TSharkNotFoundError: If TShark is not found at the specified location.
+        TSharkVersionNotFoundError: If the TShark version cannot be determined.
+        InvalidTSharkVersionError: If the found TShark version is unsupported.
     """
 
     def get_tshark_version(path: Path):
-        """Attempts to retrieve TShark's version from the given path."""
+        """Attempt to retrieve TShark's version from the given path."""
         try:
-            result = subprocess.check_output([path, '--version'], text=True).splitlines()
+            result = subprocess.check_output([path, "--version"], text=True).splitlines()
             return result[0] if result else None
         except subprocess.CalledProcessError:
             return None
 
     if not tshark_path.is_file():
-        raise TSharkNotFoundException
+        raise TSharkNotFoundError
 
     tshark_version = get_tshark_version(tshark_path)
     if not tshark_version:
-        raise TSharkVersionNotFoundException
+        raise TSharkVersionNotFoundError
 
     if tshark_version != TSHARK_RECOMMENDED_FULL_VERSION:
-        raise InvalidTSharkVersionException(tshark_path, tshark_version)
+        raise InvalidTSharkVersionError(tshark_path, tshark_version)
 
     return TSharkValidationResult(tshark_path, tshark_version)

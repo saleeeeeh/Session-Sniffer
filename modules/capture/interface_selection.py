@@ -1,11 +1,11 @@
-"""
-Module for handling the selection of network interfaces in a GUI dialog.
+"""Module for handling the selection of network interfaces in a GUI dialog.
+
 It displays a list of interfaces with relevant details and allows users to select an interface
 for further network sniffing operations.
 """
 
 # Standard Python Libraries
-from typing import NamedTuple, Union, Literal, Optional
+from typing import NamedTuple, Literal
 
 # External/Third-party Python Libraries
 # pylint: disable=no-name-in-module
@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QHeaderView,
     QPushButton,
-    QHBoxLayout
+    QHBoxLayout,
 )
 # pylint: enable = no-name-in-module
 
@@ -26,27 +26,29 @@ from PyQt6.QtWidgets import (
 class InterfaceSelectionData(NamedTuple):
     interface_selection_index: int
     interface_name:            str
-    interface_description:     Union[Literal["N/A"], str]
-    packets_sent:              Union[Literal["N/A"], int]
-    packets_recv:              Union[Literal["N/A"], int]
-    ip_address:                Union[Literal["N/A"], str]
-    mac_address:               Union[Literal["N/A"], str]
-    manufacturer:              Union[Literal["N/A"], str]
-    is_arp:                    bool                       = False
+    interface_description:     Literal["N/A"] | str
+    packets_sent:              Literal["N/A"] | int
+    packets_recv:              Literal["N/A"] | int
+    ip_address:                Literal["N/A"] | str
+    mac_address:               Literal["N/A"] | str
+    manufacturer:              Literal["N/A"] | str
+    is_arp:                    bool                 = False
 
 
 class InterfaceSelectionDialog(QDialog):
     def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
         super().__init__()
 
+        from modules.guis.utils import resize_window_for_screen
+
         # Set up the window
         self.setWindowTitle("Capture Network Interface Selection - Session Sniffer")
         # Set a minimum size for the window
         self.setMinimumSize(800, 600)
-        self.resize_window_for_screen(screen_width, screen_height)
+        resize_window_for_screen(self, screen_width, screen_height)
 
         # Custom variables
-        self.selected_interface_data: Optional[InterfaceSelectionData] = None
+        self.selected_interface_data: InterfaceSelectionData | None = None
         self.interfaces = interfaces  # Store the list of interface data
 
         # Layout for the dialog
@@ -56,7 +58,7 @@ class InterfaceSelectionDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(
-            ["Interface Name", "Interface Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"]
+            ["Interface Name", "Interface Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -144,14 +146,7 @@ class InterfaceSelectionDialog(QDialog):
             raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
         selection_model.selectionChanged.connect(self.update_select_button_state)
 
-    def resize_window_for_screen(self, screen_width: int, screen_height: int):
-        # Resize the window based on screen size
-        if screen_width >= 2560 and screen_height >= 1440:
-            self.resize(1400, 900)
-        elif screen_width >= 1920 and screen_height >= 1080:
-            self.resize(1200, 720)
-        elif screen_width >= 1024 and screen_height >= 768:
-            self.resize(940, 680)
+    # Custom Methods:
 
     def update_select_button_state(self):
         # Check if any row is selected

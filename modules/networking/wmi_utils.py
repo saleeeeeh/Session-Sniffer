@@ -1,7 +1,6 @@
-"""
-This module interacts with Windows Management Instrumentation (WMI) to retrieve network adapter
-details and related IP configuration data. It uses two WMI namespaces: 'root/StandardCimv2' for
-modern CIM-based network data and 'root/Cimv2' for legacy management data.
+"""This module interacts with Windows Management Instrumentation (WMI) to retrieve network adapter details and related IP configuration data.
+
+It uses two WMI namespaces: 'root/StandardCimv2' for modern CIM-based network data and 'root/Cimv2' for legacy management data.
 """
 
 # Standard Python Libraries
@@ -62,6 +61,8 @@ def iterate_legacy_network_adapter_details(**kwargs):
             raise TypeError(f'Expected "int" object, got "{type(interface_index).__name__}"')
 
         manufacturer = getattr(net_adapter, "Manufacturer", None)
+        if manufacturer is None:
+            continue
         if not isinstance(manufacturer, str):
             raise TypeError(f'Expected "str" object, got "{type(manufacturer).__name__}"')
 

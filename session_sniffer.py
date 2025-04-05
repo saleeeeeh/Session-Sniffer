@@ -1,14 +1,4 @@
-"""
-# Session Sniffer
-
-A packet sniffer (also known as an IP grabber/puller/sniffer) specifically designed for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox).
-
-- Author: IB_U_Z_Z_A_R_Dl (https://github.com/BUZZARDGTA)
-- GitHub Repository: https://github.com/BUZZARDGTA/Session-Sniffer
-- Discord Server: https://discord.gg/hMZ7MsPX7G
-"""
-
-# ------------------------------------------------------
+# ------------------------------------------------------  # noqa: D100
 # 🐍 Standard Python Libraries (Included by Default) 🐍
 # ------------------------------------------------------
 import os
@@ -17,7 +7,6 @@ import ast
 import json
 import time
 import enum
-import errno
 import signal
 import shutil
 import logging
@@ -30,15 +19,17 @@ import subprocess
 import webbrowser
 from pathlib import Path
 from operator import attrgetter
-from datetime import datetime, timedelta
-from types import TracebackType
-from typing import Optional, Literal, Union, Type, NamedTuple, Any
+from collections.abc import Callable
+from types import FrameType, TracebackType
+from typing import Literal, NamedTuple, ClassVar, Any
+from datetime import datetime, timedelta, UTC as DT_UTC
 from dataclasses import dataclass, field
 
 # --------------------------------------------
 # 📦 External/Third-party Python Libraries 📦
 # --------------------------------------------
 import psutil
+
 import colorama
 import requests
 import qdarkstyle
@@ -49,6 +40,7 @@ from colorama import Fore
 from rich.text import Text
 from rich.console import Console
 from rich.traceback import Traceback
+from packaging.version import Version
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer, QObject, QEvent
 from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout, QToolTip
@@ -58,22 +50,25 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 # -----------------------------------------------------
 # 📚 Local Python Libraries (Included with Project) 📚
 # -----------------------------------------------------
-from modules.constants.standalone import TITLE, VERSION, GITHUB_RELEASES_URL, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
+from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADAPTER_DISABLED, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
 from modules.constants.standard import SETTINGS_PATH
-from modules.constants.local import BIN_PATH, SETUP_PATH
-from modules.utils import Version
+from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
+from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
 from modules.networking.unsafe_https import s
 from modules.networking.wmi_utils import iterate_network_adapter_details, iterate_legacy_network_adapter_details, iterate_network_ip_details, iterate_legacy_network_ip_details
 from modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address, format_mac_address
-from modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashException
-from modules.capture.utils.tshark_validator import TSharkNotFoundException, TSharkVersionNotFoundException, InvalidTSharkVersionException, validate_tshark_path
+from modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashExceptionError
+from modules.capture.utils.tshark_validator import TSharkNotFoundError, TSharkVersionNotFoundError, InvalidTSharkVersionError, validate_tshark_path
 from modules.capture.utils.npcap_checker import is_npcap_installed
 from modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
+from modules.launcher.package_checker import check_packages_version, get_dependencies_from_pyproject, get_dependencies_from_requirements
+from modules.guis.utils import get_screen_size
 
-if sys.version_info.major <= 3 and sys.version_info.minor < 12:
-    print("To use this script, your Python version must be 3.12 or higher.")
+if sys.version_info < (3, 12):
+    print("\nTo use this script, your Python version must be 3.12 or higher.")
+    input("\nPress {ANY KEY} to exit...")
     sys.exit(0)
 
 logging.basicConfig(
@@ -81,25 +76,27 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M",
     handlers=[
-        logging.FileHandler("error.log")
-    ]
+        logging.FileHandler("error.log"),
+    ],
 )
-logging.captureWarnings(True)
+logging.captureWarnings(capture=True)
+logger = logging.getLogger(__name__)
 
 
 class ExceptionInfo(NamedTuple):
-    exc_type: Type[BaseException]
+    exc_type: type[BaseException]
     exc_value: BaseException
-    exc_traceback: Optional[TracebackType]
+    exc_traceback: TracebackType | None
 
 
 def terminate_script(
     terminate_method: Literal["EXIT", "SIGINT", "THREAD_RAISED"],
-    msgbox_crash_text: Optional[str] = None,
-    stdout_crash_text: Optional[str] = None,
-    exception_info: Optional[ExceptionInfo] = None,
-    terminate_gracefully=True,
-    force_terminate_errorlevel: Union[int, Literal[False]] = False
+    msgbox_crash_text: str | None = None,
+    stdout_crash_text: str | None = None,
+    exception_info: ExceptionInfo | None = None,
+    *,
+    terminate_gracefully: bool = True,
+    force_terminate_errorlevel: int | Literal[False] | None = False,
 ):
     from modules.utils import terminate_process_tree
 
@@ -110,21 +107,16 @@ def terminate_script(
         for thread_name in ("capture_core__thread", "rendering_core__thread", "hostname_core__thread", "iplookup_core__thread", "pinger_core__thread"):
             if thread_name in globals():
                 thread = globals()[thread_name]
-                if isinstance(thread, threading.Thread):
-                    if thread.is_alive():
-                        return False
+                if isinstance(thread, threading.Thread) and thread.is_alive():
+                    return False
 
-        # TODO: Gracefully exit the script even when the `cature` module is running.
-        if "capture" in globals():
-            if capture is not None and isinstance(capture, PacketCapture):
-                return False
-
-        return True
+        # TODO(BUZZARDGTA): Gracefully exit the script even when the `cature` module is running.
+        return not ("capture" in globals() and capture is not None and isinstance(capture, PacketCapture))
 
     ScriptControl.set_crashed(None if stdout_crash_text is None else f"\n\n{stdout_crash_text}\n")
 
     if exception_info:
-        logging.error("Uncaught exception", exc_info=(exception_info.exc_type, exception_info.exc_value, exception_info.exc_traceback))
+        logger.error("Uncaught exception", exc_info=(exception_info.exc_type, exception_info.exc_value, exception_info.exc_traceback))
 
         console = Console()
 
@@ -139,7 +131,7 @@ def terminate_script(
                 "DEBUG:\n"
                 f"VERSION={globals().get('VERSION', 'Unknown Version')}"  # Define a default value for VERSION if it's not defined
             ),
-            style="white"
+            style="white",
         )
         console.print(error_message)
 
@@ -149,7 +141,7 @@ def terminate_script(
     if msgbox_crash_text is not None:
         msgbox_title = TITLE
         msgbox_message = msgbox_crash_text
-        msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.CRITICAL | MsgBox.Style.SYSTEM_MODAL | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONERROR | MsgBox.Style.MB_SYSTEMMODAL
 
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
         time.sleep(1)
@@ -171,8 +163,8 @@ def terminate_script(
     terminate_process_tree()
 
 
-def handle_exception(exc_type: Type[BaseException], exc_value: BaseException, exc_traceback: Optional[TracebackType]):
-    """Handles exceptions for the main script. (not threads)"""
+def handle_exception(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None):
+    """Handle exceptions for the main script (not threads)."""
     if issubclass(exc_type, KeyboardInterrupt):
         return
 
@@ -180,23 +172,18 @@ def handle_exception(exc_type: Type[BaseException], exc_value: BaseException, ex
     terminate_script("EXIT", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues", exception_info=exception_info)
 
 
-def signal_handler(sig: int, _):
-    if sig == 2:  # means CTRL+C pressed
-        if not ScriptControl.has_crashed():  # Block CTRL+C if script is already crashing under control
-            print(f"\n{Fore.YELLOW}Ctrl+C pressed. Exiting script ...{Fore.RESET}")
-            terminate_script("SIGINT")
+def handle_sigint(_sig: int, _frame: FrameType | None):
+    if not ScriptControl.has_crashed():
+        # Block CTRL+C if script is already crashing under control
+        print(f"\n{Fore.YELLOW}Ctrl+C pressed. Exiting script ...{Fore.RESET}")
+        terminate_script("SIGINT")
 
 
 sys.excepthook = handle_exception
-signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGINT, handle_sigint)
 
 
-class InvalidFileError(Exception):
-    def __init__(self, path: str):
-        super().__init__(f'The path does not point to a regular file: "{path}"')
-
-
-class PacketCaptureOverflow(Exception):
+class PacketCaptureOverflowError(Exception):
     pass
 
 
@@ -206,7 +193,7 @@ class ScriptControl:
     _message = None
 
     @classmethod
-    def set_crashed(cls, message: Optional[str] = None):
+    def set_crashed(cls, message: str | None = None):
         with cls._lock:
             cls._crashed = True
             cls._message = message
@@ -228,32 +215,16 @@ class ScriptControl:
             return cls._message
 
 
-class Updater:
-    def __init__(self, current_version: Version):
-        self.current_version = current_version
-
-    def check_for_update(self, latest_version: Version):
-        # Check if the latest version is newer than the current version
-        if (latest_version.major, latest_version.minor, latest_version.patch) > (self.current_version.major, self.current_version.minor, self.current_version.patch):
-            return True
-        if (latest_version.major, latest_version.minor, latest_version.patch) == (self.current_version.major, self.current_version.minor, self.current_version.patch):
-            # Compare date and time if versioning is equal
-            if latest_version.date_time > self.current_version.date_time:
-                return True
-        return False
-
-
 class ThreadsExceptionHandler:
-    """
-    In Python, threads cannot be raised within the main source code. When raised, they operate independently,
-    and the main process continues execution without halting for the thread's completion. To overcome this limitation,
-    this class is designed to enhance thread management and provide additional functionality.
+    """Handle exceptions raised within threads and provide additional functionality for managing thread execution.
+
+    This class is designed to overcome the limitation where threads run independently from the main process, which continues execution without waiting for thread completion.
 
     Attributes:
         raising_function (str): The name of the function where the exception was raised.
         raising_exc_type (type): The type of the exception raised.
         raising_exc_value (Exception): The value of the exception raised.
-        raising_exc_traceback (TracebackType): The traceback information of the exception raised.
+        raising_exc_traceback (TracebackType): The traceback information for the raised exception.
     """
     raising_function = None
     raising_exc_type = None
@@ -266,9 +237,8 @@ class ThreadsExceptionHandler:
     def __enter__(self):
         pass
 
-    def __exit__(self, exc_type: type, exc_value: Exception, exc_traceback: TracebackType):
-        """
-        Exit method called upon exiting the 'with' block.
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_traceback: TracebackType | None):
+        """Exit method called upon exiting the 'with' block.
 
         Args:
             exc_type: The type of the exception raised.
@@ -300,19 +270,19 @@ class ThreadsExceptionHandler:
 class DefaultSettings:
     """Class containing default setting values."""
     CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT = True
-    CAPTURE_INTERFACE_NAME: Optional[str] = None
-    CAPTURE_IP_ADDRESS: Optional[str] = None
-    CAPTURE_MAC_ADDRESS: Optional[str] = None
+    CAPTURE_INTERFACE_NAME: str | None = None
+    CAPTURE_IP_ADDRESS: str | None = None
+    CAPTURE_MAC_ADDRESS: str | None = None
     CAPTURE_ARP = True
     CAPTURE_BLOCK_THIRD_PARTY_SERVERS = True
-    CAPTURE_PROGRAM_PRESET: Optional[str] = None
+    CAPTURE_PROGRAM_PRESET: str | None = None
     CAPTURE_VPN_MODE = False
     CAPTURE_OVERFLOW_TIMER = 3.0
-    CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER: Optional[str] = None
-    CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: Optional[str] = None
+    CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER: str | None = None
+    CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: str | None = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]
+    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]  # TODO(BUZZARDGTA): Add type hint `list[str]`
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
@@ -359,12 +329,12 @@ class Settings(DefaultSettings):
         "Organization": "iplookup.ipapi.org",
         "ISP": "iplookup.ipapi.isp",
         "ASN / ISP": "iplookup.geolite2.asn",
-        "AS": "iplookup.ipapi._as",
+        "AS": "iplookup.ipapi.asn",
         "ASN": "iplookup.ipapi.as_name",
         "Mobile": "iplookup.ipapi.mobile",
         "VPN": "iplookup.ipapi.proxy",
         "Hosting": "iplookup.ipapi.hosting",
-        "Pinging": "ping.is_pinging"
+        "Pinging": "ping.is_pinging",
     }
     gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
     gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
@@ -379,7 +349,7 @@ class Settings(DefaultSettings):
             if (
                 callable(attr_value)
                 or attr_name.startswith("_")
-                or attr_name in ("gui_fields_mapping", "gui_forced_fields", "gui_hideable_fields", "gui_all_connected_fields", "gui_all_disconnected_fields")
+                or attr_name in {"gui_fields_mapping", "gui_forced_fields", "gui_hideable_fields", "gui_all_connected_fields", "gui_all_disconnected_fields"}
                 or not attr_name.isupper()
                 or not isinstance(attr_value, _allowed_settings_types)
             ):
@@ -394,12 +364,12 @@ class Settings(DefaultSettings):
         return sum(1 for _ in cls.iterate_over_settings())
 
     @classmethod
-    def has_setting(cls, setting_name):
+    def has_setting(cls, setting_name: str):
         return hasattr(cls, setting_name)
 
     @staticmethod
     def reconstruct_settings():
-        print("\nCorrect reconstruction of \"Settings.ini\" ...")
+        print('\nCorrect reconstruction of "Settings.ini" ...')
         text = textwrap.dedent(f"""
             ;;-----------------------------------------------------------------------------
             ;; {TITLE} Configuration Settings
@@ -421,10 +391,7 @@ class Settings(DefaultSettings):
         def process_ini_line_output(line: str):
             return line.rstrip("\n")
 
-        if not ini_path.exists():
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
-        if not ini_path.is_file():
-            raise InvalidFileError(str(ini_path.absolute()))
+        validate_file(ini_path)
 
         ini_data = ini_path.read_text("utf-8")
 
@@ -433,7 +400,7 @@ class Settings(DefaultSettings):
 
         for line in map(process_ini_line_output, ini_data.splitlines(keepends=False)):
             corrected_line = line.strip()
-            if not corrected_line == line:
+            if corrected_line != line:
                 need_rewrite_ini = True
 
             match = RE_SETTINGS_INI_PARSER_PATTERN.search(corrected_line)
@@ -451,14 +418,14 @@ class Settings(DefaultSettings):
             if corrected_setting_name == "":
                 continue
 
-            if not corrected_setting_name == setting_name:
+            if corrected_setting_name != setting_name:
                 need_rewrite_ini = True
 
             corrected_setting_value = setting_value.strip()
             if corrected_setting_value == "":
                 continue
 
-            if not corrected_setting_value == setting_value:
+            if corrected_setting_value != setting_value:
                 need_rewrite_ini = True
 
             if corrected_setting_name in ini_database:
@@ -513,7 +480,7 @@ class Settings(DefaultSettings):
                     except InvalidNoneTypeValueError:
                         if is_mac_address(setting_value):
                             formatted_mac_address = format_mac_address(setting_value)
-                            if not formatted_mac_address == setting_value:
+                            if formatted_mac_address != setting_value:
                                 need_rewrite_settings = True
                             Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address
                         else:
@@ -558,18 +525,30 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        if updated_setting_value := setting_value.strip().strip("\"'").strip("()"):
-                            Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = f"({updated_setting_value})"
-                        else:
+                        updated_setting_value = setting_value.strip().strip("\"'")
+
+                        # Continuously remove outer parentheses until none remain
+                        while updated_setting_value.startswith("(") and updated_setting_value.endswith(")"):
+                            updated_setting_value = updated_setting_value[1:-1]
+
+                        if setting_value != updated_setting_value:
                             need_rewrite_settings = True
+
+                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = updated_setting_value
                 elif setting_name == "CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER":
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        if updated_setting_value := setting_value.strip().strip("\"'").strip("()"):
-                            Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = f"({updated_setting_value})"
-                        else:
+                        updated_setting_value = setting_value.strip().strip("\"'")
+
+                        # Continuously remove outer parentheses until none remain
+                        while updated_setting_value.startswith("(") and updated_setting_value.endswith(")"):
+                            updated_setting_value = updated_setting_value[1:-1]
+
+                        if setting_value != updated_setting_value:
                             need_rewrite_settings = True
+
+                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = updated_setting_value
                 elif setting_name == "GUI_SESSIONS_LOGGING":
                     try:
                         Settings.GUI_SESSIONS_LOGGING, need_rewrite_current_setting = custom_str_to_bool(setting_value)
@@ -648,7 +627,7 @@ class Settings(DefaultSettings):
                     except (ValueError, TypeError):
                         need_rewrite_settings = True
                     else:
-                        if player_disconnected_timer >= 3.0:
+                        if player_disconnected_timer >= 3.0:  # noqa: PLR2004
                             Settings.GUI_DISCONNECTED_PLAYERS_TIMER = player_disconnected_timer
                         else:
                             need_rewrite_settings = True
@@ -667,7 +646,7 @@ class Settings(DefaultSettings):
                         Settings.UPDATER_CHANNEL, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ["Stable", "Alpha"])
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ["Stable", "RC"])
                             Settings.UPDATER_CHANNEL = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
@@ -677,7 +656,7 @@ class Settings(DefaultSettings):
                 if need_rewrite_current_setting:
                     need_rewrite_settings = True
 
-            if not matched_settings_count == Settings.get_settings_length():
+            if matched_settings_count != Settings.get_settings_length():
                 need_rewrite_settings = True
 
         if need_rewrite_settings:
@@ -686,7 +665,7 @@ class Settings(DefaultSettings):
         for field_name in Settings.GUI_FIELDS_TO_HIDE:
             for sort_field_name, sort_field_value, default_sort_value in (
                 ("GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY),
-                ("GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
+                ("GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY),
             ):
                 if field_name in sort_field_value:
                     need_rewrite_settings = True
@@ -702,10 +681,10 @@ class Settings(DefaultSettings):
                         with its default value:
                         {sort_field_name}={default_sort_value}
                     """.removeprefix("\n").removesuffix("\n"))
-                    msgbox_style = MsgBox.Style.YES_NO | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                    msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
                     errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
-                    if errorlevel != MsgBox.ReturnValues.ID_YES:
+                    if errorlevel != MsgBox.ReturnValues.IDYES:
                         terminate_script("EXIT")
 
                     setattr(Settings, sort_field_name, getattr(DefaultSettings, sort_field_name))  # Replace the incorrect field with its default value
@@ -723,10 +702,10 @@ class Settings(DefaultSettings):
 
                 Would you like to apply their default values and continue?
             """.removeprefix("\n").removesuffix("\n"))
-            msgbox_style = MsgBox.Style.YES_NO | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+            msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
             errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
-            if errorlevel != MsgBox.ReturnValues.ID_YES:
+            if errorlevel != MsgBox.ReturnValues.IDYES:
                 terminate_script("EXIT")
 
             for setting_name in ("GUI_DATE_FIELDS_SHOW_DATE", "GUI_DATE_FIELDS_SHOW_TIME", "GUI_DATE_FIELDS_SHOW_ELAPSED"):
@@ -737,47 +716,43 @@ class Settings(DefaultSettings):
 
 @dataclass
 class AdapterProperties:
-    interface_description: Union[Literal["N/A"], str] = "N/A"
-    interface_index      : Union[Literal["N/A"], int] = "N/A"
-    manufacturer         : Union[Literal["N/A"], str] = "N/A"
+    interface_description: Literal["N/A"] | str = "N/A"
+    interface_index      : Literal["N/A"] | int = "N/A"
+    manufacturer         : Literal["N/A"] | str = "N/A"
 
 
 class Interface:
-    all_interfaces: list["Interface"] = []
+    all_interfaces: ClassVar[list["Interface"]] = []
 
     def __init__(self, interface_name: str):
         self.interface_name = interface_name
 
-        self.ip_addresses     : list[str]                  = []
-        self.mac_address      : Union[Literal["N/A"], str] = "N/A"
-        self.organization_name: Union[Literal["N/A"], str] = "N/A"
-        self.packets_sent     : Union[Literal["N/A"], int] = "N/A"
-        self.packets_recv     : Union[Literal["N/A"], int] = "N/A"
-        self.arp_infos        : list[dict[str, str]]       = []
+        self.ip_addresses     : list[str]            = []
+        self.mac_address      : Literal["N/A"] | str = "N/A"
+        self.organization_name: Literal["N/A"] | str = "N/A"
+        self.packets_sent     : Literal["N/A"] | int = "N/A"
+        self.packets_recv     : Literal["N/A"] | int = "N/A"
+        self.arp_infos        : list[dict[str, str]] = []
 
         self.adapter_properties = AdapterProperties()
 
         Interface.all_interfaces.append(self)
 
     def add_arp_infos(self, arp_infos: list[dict[str, str]]):
-        """
-        Add ARP informations for the given interface.
-        """
+        """Add ARP informations for the given interface."""
         for arp_info in arp_infos:
             if arp_info not in self.arp_infos:
                 self.arp_infos.append(arp_info)
 
     def get_arp_infos(self):
-        """
-        Get ARP informations for the given interface.
-        """
+        """Get ARP informations for the given interface."""
         return self.arp_infos
 
     def is_interface_inactive(self):
-        """Determines if an interface is inactive based on lack of traffic, IP addresses, and identifying details."""
+        """Determine if an interface is inactive based on lack of traffic, IP addresses, and identifying details."""
         return (
-            self.packets_sent in ("N/A", 0)
-            and self.packets_recv in ("N/A", 0)
+            self.packets_sent in {"N/A", 0}
+            and self.packets_recv in {"N/A", 0}
             and not self.ip_addresses
             and self.mac_address == "N/A"
             and self.adapter_properties.interface_description == "N/A"
@@ -800,16 +775,12 @@ class Interface:
 
     @classmethod
     def delete_interface(cls, interface: "Interface"):
-        """
-        Delete an interface.
-        """
+        """Delete an interface."""
         cls.all_interfaces.remove(interface)
 
     @classmethod
     def iterate_safely(cls):
-        """
-        Safely iterate over all_interfaces, allowing modifications during iteration.
-        """
+        """Safely iterate over all_interfaces, allowing modifications during iteration."""
         yield from cls.all_interfaces[:]  # Iterate over a copy of the list
 
 
@@ -821,17 +792,18 @@ class ThirdPartyServers(enum.Enum):
     PC_UK_MINISTRY_OF_DEFENCE = ("25.0.0.0/8",)
     PC_SERVERS_COM = ("173.237.26.0/24",)
     PC_OTHERS = ("113.117.15.193/32",)
-    GTAV_PC_AND_PS3_TAKETWO = ("104.255.104.0/23", "104.255.106.0/24", "185.56.64.0/22", "192.81.241.0/24", "192.81.244.0/23")
+    PS_SONY_INTERACTIVE  = ("104.142.128.0/17",)
+    PS_AMAZON = ("34.192.0.0/10", "44.192.0.0/10", "52.0.0.0/10", "52.64.0.0/12", "52.80.0.0/13", "52.88.0.0/14")
+    GTAV_TAKETWO = ("104.255.104.0/22", "185.56.64.0/22", "192.81.240.0/21")
     GTAV_PC_MICROSOFT = ("52.139.128.0/18",)
     GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ("26.0.0.0/8",)
     GTAV_PC_BATTLEYE = ("51.89.97.102/32", "51.89.99.255/32")
-    GTAV_XBOXONE_MICROSOFT = ("52.159.128.0/17", "52.160.0.0/16", "40.74.0.0/18")
-    PS5_AMAZON = ("52.40.62.0/25", "44.192.0.0/10")
-    MINECRAFTBEDROCKEDITION_PC_AND_PS3_MICROSOFT = ("20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19")
+    GTAV_XBOXONE_MICROSOFT = ("40.74.0.0/18", "52.159.128.0/17", "52.160.0.0/16")
+    MINECRAFTBEDROCKEDITION_PC_PS3_MICROSOFT = ("20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19")
 
     @classmethod
     def get_all_ip_ranges(cls):
-        """Returns a flat list of all IP ranges from the Enum."""
+        """Return a flat list of all IP ranges from the Enum."""
         return [ip_range for server in cls for ip_range in server.value]
 
 
@@ -839,7 +811,7 @@ class ThirdPartyServers(enum.Enum):
 class PlayerReverseDNS:
     is_initialized = False
 
-    hostname: Union[Literal["..."], str] = "..."
+    hostname: Literal["..."] | str = "..."
 
 
 class PlayerPPS:
@@ -848,8 +820,8 @@ class PlayerPPS:
 
     def _initialize(self):
         self.is_first_calculation = True
-        self.last_update_time = time.monotonic()
         self.last_pps_values: list[int] = []  # Stores last 3 PPS values
+        self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = 0
         self.avg_rate = 0
@@ -859,13 +831,15 @@ class PlayerPPS:
 
     def update_average(self, player_pps_rate: int):
         """Safely updates the last PPS values list, keeping only the latest 3 values."""
-        if len(self.last_pps_values) >= 3:
+        from modules.constants.standalone import MAX_PPS_VALUES
+
+        if len(self.last_pps_values) >= MAX_PPS_VALUES:
             self.last_pps_values.pop(0)  # Keep only the last 3 values
         self.last_pps_values.append(player_pps_rate)
 
     def get_average(self):
-        """Returns the average of the last 3 PPS values (or fewer if not enough data)."""
-        return int(sum(self.last_pps_values) / len(self.last_pps_values)) if self.last_pps_values else 0
+        """Return the average of the last 3 PPS values (or fewer if not enough data)."""
+        return round(sum(self.last_pps_values) / len(self.last_pps_values)) if self.last_pps_values else 0
 
 
 class PlayerPPM:
@@ -885,12 +859,14 @@ class PlayerPPM:
 
     def update_average(self, player_ppm_counter: int):
         """Safely updates the last PPM values list, keeping only the latest 3 values."""
-        if len(self.last_ppm_values) >= 3:
+        from modules.constants.standalone import MAX_PPM_VALUES
+
+        if len(self.last_ppm_values) >= MAX_PPM_VALUES:
             self.last_ppm_values.pop(0)  # Keep only the last 3 values
         self.last_ppm_values.append(player_ppm_counter)
 
     def get_average(self):
-        """Returns the average of the last 3 PPM values (or fewer if not enough data)."""
+        """Return the average of the last 3 PPM values (or fewer if not enough data)."""
         return round(sum(self.last_ppm_values) / len(self.last_ppm_values)) if self.last_ppm_values else 0
 
 
@@ -916,7 +892,7 @@ class PlayerDateTime:
         self.first_seen = packet_datetime
         self.last_rejoin = packet_datetime
         self.last_seen = packet_datetime
-        self.left: Optional[datetime] = None
+        self.left: datetime | None = None
 
     def reset(self, packet_datetime: datetime):
         self._initialize(packet_datetime)
@@ -926,42 +902,48 @@ class PlayerDateTime:
 class PlayerGeoLite2:
     is_initialized = False
 
-    country:      Union[Literal["..."], str] = "..."
-    country_code: Union[Literal["..."], str] = "..."
-    city:         Union[Literal["..."], str] = "..."
-    asn:          Union[Literal["..."], str] = "..."
+    country:      Literal["..."] | str = "..."
+    country_code: Literal["..."] | str = "..."
+    city:         Literal["..."] | str = "..."
+    asn:          Literal["..."] | str = "..."
 
 
 @dataclass
 class PlayerIPAPI:
     is_initialized = False
 
-    continent:      Union[Literal["N/A", "..."], str]               = "..."
-    continent_code: Union[Literal["N/A", "..."], str]               = "..."
-    country:        Union[Literal["N/A", "..."], str]               = "..."
-    country_code:   Union[Literal["N/A", "..."], str]               = "..."
-    region:         Union[Literal["N/A", "..."], str]               = "..."
-    region_code:    Union[Literal["N/A", "..."], str]               = "..."
-    city:           Union[Literal["N/A", "..."], str]               = "..."
-    district:       Union[Literal["N/A", "..."], str]               = "..."
-    zip_code:       Union[Literal["N/A", "..."], str]               = "..."
-    lat:            Union[Literal["N/A", "..."], Union[float, int]] = "..."
-    lon:            Union[Literal["N/A", "..."], Union[float, int]] = "..."
-    time_zone:      Union[Literal["N/A", "..."], str]               = "..."
-    offset:         Union[Literal["N/A", "..."], int]               = "..."
-    currency:       Union[Literal["N/A", "..."], str]               = "..."
-    org:            Union[Literal["N/A", "..."], str]               = "..."
-    isp:            Union[Literal["N/A", "..."], str]               = "..."
-    _as:            Union[Literal["N/A", "..."], str]               = "..."
-    as_name:        Union[Literal["N/A", "..."], str]               = "..."
-    mobile:         Union[Literal["N/A", "..."], bool]              = "..."
-    proxy:          Union[Literal["N/A", "..."], bool]              = "..."
-    hosting:        Union[Literal["N/A", "..."], bool]              = "..."
+    continent:      Literal["N/A", "..."] | str         = "..."
+    continent_code: Literal["N/A", "..."] | str         = "..."
+    country:        Literal["N/A", "..."] | str         = "..."
+    country_code:   Literal["N/A", "..."] | str         = "..."
+    region:         Literal["N/A", "..."] | str         = "..."
+    region_code:    Literal["N/A", "..."] | str         = "..."
+    city:           Literal["N/A", "..."] | str         = "..."
+    district:       Literal["N/A", "..."] | str         = "..."
+    zip_code:       Literal["N/A", "..."] | str         = "..."
+    lat:            Literal["N/A", "..."] | float | int = "..."
+    lon:            Literal["N/A", "..."] | float | int = "..."
+    time_zone:      Literal["N/A", "..."] | str         = "..."
+    offset:         Literal["N/A", "..."] | int         = "..."
+    currency:       Literal["N/A", "..."] | str         = "..."
+    org:            Literal["N/A", "..."] | str         = "..."
+    isp:            Literal["N/A", "..."] | str         = "..."
+    asn:            Literal["N/A", "..."] | str         = "..."
+    as_name:        Literal["N/A", "..."] | str         = "..."
+    mobile:         Literal["N/A", "..."] | bool        = "..."
+    proxy:          Literal["N/A", "..."] | bool        = "..."
+    hosting:        Literal["N/A", "..."] | bool        = "..."
+
+
+class PlayerCountryFlag:
+    def __init__(self, pixmap: QPixmap, icon: QIcon):
+        self.pixmap = pixmap
+        self.icon = icon
 
 
 class PlayerIPLookup:
     def __init__(self):
-        self.country_flag: Optional[Path] = None
+        self.country_flag: PlayerCountryFlag | None = None
         self.geolite2 = PlayerGeoLite2()
         self.ipapi = PlayerIPAPI()
 
@@ -970,16 +952,16 @@ class PlayerIPLookup:
 class PlayerPing:
     is_initialized = False
 
-    is_pinging:          Union[Literal["..."], bool]            = "..."
-    ping_times:          Union[Literal["..."], list[float]]     = "..."
-    packets_transmitted: Union[Literal["..."], Optional[int]]   = "..."
-    packets_received:    Union[Literal["..."], Optional[int]]   = "..."
-    packet_loss:         Union[Literal["..."], Optional[float]] = "..."
-    packet_errors:       Union[Literal["..."], Optional[int]]   = "..."
-    rtt_min:             Union[Literal["..."], Optional[float]] = "..."
-    rtt_avg:             Union[Literal["..."], Optional[float]] = "..."
-    rtt_max:             Union[Literal["..."], Optional[float]] = "..."
-    rtt_mdev:            Union[Literal["..."], Optional[float]] = "..."
+    is_pinging:          Literal["..."] | bool         = "..."
+    ping_times:          Literal["..."] | list[float]  = "..."
+    packets_transmitted: Literal["..."] | int   | None = "..."
+    packets_received:    Literal["..."] | int   | None = "..."
+    packet_loss:         Literal["..."] | float | None = "..."
+    packet_errors:       Literal["..."] | int   | None = "..."
+    rtt_min:             Literal["..."] | float | None = "..."
+    rtt_avg:             Literal["..."] | float | None = "..."
+    rtt_max:             Literal["..."] | float | None = "..."
+    rtt_mdev:            Literal["..."] | float | None = "..."
 
 
 @dataclass
@@ -1015,9 +997,9 @@ class Player:
         self.datetime = PlayerDateTime(packet_datetime)
         self.iplookup = PlayerIPLookup()
         self.ping = PlayerPing()
-        self.userip: Optional[UserIP] = None
-        self.userip_detection: Optional[PlayerUserIPDetection] = None
-        self.mod_menus: Optional[PlayerModMenus] = None
+        self.userip: UserIP | None = None
+        self.userip_detection: PlayerUserIPDetection | None = None
+        self.mod_menus: PlayerModMenus | None = None
 
     def reset(self, port: int, packet_datetime: datetime):
         self.packets = 1
@@ -1028,9 +1010,9 @@ class Player:
 
 
 class PlayersRegistry:
-    players_registry: dict[str, Player] = {}
+    players_registry: ClassVar[dict[str, Player]] = {}
 
-    _sorted_players_cache: list[Player] = []
+    _sorted_players_cache: ClassVar[list[Player]] = []
     _cache_lock = threading.Lock()
 
     # Constant for the default sort order
@@ -1048,28 +1030,28 @@ class PlayersRegistry:
         return cls.players_registry.get(ip)
 
     @classmethod
-    def iterate_players_from_registry(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse=False):
-        # Using list() ensures a static snapshot of the dictionary's values is used, avoiding the 'RuntimeError: dictionary changed size during iteration'.
+    def iterate_players_from_registry(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
         yield from sorted(
-            list(cls.players_registry.values()),  # No need for list(), sorted() already creates a new list
+            cls.players_registry.values(),
             key=attrgetter(sort_order),
-            reverse=reverse
+            reverse=reverse,
         )
 
     @classmethod
-    def _update_sorted_cache(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse=False):
+    def _update_sorted_cache_core(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
         """Refresh the cached sorted player list every second."""
-        while not gui_closed__event.is_set():
-            with cls._cache_lock:
-                cls._sorted_players_cache = sorted(
-                    cls.players_registry.values(),
-                    key=attrgetter(sort_order),
-                    reverse=reverse
-                )
-            gui_closed__event.wait(1)  # Sleep for 1 second
+        with ThreadsExceptionHandler():
+            while not gui_closed__event.is_set():
+                with cls._cache_lock:
+                    cls._sorted_players_cache = sorted(
+                        cls.players_registry.values(),
+                        key=attrgetter(sort_order),
+                        reverse=reverse,
+                    )
+                gui_closed__event.wait(1)  # Sleep for 1 second
 
     @classmethod
-    def get_sorted_players(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse=False):
+    def get_sorted_players(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
         """Return the cached sorted players list (thread-safe)."""
         with cls._cache_lock:
             if sort_order == cls.DEFAULT_SORT_ORDER:
@@ -1078,20 +1060,21 @@ class PlayersRegistry:
             return sorted(cls._sorted_players_cache, key=attrgetter(sort_order), reverse=reverse)
 
     @classmethod
-    def start_cache_updater(cls, sort_order: str = DEFAULT_SORT_ORDER, reverse=False):
+    def start_cache_updater_thread(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
         """Start the background thread to update the player cache."""
-        thread = threading.Thread(target=cls._update_sorted_cache, args=(sort_order, reverse), daemon=True)
+        thread = threading.Thread(target=cls._update_sorted_cache_core, kwargs={"sort_order": sort_order, "reverse": reverse}, daemon=True)
         thread.start()
 
 
 class SessionHost:
-    player: Optional[Player] = None
-    search_player = False
-    players_pending_for_disconnection: list[Player] = []
+    player: ClassVar[Player | None] = None
+    search_player = ClassVar[False]
+    players_pending_for_disconnection: ClassVar[list[Player]] = []
 
     @staticmethod
     def get_host_player(session_connected: list[Player]):
         from modules.utils import take
+        from modules.constants.standalone import MINIMUM_PACKETS_FOR_SESSION_HOST
 
         connected_players: list[Player] = take(2, sorted(session_connected, key=attrgetter("datetime.last_rejoin")))
 
@@ -1099,45 +1082,43 @@ class SessionHost:
 
         if len(connected_players) == 1:
             potential_session_host_player = connected_players[0]
-        elif len(connected_players) == 2:
+        elif len(connected_players) == 2:  # noqa: PLR2004
             time_difference = connected_players[1].datetime.last_rejoin - connected_players[0].datetime.last_rejoin
             if time_difference >= timedelta(milliseconds=200):
                 potential_session_host_player = connected_players[0]
         else:
             raise ValueError(f"Unexpected number of connected players: {len(connected_players)}")
 
-        if potential_session_host_player and (
+        if (
+            not potential_session_host_player
             # Skip players remaining to be disconnected from the previous session.
-            potential_session_host_player not in SessionHost.players_pending_for_disconnection
-            # Ensures that we only check for the newly joined session's players.
+            or potential_session_host_player in SessionHost.players_pending_for_disconnection
             # The lower this value, the riskier it becomes, as it could potentially flag a player who ultimately isn't part of the newly discovered session.
             # In such scenarios, a better approach might involve checking around 25-100 packets.
             # However, increasing this value also increases the risk, as the host may have already disconnected.
-            and potential_session_host_player.packets >= 50
+            or potential_session_host_player.packets < MINIMUM_PACKETS_FOR_SESSION_HOST
         ):
-            SessionHost.player = potential_session_host_player
-            SessionHost.search_player = False
+            return
+
+        SessionHost.player = potential_session_host_player
+        SessionHost.search_player = False
 
 
 class UserIPSettings(NamedTuple):
-    """
-    Class to represent settings with attributes for each setting key.
-    """
+    """Class to represent settings with attributes for each setting key."""
     ENABLED: bool
     COLOR: QColor
     LOG: bool
     NOTIFICATIONS: bool
-    VOICE_NOTIFICATIONS: Union[str, Literal[False]]
+    VOICE_NOTIFICATIONS: str | Literal["False"]
     PROTECTION: Literal["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC", False]
-    PROTECTION_PROCESS_PATH: Optional[Path]
-    PROTECTION_RESTART_PROCESS_PATH: Optional[Path]
-    PROTECTION_SUSPEND_PROCESS_MODE: Union[int, float, Literal["Auto", "Manual"]]
+    PROTECTION_PROCESS_PATH: Path | None
+    PROTECTION_RESTART_PROCESS_PATH: Path | None
+    PROTECTION_SUSPEND_PROCESS_MODE: int | float | Literal["Auto", "Manual"]
 
 
 class UserIP(NamedTuple):
-    """
-    Class representing information associated with a specific IP, including settings and usernames.
-    """
+    """Class representing information associated with a specific IP, including settings and usernames."""
     ip: str
     database_path: Path
     settings: UserIPSettings
@@ -1147,11 +1128,11 @@ class UserIP(NamedTuple):
 class UserIPDatabases:
     _update_userip_database_lock = threading.Lock()
 
-    userip_databases: list[tuple[Path, UserIPSettings, dict[str, list[str]]]] = []
-    ips_set: set[str] = set()
-    notified_settings_corrupted: set[Path] = set()
-    notified_ip_invalid: set[str] = set()
-    notified_ip_conflicts: set[str] = set()
+    userip_databases: ClassVar[list[tuple[Path, UserIPSettings, dict[str, list[str]]]]] = []
+    ips_set: ClassVar[set[str]] = set()
+    notified_settings_corrupted: ClassVar[set[Path]] = set()
+    notified_ip_invalid: ClassVar[set[str]] = set()
+    notified_ip_conflicts: ClassVar[set[str]] = set()
 
     @staticmethod
     def _notify_conflict(
@@ -1160,7 +1141,7 @@ class UserIPDatabases:
         initial_userip_ip: str,
         conflicting_userip_database: Path,
         conflicting_userip_username: str,
-        conflicting_userip_ip: str
+        conflicting_userip_ip: str,
     ):
         from modules.constants.standard import USERIP_DATABASES_PATH
 
@@ -1182,13 +1163,12 @@ class UserIPDatabases:
                 \"{conflicting_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}\":
                 {conflicting_userip_username}={conflicting_userip_ip}
         """.removeprefix("\n").removesuffix("\n")), "    ")
-        msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.SYSTEM_MODAL | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
         threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
     @classmethod
     def populate(cls, database_entries: list[tuple[Path, UserIPSettings, dict[str, list[str]]]]):
-        """
-        Replaces userip_databases with a new set of databases.
+        """Replace `cls.userip_databases` with a new set of databases.
 
         Args:
             database_entries: A list of tuples containing database_path, settings, and user_ips.
@@ -1202,8 +1182,8 @@ class UserIPDatabases:
 
     @classmethod
     def build(cls):
-        """
-        Build the userip_infos_by_ip dictionary dynamically from the current databases.
+        """Build the userip_infos_by_ip dictionary dynamically from the current databases.
+
         This method updates the dictionaries without clearing their content entirely and avoids duplicates.
         """
         with cls._update_userip_database_lock:
@@ -1223,7 +1203,7 @@ class UserIPDatabases:
                                     initial_userip_ip=ip_to_userip[ip].ip,
                                     conflicting_userip_database=database_path,
                                     conflicting_userip_username=username,
-                                    conflicting_userip_ip=ip
+                                    conflicting_userip_ip=ip,
                                 )
                                 cls.notified_ip_conflicts.add(ip)
                             unresolved_conflicts.add(ip)
@@ -1237,12 +1217,10 @@ class UserIPDatabases:
                                 ip=ip,
                                 database_path=database_path,
                                 settings=settings,
-                                usernames=[username]
+                                usernames=[username],
                             )
-                        else:
-                            # Append username if it doesn't already exist
-                            if username not in ip_to_userip[ip].usernames:
-                                ip_to_userip[ip].usernames.append(username)
+                        elif username not in ip_to_userip[ip].usernames:  # Append username if it doesn't already exist
+                            ip_to_userip[ip].usernames.append(username)
 
                         # Assign the UserIP object to the PlayerRegistry if applicable
                         if player := PlayersRegistry.get_player(ip):
@@ -1261,23 +1239,9 @@ class UserIPDatabases:
             return [database_path for database_path, _, _ in cls.userip_databases]
 
 
-def is_pyinstaller_compiled():
-    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
-
-
-def title(title: str):
-    print(f"\033]0;{title}\007", end="")
-
-
-def clear_screen():
-    print("\033c", end="")
-
-
-def pluralize(variable: int):
-    return "s" if variable > 1 else ""
-
-
 def check_for_updates():
+    from modules.utils import format_project_version
+
     def get_updater_json_response():
         from modules.constants.standalone import GITHUB_VERSIONS_URL
 
@@ -1285,12 +1249,7 @@ def check_for_updates():
             try:
                 response = s.get(GITHUB_VERSIONS_URL)
                 response.raise_for_status()
-                versions_json: dict[str, str] = response.json()
-                if not isinstance(versions_json, dict):
-                    raise TypeError(f'Expected "dict" object, got "{type(versions_json).__name__}"')
-
-                return versions_json
-            except Exception:
+            except requests.exceptions.RequestException:
                 msgbox_title = TITLE
                 msgbox_message = textwrap.dedent(f"""
                     ERROR:
@@ -1299,140 +1258,118 @@ def check_for_updates():
                     Do you want to open the \"{TITLE}\" project download page ?
                     You can then download and run the latest version from there.
                 """.removeprefix("\n").removesuffix("\n"))
-                msgbox_style = MsgBox.Style.ABORT_RETRY_IGNORE | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                msgbox_style = MsgBox.Style.MB_ABORTRETRYIGNORE | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
                 errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
-                if errorlevel == MsgBox.ReturnValues.ID_ABORT:
+                if errorlevel == MsgBox.ReturnValues.IDABORT:
                     webbrowser.open(GITHUB_RELEASES_URL)
                     sys.exit(0)
-                elif errorlevel == MsgBox.ReturnValues.ID_RETRY:
+                elif errorlevel == MsgBox.ReturnValues.IDRETRY:
                     continue
-                elif errorlevel == MsgBox.ReturnValues.ID_IGNORE:
+                elif errorlevel == MsgBox.ReturnValues.IDIGNORE:
                     webbrowser.open(GITHUB_RELEASES_URL)
                     return None
+            else:
+                versions_json: dict[str, str] = response.json()
+                if not isinstance(versions_json, dict):
+                    raise TypeError(f'Expected "dict" object, got "{type(versions_json).__name__}"')
+
+                return versions_json
 
     versions_json = get_updater_json_response()
     if versions_json is None:
-        return None
+        return
 
-    CURRENT_VERSION = Version(VERSION)
+    current_version = Version(PYPROJECT_DATA["project"]["version"])
 
     # Get versions from the response
-    latest_stable_version = Version(versions_json["Stable"])
-    latest_alpha_version = Version(versions_json["Alpha"])
+    latest_stable_version = Version(versions_json["latest_stable"]["version"])
+    latest_rc_version = Version(versions_json["latest_prerelease"]["version"])
 
     # Check for updates based on the current version
-    updater = Updater(CURRENT_VERSION)
-    is_new_stable_version_available = updater.check_for_update(latest_stable_version)
-    is_new_alpha_version_available = updater.check_for_update(latest_alpha_version)
+    is_new_stable_version_available = latest_stable_version > current_version
+    is_new_rc_version_available = latest_rc_version > current_version
 
     # Determine which version to display based on the user's channel setting
-    if is_new_stable_version_available or (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available):
-        update_channel = "alpha" if (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available) else "stable"
-        latest_version = latest_alpha_version if (Settings.UPDATER_CHANNEL == "Alpha" and is_new_alpha_version_available) else latest_stable_version
+    if is_new_stable_version_available or (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available):
+        update_channel = "pre-release" if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else "stable release"
+        latest_version = latest_rc_version if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else latest_stable_version
 
         msgbox_title = TITLE
         msgbox_message = textwrap.dedent(f"""
             New {update_channel} version found. Do you want to update?
 
-            Current version: {CURRENT_VERSION}
-            Latest version: {latest_version}
+            Current version: {format_project_version(current_version)}
+            Latest version: {format_project_version(latest_version)}
         """.removeprefix("\n").removesuffix("\n"))
 
-        msgbox_style = MsgBox.Style.YES_NO | MsgBox.Style.QUESTION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONQUESTION | MsgBox.Style.MB_SETFOREGROUND
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
-        if errorlevel == MsgBox.ReturnValues.ID_YES:
+        if errorlevel == MsgBox.ReturnValues.IDYES:
             webbrowser.open(GITHUB_RELEASES_URL)
             sys.exit(0)
 
 
-def get_mac_address_organization_name(mac_address: Optional[str]):
-    if mac_address is None:
-        return None
-
-    oui_infos = mac_lookup.lookup(mac_address)
-    if oui_infos is None:
-        return None
-
-    for oui_info in oui_infos:
-        organization_name = oui_info["organization_name"]
-        if not organization_name == "":
-            return organization_name
-
-    return None
-
-
 def get_filtered_tshark_interfaces():
-    """
-    Retrieves a list of available TShark interfaces, excluding a list of exclusions.
+    """Retrieve a list of available TShark interfaces, excluding a list of exclusions.
 
     Returns:
         A list of tuples containing:
-        - Index (str)
+        - Index (int)
         - Device name (str)
         - Interface name (str)
     """
-    from modules.constants.standalone import EXCLUDED_CAPTURE_NETWORK_INTERFACES
+    from modules.constants.standalone import EXCLUDED_CAPTURE_NETWORK_INTERFACES, INTERFACE_PARTS_LENGTH
 
-    def process_stdout(stdout: str):
-        return stdout.strip().split(" ", maxsplit=2)
+    def process_stdout(stdout_line: str):
+        parts = stdout_line.strip().split(" ", maxsplit=INTERFACE_PARTS_LENGTH - 1)
 
-    stdout = subprocess.check_output([
-        tshark_path, "-D"
-    ], text=True, encoding="utf-8")
+        if len(parts) != INTERFACE_PARTS_LENGTH:
+            raise ValueError(f'Expected "{INTERFACE_PARTS_LENGTH}" parts, got "{len(parts)}" in "{stdout_line}"')
+
+        index = int(parts[0].removesuffix("."))
+        device_name = parts[1]
+        name = parts[2].removeprefix("(").removesuffix(")")
+
+        return index, device_name, name
+
+    stdout = subprocess.check_output([tshark_path, "-D"], encoding="utf-8", text=True)
 
     if not isinstance(stdout, str):
         raise TypeError(f'Expected "str", got "{type(stdout).__name__}"')
 
-    interfaces: list[tuple[str, str, str]] = []
-    for parts in map(process_stdout, stdout.splitlines()):
-        if len(parts) == 3:
-            index = parts[0].removesuffix(".")
-            device_name = parts[1]
-            name = parts[2].removeprefix("(").removesuffix(")")
-
-            if name in EXCLUDED_CAPTURE_NETWORK_INTERFACES:
-                continue
-
-            interfaces.append((index, device_name, name))
-
-    return interfaces
-
-
-def get_screen_size(app: QApplication):
-    screen = app.primaryScreen()
-    if screen is None:
-        raise RuntimeError("No primary screen detected.")
-
-    size = screen.size()
-    return size.width(), size.height()
+    return [
+        (index, device_name, name)
+        for index, device_name, name in map(process_stdout, stdout.splitlines())
+        if name not in EXCLUDED_CAPTURE_NETWORK_INTERFACES
+    ]
 
 
 def select_interface(interfaces_selection_data: list[InterfaceSelectionData], screen_width: int, screen_height: int):
-    """
-    Select the best matching interface based on given settings.
+    """Select the best matching interface based on given settings.
+
     If no interface matches, show the selection dialog to prompt the user.
     """
 
     def select_best_settings_matching_interface():
-        """
-        Select the interface with the highest priority based on the given settings.
+        """Select the interface with the highest priority based on the given settings.
+
         Returns None if no interface matches.
         """
 
         def calculate_interface_priority(interface: InterfaceSelectionData):
-            """
-            Calculate the priority of an interface based on the given settings.
+            """Calculate the priority of an interface based on the given settings.
+
             Priority increases for each matching setting.
             """
             priority = 0
 
-            if Settings.CAPTURE_INTERFACE_NAME is not None and Settings.CAPTURE_INTERFACE_NAME == interface.interface_name:
+            if Settings.CAPTURE_INTERFACE_NAME is not None and interface.interface_name == Settings.CAPTURE_INTERFACE_NAME:
                 priority += 1
-            if Settings.CAPTURE_MAC_ADDRESS is not None and Settings.CAPTURE_MAC_ADDRESS == interface.mac_address:
+            if Settings.CAPTURE_MAC_ADDRESS is not None and interface.mac_address == Settings.CAPTURE_MAC_ADDRESS:
                 priority += 1
-            if Settings.CAPTURE_IP_ADDRESS is not None and Settings.CAPTURE_IP_ADDRESS == interface.ip_address:
+            if Settings.CAPTURE_IP_ADDRESS is not None and interface.ip_address == Settings.CAPTURE_IP_ADDRESS:
                 priority += 1
 
             return priority
@@ -1460,7 +1397,7 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
         # Check if the network interface prompt is disabled
         not Settings.CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT
         # Check if any capture setting is defined
-        and any(setting is not None for setting in (Settings.CAPTURE_INTERFACE_NAME, Settings.CAPTURE_MAC_ADDRESS, Settings.CAPTURE_IP_ADDRESS))
+        and any(setting is not None for setting in {Settings.CAPTURE_INTERFACE_NAME, Settings.CAPTURE_MAC_ADDRESS, Settings.CAPTURE_IP_ADDRESS})
     ):
         selected_interface = select_best_settings_matching_interface()
         if selected_interface is not None:
@@ -1476,15 +1413,15 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
 
 def update_and_initialize_geolite2_readers():
     def update_geolite2_databases():
-        from modules.constants.standalone import GITHUB_RELEASE_API__GEOLITE2__URL  # TODO: Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
+        from modules.constants.standalone import GITHUB_RELEASE_API__GEOLITE2__URL, ERROR_USER_MAPPED_FILE  # TODO(BUZZARDGTA): Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
         from modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / "version.json"
-        geolite2_databases: dict[str, dict[str, Optional[str]]] = {
+        geolite2_databases: dict[str, dict[str, str | None]] = {
             f"GeoLite2-{db}.mmdb": {
                 "current_version": None,
                 "last_version": None,
-                "download_url": None
+                "download_url": None,
             }
             for db in ("ASN", "City", "Country")
         }
@@ -1508,17 +1445,12 @@ def update_and_initialize_geolite2_readers():
 
         try:
             response = s.get(GITHUB_RELEASE_API__GEOLITE2__URL)
-        except Exception as e:
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
             return {
                 "exception": e,
                 "url": GITHUB_RELEASE_API__GEOLITE2__URL,
-                "http_code": None
-            }
-        if response.status_code != 200:
-            return {
-                "exception": None,
-                "url": GITHUB_RELEASE_API__GEOLITE2__URL,
-                "http_code": response.status_code
+                "http_code": getattr(e.response, "status_code", None),
             }
 
         release_data = response.json()
@@ -1534,27 +1466,23 @@ def update_and_initialize_geolite2_readers():
 
             geolite2_databases[asset_name].update({
                 "last_version": asset["updated_at"],
-                "download_url": asset["browser_download_url"]
+                "download_url": asset["browser_download_url"],
             })
 
         failed_fetching_flag_list: list[str] = []
         for database_name, database_info in geolite2_databases.items():
             if database_info["last_version"]:
-                if not database_info["current_version"] == database_info["last_version"]:
+                if database_info["current_version"] != database_info["last_version"]:
                     try:
                         response = s.get(database_info["download_url"])
-                    except Exception as e:
+                        response.raise_for_status()
+                    except requests.exceptions.RequestException as e:
                         return {
                             "exception": e,
                             "url": database_info["download_url"],
-                            "http_code": None
+                            "http_code": getattr(e.response, "status_code", None),
                         }
-                    if response.status_code != 200:
-                        return {
-                            "exception": None,
-                            "url": database_info["download_url"],
-                            "http_code": response.status_code
-                        }
+
                     if not isinstance(response.content, bytes):
                         raise TypeError(f'Expected "bytes" object, got "{type(response.content).__name__}"')
 
@@ -1573,7 +1501,7 @@ def update_and_initialize_geolite2_readers():
                                 shutil.move(temp_path, destination_file_path)
                             except OSError as e:
                                 # The file is currently open and in use by another process. Abort updating this database.
-                                if e.winerror == 1224:  # https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-
+                                if e.winerror == ERROR_USER_MAPPED_FILE:
                                     if temp_path.is_file():
                                         temp_path.unlink()
                                     geolite2_databases[database_name]["current_version"] = database_info["current_version"]
@@ -1587,7 +1515,7 @@ def update_and_initialize_geolite2_readers():
             msgbox_title = TITLE
             msgbox_message = textwrap.indent(textwrap.dedent(f"""
                 ERROR:
-                    Failed fetching MaxMind \"{'\", \"'.join(failed_fetching_flag_list)}\" database{pluralize(len(failed_fetching_flag_list))}.
+                    Failed fetching MaxMind \"{'", "'.join(failed_fetching_flag_list)}" database{pluralize(len(failed_fetching_flag_list))}.
 
                 INFOS:
                     These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
@@ -1596,7 +1524,7 @@ def update_and_initialize_geolite2_readers():
                     GITHUB_RELEASE_API__GEOLITE2__URL={GITHUB_RELEASE_API__GEOLITE2__URL}
                     failed_fetching_flag_list={failed_fetching_flag_list}
             """.removeprefix("\n").removesuffix("\n")), "    ")
-            msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.SYSTEM_MODAL | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
             threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
         # Create the data dictionary, where each name maps to its version info
@@ -1614,7 +1542,7 @@ def update_and_initialize_geolite2_readers():
         return {
             "exception": None,
             "url": None,
-            "http_code": None
+            "http_code": None,
         }
 
     def initialize_geolite2_readers():
@@ -1630,7 +1558,7 @@ def update_and_initialize_geolite2_readers():
             geolite2_country_reader.country("1.1.1.1")
 
             exception = None
-        except Exception as e:
+        except geoip2.errors.GeoIP2Error as e:
             geolite2_asn_reader = None
             geolite2_city_reader = None
             geolite2_country_reader = None
@@ -1649,7 +1577,7 @@ def update_and_initialize_geolite2_readers():
         msgbox_message += f"Exception Error: {update_geolite2_databases__dict['exception']}\n\n"
         show_error = True
     if update_geolite2_databases__dict["url"]:
-        msgbox_message += f"Error: Failed fetching url: \"{update_geolite2_databases__dict['url']}\"."
+        msgbox_message += f'Error: Failed fetching url: "{update_geolite2_databases__dict['url']}".'
         if update_geolite2_databases__dict["http_code"]:
             msgbox_message += f" (http_code: {update_geolite2_databases__dict['http_code']})"
         msgbox_message += "\nImpossible to keep Maxmind's GeoLite2 IP to Country, City and ASN resolutions feature up-to-date.\n\n"
@@ -1667,7 +1595,7 @@ def update_and_initialize_geolite2_readers():
     if show_error:
         msgbox_title = TITLE
         msgbox_message = msgbox_message.rstrip("\n")
-        msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
     return geoip2_enabled, geolite2_asn_reader, geolite2_city_reader, geolite2_country_reader
@@ -1682,71 +1610,40 @@ else:
 os.chdir(SCRIPT_DIR)
 
 if not is_pyinstaller_compiled():
-    import importlib.metadata
-
     clear_screen()
-    title(f'Checking that your Python packages versions matches with file "requirements.txt" - {TITLE}')
+    set_window_title(f'Checking that your Python packages versions matches with file "requirements.txt" - {TITLE}')
     print('\nChecking that your Python packages versions matches with file "requirements.txt" ...\n')
 
-    def check_packages_version(third_party_packages: dict[str, str]):
-        outdated_packages: list[tuple[str, str, str]] = []
-
-        for package_name, required_version in third_party_packages.items():
-            installed_version = importlib.metadata.version(package_name)
-            if not installed_version == required_version:
-                outdated_packages.append((package_name, installed_version, required_version))
-
-        return outdated_packages
-
-    third_party_packages = {
-        "colorama": "0.4.6",
-        "dnspython": "2.7.0",
-        "geoip2": "4.8.1",
-        "prettytable": "3.12.0",
-        "psutil": "6.1.0",
-        "pypresence": "4.3.0",
-        "PyQt6": "6.8.0",
-        "pywin32": "308",
-        "QDarkStyle": "3.2.3",
-        "requests": "2.32.3",
-        "rich": "13.9.4",
-        "sentinel": "1.0.0",
-        "urllib3": "2.2.3",
-        "WMI": "1.5.1"
-    }
-
-    outdated_packages: list[tuple[str, str, str]] = check_packages_version(third_party_packages)
-    if outdated_packages:
-        msgbox_message = "Your following packages are not up to date:\n\n"
-        msgbox_message += "Package Name: Installed version --> Required version\n"
+    if outdated_packages := check_packages_version(get_dependencies_from_pyproject() or get_dependencies_from_requirements()):
+        msgbox_message = "The following packages have version mismatches:\n\n"
 
         # Iterate over outdated packages and add each package's information to the message box text
-        for package_name, installed_version, required_version in outdated_packages:
-            msgbox_message += f"{package_name}: {installed_version} --> {required_version}\n"
+        for package_name, required_version, installed_version in outdated_packages:
+            msgbox_message += f"{package_name} (required {required_version}, installed {installed_version})\n"
 
         # Add additional message box text
-        msgbox_message += f"\nKeeping your packages synced with \"{TITLE}\" ensures smooth script execution and prevents compatibility issues."
+        msgbox_message += f'\nKeeping your packages synced with "{TITLE}" ensures smooth script execution and prevents compatibility issues.'
         msgbox_message += "\n\nDo you want to ignore this warning and continue with script execution?"
 
         # Show message box
-        msgbox_style = MsgBox.Style.YES_NO | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         msgbox_title = TITLE
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-        if errorlevel != MsgBox.ReturnValues.ID_YES:
+        if errorlevel != MsgBox.ReturnValues.IDYES:
             sys.exit(0)
 
 clear_screen()
-title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
+set_window_title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
 print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 clear_screen()
-title(f"Searching for a new update - {TITLE}")
+set_window_title(f"Searching for a new update - {TITLE}")
 print("\nSearching for a new update ...\n")
 check_for_updates()
 
 clear_screen()
-title(f'Checking that "Npcap" driver is installed on your system - {TITLE}')
+set_window_title(f'Checking that "Npcap" driver is installed on your system - {TITLE}')
 print('\nChecking that "Npcap" driver is installed on your system ...\n')
 
 while not is_npcap_installed():
@@ -1758,7 +1655,7 @@ while not is_npcap_installed():
 
         Opening the \"Npcap\" setup installer for you.
     """.removeprefix("\n").removesuffix("\n"))
-    msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+    msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
     MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
     subprocess.run([SETUP_PATH / "npcap-1.78.exe"], shell=True, check=True)
@@ -1766,19 +1663,19 @@ while not is_npcap_installed():
 del SETUP_PATH
 
 clear_screen()
-title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
+set_window_title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
 print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 clear_screen()
-title(f'Verifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
+set_window_title(f'Verifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
 print(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match ...\n')
 
 while True:
     try:
         tshark_path, tshark_version = validate_tshark_path(BIN_PATH / "WiresharkPortable64/App/Wireshark/tshark.exe")
         break
-    except TSharkNotFoundException:
+    except TSharkNotFoundError:
         webbrowser.open(GITHUB_RELEASES_URL)
 
         msgbox_title = TITLE
@@ -1789,10 +1686,10 @@ while True:
             Opening {TITLE} download page for you.
             Please download and reinstall it, then restart the application.
         """.removeprefix("\n").removesuffix("\n"))
-        msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
         sys.exit(0)
-    except TSharkVersionNotFoundException:
+    except TSharkVersionNotFoundError:
         webbrowser.open(GITHUB_RELEASES_URL)
 
         msgbox_title = TITLE
@@ -1803,10 +1700,10 @@ while True:
             Opening {TITLE} download page for you.
             Please download and reinstall it, then restart the application.
         """).strip()
-        msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
         sys.exit(0)
-    except InvalidTSharkVersionException as unsupported_tshark:
+    except InvalidTSharkVersionError as unsupported_tshark:
         webbrowser.open(GITHUB_RELEASES_URL)
 
         msgbox_title = TITLE
@@ -1820,27 +1717,27 @@ while True:
             Opening {TITLE} download page for you.
             Please download and reinstall it, then restart the application.
         """.removeprefix("\n").removesuffix("\n"))
-        msgbox_style = MsgBox.Style.ABORT_RETRY_IGNORE | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+        msgbox_style = MsgBox.Style.MB_ABORTRETRYIGNORE | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-        if errorlevel == MsgBox.ReturnValues.ID_ABORT:
+        if errorlevel == MsgBox.ReturnValues.IDABORT:
             sys.exit(0)
-        elif errorlevel == MsgBox.ReturnValues.ID_IGNORE:
+        elif errorlevel == MsgBox.ReturnValues.IDIGNORE:
             tshark_path = unsupported_tshark.path
             tshark_version = unsupported_tshark.version
             break
 
 clear_screen()
-title(f"Initializing and updating MaxMind's GeoLite2 Country, City and ASN databases - {TITLE}")
+set_window_title(f"Initializing and updating MaxMind's GeoLite2 Country, City and ASN databases - {TITLE}")
 print("\nInitializing and updating MaxMind's GeoLite2 Country, City and ASN databases ...\n")
 geoip2_enabled, geolite2_asn_reader, geolite2_city_reader, geolite2_country_reader = update_and_initialize_geolite2_readers()
 
 clear_screen()
-title(f"Initializing MacLookup module - {TITLE}")
+set_window_title(f"Initializing MacLookup module - {TITLE}")
 print("\nInitializing MacLookup module ...\n")
 mac_lookup = MacLookup(load_on_init=True)
 
 clear_screen()
-title(f"Capture network interface selection - {TITLE}")
+set_window_title(f"Capture network interface selection - {TITLE}")
 print("\nCapture network interface selection ...\n")
 for _, _, name in get_filtered_tshark_interfaces():
     Interface(name)
@@ -1861,7 +1758,7 @@ for name, interface_description, state, interface_index, permanent_address in it
 
     # Filter out interfaces that are not enabled
     # This should never happen as interfaces listed in tshark already are filtered, but you never know.
-    if state == 3:  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
+    if state == NETWORK_ADAPTER_DISABLED:
         Interface.delete_interface(i)
         continue
 
@@ -1899,7 +1796,7 @@ for name, interface_description, state, interface_index, permanent_address in it
 
     i.mac_address = format_mac_address(permanent_address)
     i.organization_name = (
-        get_mac_address_organization_name(i.mac_address)
+        mac_lookup.get_mac_address_organization_name(i.mac_address)
         or "N/A"
     )
     i.adapter_properties.interface_description = interface_description
@@ -1942,9 +1839,25 @@ if Settings.CAPTURE_ARP:
 
         interface_arp_infos: list[dict[str, str]] = []
 
-        # Skip ARP entries with known placeholder MAC addresses
         for entry in cached_arp_infos:
-            if entry["mac_address"] in ("00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"):
+            # Skip ARP entries with known placeholder MAC addresses
+            if entry["mac_address"] in {"00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"}:
+                continue
+
+            if not is_ipv4_address(entry["ip_address"]):
+                stdout_crash_text = textwrap.dedent(f"""
+                    ERROR:
+                        Developer didn't expect this scenario to be possible.
+
+                    INFOS:
+                        The value does not appear to be a valid IPv4 address.
+
+                    DEBUG:
+                        ip_address: {entry["ip_address"]}
+                """.removeprefix("\n").removesuffix("\n"))
+                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+
+            if not is_valid_non_special_ipv4(entry["ip_address"]):
                 continue
 
             if not is_mac_address(entry["mac_address"]):
@@ -1953,30 +1866,26 @@ if Settings.CAPTURE_ARP:
                         Developer didn't expect this scenario to be possible.
 
                     INFOS:
-                        It seems like a MAC address does not follow
-                        \"xx:xx:xx:xx:xx:xx\" or \"xx-xx-xx-xx-xx-xx\"
-                        format.
+                        The value does not appear to be a valid MAC address.
 
                     DEBUG:
                         mac_address: {entry["mac_address"]}
                 """.removeprefix("\n").removesuffix("\n"))
                 terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
-            if is_valid_non_special_ipv4(entry["ip_address"]):
-                interface_arp_infos.append({
-                    "ip_address": entry["ip_address"],
-                    "mac_address": format_mac_address(entry["mac_address"]),
-                    "organization_name": (
-                        get_mac_address_organization_name(entry["mac_address"])
-                        or "N/A"
-                    )
-                })
+            interface_arp_infos.append({
+                "ip_address": entry["ip_address"],
+                "mac_address": format_mac_address(entry["mac_address"]),
+                "organization_name": (
+                    mac_lookup.get_mac_address_organization_name(entry["mac_address"])
+                    or "N/A"
+                ),
+            })
 
         if not interface_arp_infos:
             continue
 
-        for interface_ip_address in i.ip_addresses:
-            i.add_arp_infos(interface_arp_infos)
+        i.add_arp_infos(interface_arp_infos)
 
 # Create a QApplication instance
 app = QApplication([])  # Passing an empty list for application arguments
@@ -1988,8 +1897,8 @@ interfaces_selection_data: list[InterfaceSelectionData] = []
 for i in Interface.iterate_safely():
     if (
         Settings.CAPTURE_INTERFACE_NAME is not None
-        and Settings.CAPTURE_INTERFACE_NAME.casefold() == i.interface_name.casefold()
-        and Settings.CAPTURE_INTERFACE_NAME != i.interface_name
+        and i.interface_name.casefold() == Settings.CAPTURE_INTERFACE_NAME.casefold()
+        and i.interface_name != Settings.CAPTURE_INTERFACE_NAME
     ):
         Settings.CAPTURE_INTERFACE_NAME = i.interface_name
         Settings.reconstruct_settings()
@@ -2010,37 +1919,36 @@ for i in Interface.iterate_safely():
         interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, i.packets_sent, i.packets_recv, "N/A", i.mac_address, manufacturer_or_organization_name))
 
     if Settings.CAPTURE_ARP:
-        for ip in i.ip_addresses:
-            arp_infos = i.get_arp_infos()
-            if not arp_infos:
-                continue
+        arp_infos = i.get_arp_infos()
+        if not arp_infos:
+            continue
 
-            for arp_info in arp_infos:
-                interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], arp_info["organization_name"], is_arp=True))
+        for arp_info in arp_infos:
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], arp_info["organization_name"], is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
 if not isinstance(selected_interface.interface_name, str):
     raise TypeError(f'Expected "str" object, got "{type(selected_interface.interface_name).__name__}"')
 
 clear_screen()
-title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
+set_window_title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
 print("\nInitializing addresses and establishing connection to your PC / Console ...\n")
 need_rewrite_settings = False
 fixed__capture_mac_address = selected_interface.mac_address if selected_interface.mac_address != "N/A" else None
 fixed__capture_ip_address = selected_interface.ip_address if selected_interface.ip_address != "N/A" else None
 
-if Settings.CAPTURE_INTERFACE_NAME is None:
-    Settings.CAPTURE_INTERFACE_NAME = selected_interface.interface_name
-    need_rewrite_settings = True
-elif not Settings.CAPTURE_INTERFACE_NAME == selected_interface.interface_name:
+if (
+    Settings.CAPTURE_INTERFACE_NAME is None
+    or selected_interface.interface_name != Settings.CAPTURE_INTERFACE_NAME
+):
     Settings.CAPTURE_INTERFACE_NAME = selected_interface.interface_name
     need_rewrite_settings = True
 
-if not Settings.CAPTURE_MAC_ADDRESS == fixed__capture_mac_address:
+if fixed__capture_mac_address != Settings.CAPTURE_MAC_ADDRESS:
     Settings.CAPTURE_MAC_ADDRESS = fixed__capture_mac_address
     need_rewrite_settings = True
 
-if not Settings.CAPTURE_IP_ADDRESS == fixed__capture_ip_address:
+if fixed__capture_ip_address != Settings.CAPTURE_IP_ADDRESS:
     Settings.CAPTURE_IP_ADDRESS = fixed__capture_ip_address
     need_rewrite_settings = True
 
@@ -2090,14 +1998,14 @@ if Settings.CAPTURE_BLOCK_THIRD_PARTY_SERVERS:
 
 if excluded_protocols:
     display_filter.append(
-        f"not ({' or '.join(excluded_protocols)})"
+        f"not ({' or '.join(excluded_protocols)})",
     )
 
 if Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
-    capture_filter.insert(0, Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER)
+    capture_filter.insert(0, f"({Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER})")
 
 if Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
-    display_filter.insert(0, Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER)
+    display_filter.insert(0, f"({Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER})")
 
 CAPTURE_FILTER = " and ".join(capture_filter) if capture_filter else None
 DISPLAY_FILTER = " and ".join(display_filter) if display_filter else None
@@ -2107,20 +2015,19 @@ capture = PacketCapture(
     capture_filter=CAPTURE_FILTER,
     display_filter=DISPLAY_FILTER,
     tshark_path=tshark_path,
-    tshark_version=tshark_version
+    tshark_version=tshark_version,
 )
 
 gui_closed__event = threading.Event()
+_userip_logging_file_write_lock: threading.Lock = threading.Lock()
 
 
 def process_userip_task(
     player: Player,
     connection_type: Literal["connected", "disconnected"],
-    *,  # Prevents further positional arguments
-    _userip_logging_file_write_lock=threading.Lock()  # Internal static lock
 ):
     with ThreadsExceptionHandler():
-        from modules.constants.standard import USERIP_LOGGING_PATH
+        from modules.constants.standard import USERIP_LOGGING_PATH, SHUTDOWN_EXE
         from modules.constants.local import TTS_PATH
         from modules.utils import get_pid_by_path, terminate_process_tree, write_lines_to_file
 
@@ -2135,16 +2042,15 @@ def process_userip_task(
                 raise TypeError(f'Expected "UserIP" object, got "{type(player.userip).__name__}"')
             time.sleep(0.01)  # Sleep to prevent high CPU usage
 
-        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: Union[int, float, Literal["Auto", "Manual"]]):
-            """
-            Suspends the specified process for a given duration or until a specified condition is met.
+        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal["Auto", "Manual"]):
+            """Suspends the specified process for a given duration or until a specified condition is met.
 
-            ### Parameters:
-            * process_pid: The process ID of the process to be suspended.
-            * duration_or_mode:
-                - If an integer or float, it specifies the duration (in seconds) to suspend the process.
-                - If set to \"Manual\", the process will be suspended indefinitely until the user manually resume it.
-                - If set to \"Auto\", the process will be suspended until the player is flagged as \"disconnected\", after which it is resumed automatically.
+            Args:
+                process_pid: The process ID of the process to be suspended.
+                duration_or_mode: Specifies how long the process should be suspended.
+                    - If a float, it defines the duration (in seconds) to suspend the process.
+                    - If "Manual", the process remains suspended until manually resumed.
+                    - If "Auto", the process resumes when the player is flagged as "disconnected".
             """
             process = psutil.Process(process_pid)
             process.suspend()
@@ -2163,24 +2069,26 @@ def process_userip_task(
                 return
 
         # We wants to run this as fast as possible so it's on top of the function.
-        if connection_type == "connected":
-            if player.userip.settings.PROTECTION:
-                if player.userip.settings.PROTECTION == "Suspend_Process":
-                    if isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
-                        if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
-                            threading.Thread(target=suspend_process_for_duration_or_mode, args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE), daemon=True).start()
-                elif player.userip.settings.PROTECTION in ("Exit_Process", "Restart_Process"):
-                    if isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
-                        if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
-                            terminate_process_tree(process_pid)
+        if connection_type == "connected" and player.userip.settings.PROTECTION:
+            if player.userip.settings.PROTECTION == "Suspend_Process" and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
+                if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
+                    threading.Thread(
+                        target=suspend_process_for_duration_or_mode,
+                        args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE),
+                        daemon=True,
+                    ).start()
 
-                            if player.userip.settings.PROTECTION == "Restart_Process":
-                                if isinstance(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH, Path):
-                                    os.startfile(str(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH.absolute()))
-                elif player.userip.settings.PROTECTION == "Shutdown_PC":
-                    subprocess.Popen(["shutdown", "/s"])
-                elif player.userip.settings.PROTECTION == "Restart_PC":
-                    subprocess.Popen(["shutdown", "/r"])
+            elif player.userip.settings.PROTECTION in {"Exit_Process", "Restart_Process"} and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
+                if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
+                    terminate_process_tree(process_pid)
+
+                    if player.userip.settings.PROTECTION == "Restart_Process" and isinstance(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH, Path):
+                        subprocess.Popen([str(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH.absolute())])
+
+            elif player.userip.settings.PROTECTION in {"Shutdown_PC", "Restart_PC"}:
+                validate_file(SHUTDOWN_EXE)
+
+                subprocess.Popen([str(SHUTDOWN_EXE), "/s" if player.userip.settings.PROTECTION == "Shutdown_PC" else "/r"])
 
         if player.userip.settings.VOICE_NOTIFICATIONS:
             if player.userip.settings.VOICE_NOTIFICATIONS == "Male":
@@ -2194,16 +2102,12 @@ def process_userip_task(
                 raise TypeError(f'Expected "str" object, got "{type(voice_name).__name__}"')
 
             tts_file_path = TTS_PATH / f"{voice_name} ({connection_type}).wav"
-
-            if not tts_file_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(tts_file_path.absolute()))
-            if not tts_file_path.is_file():
-                raise InvalidFileError(str(tts_file_path.absolute()))
+            validate_file(tts_file_path)
 
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
         if connection_type == "connected":
-            while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
+            while not player.datetime.left and (datetime.now(tz=DT_UTC) - player.datetime.last_seen) < timedelta(seconds=10):
                 if player.userip.usernames and player.iplookup.geolite2.is_initialized:
                     break
                 gui_closed__event.wait(0.1)
@@ -2223,7 +2127,7 @@ def process_userip_task(
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
-                while not player.datetime.left and (datetime.now() - player.datetime.last_seen) < timedelta(seconds=10):
+                while not player.datetime.left and (datetime.now(tz=DT_UTC) - player.datetime.last_seen) < timedelta(seconds=10):
                     if player.iplookup.ipapi.is_initialized:
                         break
                     gui_closed__event.wait(0.1)
@@ -2252,7 +2156,7 @@ def process_userip_task(
                     Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
                     Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
                 """.removeprefix("\n").removesuffix("\n")), "    ")
-                msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.SYSTEM_MODAL | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
                 threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
 
@@ -2275,7 +2179,7 @@ def iplookup_core():
             player_ip: str,
             iplookup: dict[str, Any],
             json_key: str,
-            expected_types: tuple[Type[Any], ...]
+            expected_types: tuple[type[Any], ...],
         ):
             """Retrieve a field from a dictionary and validate its type."""
             result = iplookup.get(json_key, "N/A")
@@ -2288,7 +2192,7 @@ def iplookup_core():
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
-                return None
+                return
 
             ips_to_lookup: list[str] = []
 
@@ -2310,14 +2214,14 @@ def iplookup_core():
                     f"http://ip-api.com/batch?fields={FIELDS_TO_LOOKUP}",
                     headers={"Content-Type": "application/json"},
                     json=ips_to_lookup,
-                    timeout=3
+                    timeout=3,
                 )
                 response.raise_for_status()
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                 gui_closed__event.wait(1)
                 continue
             except requests.exceptions.HTTPError as e:
-                if isinstance(e.response, requests.Response) and e.response.status_code == 429:  # Handle rate limiting
+                if isinstance(e.response, requests.Response) and e.response.status_code == requests.codes.too_many_requests:  # Handle rate limiting
                     throttle_until(int(e.response.headers["X-Rl"]), int(e.response.headers["X-Ttl"]))
                     continue
                 raise  # Re-raise other HTTP errors
@@ -2337,7 +2241,7 @@ def iplookup_core():
                 if player := PlayersRegistry.get_player(player_ip):
                     player.iplookup.ipapi.is_initialized = True
 
-                    field_mappings: dict[str, tuple[str, tuple[Type[Any], ...]]] = {
+                    field_mappings: dict[str, tuple[str, tuple[type[Any], ...]]] = {
                         "continent": ("continent", (str,)),
                         "continent_code": ("continentCode", (str,)),
                         "country": ("country", (str,)),
@@ -2354,7 +2258,7 @@ def iplookup_core():
                         "currency": ("currency", (str,)),
                         "isp": ("isp", (str,)),
                         "org": ("org", (str,)),
-                        "_as": ("as", (str,)),
+                        "asn": ("as", (str,)),
                         "as_name": ("asname", (str,)),
                         "mobile": ("mobile", (bool,)),
                         "proxy": ("proxy", (bool,)),
@@ -2413,7 +2317,7 @@ def hostname_core():
 def pinger_core():
     with ThreadsExceptionHandler():
         from concurrent.futures import ThreadPoolExecutor, Future
-        from modules.networking.endpoint_ping_manager import AllEndpointsExhausted, PingResult, fetch_and_parse_ping
+        from modules.networking.endpoint_ping_manager import AllEndpointsExhaustedError, PingResult, fetch_and_parse_ping
 
         with ThreadPoolExecutor(max_workers=32) as executor:
             futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
@@ -2443,8 +2347,8 @@ def pinger_core():
                     pending_ips.remove(ip)
 
                     try:
-                        ping_result: Union[PingResult, None] = future.result()
-                    except AllEndpointsExhausted:
+                        ping_result: PingResult | None = future.result()
+                    except AllEndpointsExhaustedError:
                         continue
 
                     if ping_result is None:
@@ -2475,15 +2379,15 @@ def capture_core():
         def packet_callback(packet: Packet):
             from modules.networking.utils import is_private_device_ipv4
 
-            global tshark_restarted_times, global_pps_counter
+            global tshark_restarted_times, global_pps_counter  # noqa: PLW0603
 
             packet_datetime = packet.frame.datetime
 
-            packet_latency = datetime.now() - packet_datetime
+            packet_latency = datetime.now(tz=DT_UTC) - packet_datetime
             tshark_packets_latencies.append((packet_datetime, packet_latency))
             if packet_latency >= timedelta(seconds=Settings.CAPTURE_OVERFLOW_TIMER):
                 tshark_restarted_times += 1
-                raise PacketCaptureOverflow("Packet capture time exceeded 3 seconds.")
+                raise PacketCaptureOverflowError("Packet capture time exceeded 3 seconds.")
 
             if Settings.CAPTURE_IP_ADDRESS:
                 if packet.ip.src == Settings.CAPTURE_IP_ADDRESS:
@@ -2510,23 +2414,22 @@ def capture_core():
                 else:
                     return  # Neither source nor destination is a private IP address.
 
-            if target_port is None:
-                return  # A packet port was not found.
-
             global_pps_counter += 1
 
             if (player := PlayersRegistry.get_player(target_ip)) is None:
                 player = PlayersRegistry.add_player(
-                    Player(target_ip, target_port, packet_datetime)
+                    Player(target_ip, target_port, packet_datetime),
                 )
 
-            if target_ip in UserIPDatabases.ips_set:
-                if not player.userip_detection or not player.userip_detection.as_processed_task:
-                    player.userip_detection = PlayerUserIPDetection(
-                        time=packet_datetime.strftime("%H:%M:%S"),
-                        date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S")
-                    )
-                    threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
+            if target_ip in UserIPDatabases.ips_set and (
+                not player.userip_detection
+                or not player.userip_detection.as_processed_task
+            ):
+                player.userip_detection = PlayerUserIPDetection(
+                    time=packet_datetime.strftime("%H:%M:%S"),
+                    date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S"),
+                )
+                threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
 
             if player.is_player_just_registered:
                 player.is_player_just_registered = False
@@ -2558,11 +2461,11 @@ def capture_core():
         while not gui_closed__event.is_set():
             try:
                 capture.apply_on_packets(callback=packet_callback)
-            except TSharkCrashException:
+            except TSharkCrashExceptionError:
                 if gui_closed__event.wait(3):
                     break
                 raise
-            except PacketCaptureOverflow:
+            except PacketCaptureOverflowError:
                 continue
 
 
@@ -2587,7 +2490,7 @@ class ThreadSafeMeta(type):
                 return getattr(cls, name)
             raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'")
 
-    def __setattr__(cls, name: str, value):
+    def __setattr__(cls, name: str, value: object):
         """Thread-safe setter for attributes."""
         with cls._lock:
             super().__setattr__(name, value)
@@ -2638,12 +2541,11 @@ def rendering_core():
                 gui_connected_players_table__field_names,
                 gui_disconnected_players_table__field_names,
                 logging_connected_players_table__field_names,
-                logging_disconnected_players_table__field_names
+                logging_disconnected_players_table__field_names,
             )
 
-        def sort_session_table(session_list: list[Player], sorted_column_name: str, sort_order: Qt.SortOrder) -> list[Player]:
-            """
-            Sorts a list of players based on the given column name and sort order.
+        def sort_session_table(session_list: list[Player], sorted_column_name: str, sort_order: Qt.SortOrder):
+            """Sort a list of players based on the given column name and sort order.
 
             Args:
                 session_list: The list of players to sort.
@@ -2655,15 +2557,14 @@ def rendering_core():
             """
 
             def sort_order_to_reverse(sort_order: Qt.SortOrder):
-                """
-                Converts a Qt.SortOrder to a reverse parameter for sorted().
+                """Convert a Qt.SortOrder to a reverse parameter for sorted().
 
                 Args:
                     sort_order: The sort order from Qt (Ascending or Descending).
                 """
                 return sort_order == Qt.SortOrder.DescendingOrder
 
-            def get_nested_attr(item, attr_path: str):
+            def get_nested_attr(item: object, attr_path: str):
                 """Retrieve a nested attribute from an object using a dot-separated path."""
                 for attr in attr_path.split("."):
                     item = getattr(item, attr, None)
@@ -2674,14 +2575,14 @@ def rendering_core():
             if sorted_column_name == "Avg PPS":
                 return sorted(
                     session_list,
-                    key=lambda player: getattr(player.pps, "get_average")(),
-                    reverse=sort_order_to_reverse(sort_order)
+                    key=lambda player: player.pps.get_average(),
+                    reverse=sort_order_to_reverse(sort_order),
                 )
             if sorted_column_name == "Avg PPM":
                 return sorted(
                     session_list,
-                    key=lambda player: getattr(player.ppm, "get_average")(),
-                    reverse=sort_order_to_reverse(sort_order)
+                    key=lambda player: player.ppm.get_average(),
+                    reverse=sort_order_to_reverse(sort_order),
                 )
             if sorted_column_name == "IP Address":
                 import ipaddress
@@ -2689,26 +2590,26 @@ def rendering_core():
                 return sorted(
                     session_list,
                     key=lambda player: ipaddress.ip_address(player.ip),
-                    reverse=sort_order_to_reverse(sort_order)
+                    reverse=sort_order_to_reverse(sort_order),
                 )
-            if sorted_column_name in ("First Seen", "Last Rejoin", "Last Seen"):
+            if sorted_column_name in {"First Seen", "Last Rejoin", "Last Seen"}:
                 return sorted(
                     session_list,
                     key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
-                    reverse=not sort_order_to_reverse(sort_order)
+                    reverse=not sort_order_to_reverse(sort_order),
                 )
             # Force sorting those fields as strings as they contain both bools AND strings.
-            if sorted_column_name in ("Mobile", "VPN", "Hosting", "Pinging"):
+            if sorted_column_name in {"Mobile", "VPN", "Hosting", "Pinging"}:
                 return sorted(
                     session_list,
                     key=lambda item: str(get_nested_attr(item, Settings.gui_fields_mapping[sorted_column_name])).casefold(),
-                    reverse=not sort_order_to_reverse(sort_order)
+                    reverse=not sort_order_to_reverse(sort_order),
                 )
             # Handle sorting for other columns
             return sorted(
                 session_list,
                 key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
-                reverse=sort_order_to_reverse(sort_order)
+                reverse=sort_order_to_reverse(sort_order),
             )
 
         def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]):
@@ -2719,10 +2620,7 @@ def rendering_core():
             from modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
             from modules.utils import InvalidBooleanValueError, InvalidNoneTypeValueError, NoMatchFoundError, custom_str_to_bool, custom_str_to_nonetype, check_case_insensitive_and_exact_match
 
-            if not ini_path.exists():
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(ini_path.absolute()))
-            if not ini_path.is_file():
-                raise InvalidFileError(str(ini_path.absolute()))
+            validate_file(ini_path)
 
             settings: dict[str, Any] = {}
             userip: dict[str, list[str]] = {}
@@ -2736,9 +2634,12 @@ def rendering_core():
 
                 if line.startswith("[") and line.endswith("]"):
                     # we basically adding a newline if the previous line is not a newline for eyes visiblitly or idk how we say that
-                    if corrected_ini_data_lines and len(corrected_ini_data_lines) > 1:
-                        if not corrected_ini_data_lines[-2] == "":
-                            corrected_ini_data_lines.insert(-1, "")  # Insert an empty string before the last line
+                    if (
+                        corrected_ini_data_lines
+                        and len(corrected_ini_data_lines) > 1
+                        and corrected_ini_data_lines[-2] != ""
+                    ):
+                        corrected_ini_data_lines.insert(-1, "")  # Insert an empty string before the last line
                     current_section = line[1:-1]
                     continue
 
@@ -2803,12 +2704,7 @@ def rendering_core():
                             settings[setting] = q_color
                         else:
                             is_setting_corrupted = True
-                    elif setting == "LOG":
-                        try:
-                            settings[setting], need_rewrite_current_setting = custom_str_to_bool(value)
-                        except InvalidBooleanValueError:
-                            is_setting_corrupted = True
-                    elif setting == "NOTIFICATIONS":
+                    elif setting in {"LOG", "NOTIFICATIONS"}:
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value)
                         except InvalidBooleanValueError:
@@ -2835,20 +2731,12 @@ def rendering_core():
                                     need_rewrite_current_setting = True
                             except NoMatchFoundError:
                                 is_setting_corrupted = True
-                    elif setting == "PROTECTION_PROCESS_PATH":
+                    elif setting in {"PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH"}:
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_nonetype(value)
                         except InvalidNoneTypeValueError:
                             stripped_value = value.strip("\"'")
-                            if not value == stripped_value:
-                                is_setting_corrupted = True
-                            settings[setting] = Path(stripped_value)
-                    elif setting == "PROTECTION_RESTART_PROCESS_PATH":
-                        try:
-                            settings[setting], need_rewrite_current_setting = custom_str_to_nonetype(value)
-                        except InvalidNoneTypeValueError:
-                            stripped_value = value.strip("\"'")
-                            if not value == stripped_value:
+                            if value != stripped_value:
                                 is_setting_corrupted = True
                             settings[setting] = Path(stripped_value)
                     elif setting == "PROTECTION_SUSPEND_PROCESS_MODE":
@@ -2860,14 +2748,14 @@ def rendering_core():
                         except NoMatchFoundError:
                             try:
                                 if "." in value:
-                                    PROTECTION_SUSPEND_PROCESS_MODE = float(value)
+                                    protection_suspend_process_mode = float(value)
                                 else:
-                                    PROTECTION_SUSPEND_PROCESS_MODE = int(value)
+                                    protection_suspend_process_mode = int(value)
                             except (ValueError, TypeError):
                                 is_setting_corrupted = True
                             else:
-                                if PROTECTION_SUSPEND_PROCESS_MODE >= 0:
-                                    settings[setting] = PROTECTION_SUSPEND_PROCESS_MODE
+                                if protection_suspend_process_mode >= 0:
+                                    settings[setting] = protection_suspend_process_mode
                                 else:
                                     is_setting_corrupted = True
 
@@ -2890,7 +2778,7 @@ def rendering_core():
                                     documentation:
                                     https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                             """.removeprefix("\n").removesuffix("\n")), "    ")
-                            msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
                             threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                         return None, None
 
@@ -2934,7 +2822,7 @@ def rendering_core():
                                     \"{ini_path}\":
                                     {username}={ip}
                             """.removeprefix("\n").removesuffix("\n")), "    ")
-                            msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.SYSTEM_MODAL | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
                             threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                             UserIPDatabases.notified_ip_invalid.add(f"{ini_path}={username}={ip}")
                         continue
@@ -2966,7 +2854,7 @@ def rendering_core():
                             documentation:
                             https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                     """.removeprefix("\n").removesuffix("\n")), "    ")
-                    msgbox_style = MsgBox.Style.OK_ONLY | MsgBox.Style.EXCLAMATION | MsgBox.Style.MSG_BOX_SET_FOREGROUND
+                    msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
                     threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                 return None, None
 
@@ -2974,13 +2862,15 @@ def rendering_core():
                 UserIPDatabases.notified_settings_corrupted.remove(ini_path)
 
             # Basically always have a newline ending
-            if len(corrected_ini_data_lines) > 1:
-                if not corrected_ini_data_lines[-1] == "":
-                    corrected_ini_data_lines.append("")
+            if (
+                len(corrected_ini_data_lines) > 1
+                and corrected_ini_data_lines[-1] != ""
+            ):
+                corrected_ini_data_lines.append("")
 
             fixed_ini_data = "\n".join(corrected_ini_data_lines)
 
-            if not ini_data == fixed_ini_data:
+            if ini_data != fixed_ini_data:
                 ini_path.write_text(fixed_ini_data, encoding="utf-8")
 
             return UserIPSettings(
@@ -2992,10 +2882,10 @@ def rendering_core():
                 settings["PROTECTION"],
                 settings["PROTECTION_PROCESS_PATH"],
                 settings["PROTECTION_RESTART_PROCESS_PATH"],
-                settings["PROTECTION_SUSPEND_PROCESS_MODE"]
+                settings["PROTECTION_SUSPEND_PROCESS_MODE"],
             ), userip
 
-        def update_userip_databases(last_userip_parse_time: Optional[float]):
+        def update_userip_databases():
             from modules.constants.standard import USERIP_DATABASES_PATH
 
             DEFAULT_USERIP_FILE_HEADER = textwrap.dedent(f"""
@@ -3065,7 +2955,7 @@ def rendering_core():
                     PROTECTION_PROCESS_PATH=None
                     PROTECTION_RESTART_PROCESS_PATH=None
                     PROTECTION_SUSPEND_PROCESS_MODE=Auto
-                """
+                """,
             }
 
             DEFAULT_USERIP_FILE_FOOTER = textwrap.dedent("""
@@ -3085,9 +2975,7 @@ def rendering_core():
                     userip_path.write_text(file_content, encoding="utf-8")
 
             # Remove deleted files from notified settings conflicts
-            # TODO:
-            # I should also warn again on another error, but it'd probably require a DICT then.
-            # I have things more important to code atm.
+            # TODO(BUZZARDGTA): I should also warn again on another error, but it'd probably require a DICT then.
             for file_path in set(UserIPDatabases.notified_settings_corrupted):
                 if not file_path.is_file():
                     UserIPDatabases.notified_settings_corrupted.remove(file_path)
@@ -3109,8 +2997,7 @@ def rendering_core():
 
             UserIPDatabases.build()
 
-            last_userip_parse_time = time.monotonic()
-            return last_userip_parse_time
+            return time.monotonic()
 
         def get_country_info(ip_address: str):
             country_name = "N/A"
@@ -3153,7 +3040,7 @@ def rendering_core():
 
             return asn
 
-        def get_minimum_padding(var: Union[str, float, int, bool], max_padding: int, padding: int):
+        def get_minimum_padding(var: str | float | bool, max_padding: int, padding: int):
             current_padding = len(str(var))
 
             if current_padding <= padding:
@@ -3163,7 +3050,7 @@ def rendering_core():
 
         def process_session_logging():
             def format_player_logging_datetime(datetime_object: datetime):
-                return datetime_object.strftime('%m/%d/%Y %H:%M:%S.%f')[:-3]
+                return datetime_object.strftime("%m/%d/%Y %H:%M:%S.%f")[:-3]
 
             def format_player_logging_usernames(player_usernames: list[str]):
                 return ", ".join(player_usernames) if player_usernames else "N/A"
@@ -3227,7 +3114,7 @@ def rendering_core():
                 row_texts.append(f"{player.iplookup.ipapi.org}")
                 row_texts.append(f"{player.iplookup.ipapi.isp}")
                 row_texts.append(f"{player.iplookup.geolite2.asn}")
-                row_texts.append(f"{player.iplookup.ipapi._as}")
+                row_texts.append(f"{player.iplookup.ipapi.asn}")
                 row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 row_texts.append(f"{player.iplookup.ipapi.mobile}")
                 row_texts.append(f"{player.iplookup.ipapi.proxy}")
@@ -3269,7 +3156,7 @@ def rendering_core():
                 row_texts.append(f"{player.iplookup.ipapi.org}")
                 row_texts.append(f"{player.iplookup.ipapi.isp}")
                 row_texts.append(f"{player.iplookup.geolite2.asn}")
-                row_texts.append(f"{player.iplookup.ipapi._as}")
+                row_texts.append(f"{player.iplookup.ipapi.asn}")
                 row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 row_texts.append(f"{player.iplookup.ipapi.mobile}")
                 row_texts.append(f"{player.iplookup.ipapi.proxy}")
@@ -3294,7 +3181,7 @@ def rendering_core():
                 formatted_elapsed = None
 
                 if Settings.GUI_DATE_FIELDS_SHOW_ELAPSED:
-                    elapsed_time = datetime.now() - datetime_object
+                    elapsed_time = datetime.now(tz=DT_UTC) - datetime_object
 
                     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
                     minutes, remainder = divmod(remainder, 60)
@@ -3344,16 +3231,18 @@ def rendering_core():
                     return ", ".join(map(str, player_ports.intermediate))
                 return ""
 
-            def get_player_rate_color(color: QColor, is_first_calculation: bool, rate: int) -> QColor:
-                """Determines the color for player rates based on given thresholds."""
+            def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
+                """Determine the color for player rates based on given thresholds."""
+                from modules.constants.standalone import RATE_ZERO, RATE_LOW, RATE_MAX
+
                 if not is_first_calculation:
-                    if rate == 0:
+                    if rate == RATE_ZERO:
                         return QColor("red")
-                    if 1 <= rate <= 3:
+                    if RATE_LOW <= rate <= RATE_MAX:
                         return QColor("yellow")
                 return color
 
-            from modules.constants.external import HARDCODED_DEFAULT_TABLE_BACKGROUD_CELL_COLOR
+            from modules.constants.external import HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
 
             row_texts: list[str] = []
             session_connected_table__processed_data: list[list[str]] = []
@@ -3367,7 +3256,7 @@ def rendering_core():
                     row_bg_color = player.userip.settings.COLOR
                 else:
                     row_fg_color = QColor("lime")
-                    row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUD_CELL_COLOR
+                    row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
 
                 # Initialize a list for cell colors for the current row, creating a new CellColor object for each column
                 row_colors = [
@@ -3383,16 +3272,16 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 if "PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.is_first_calculation, player.pps.rate))
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
                     row_texts.append(f"{player.pps.rate}")
                 if "Avg PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.is_first_calculation, player.pps.rate))
+                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
                     row_texts.append(f"{player.pps.get_average()}")
                 if "PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.is_first_calculation, player.ppm.rate))
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
                     row_texts.append(f"{player.ppm.rate}")
                 if "Avg PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.is_first_calculation, player.ppm.rate))
+                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
                     row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
                 if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3440,7 +3329,7 @@ def rendering_core():
                 if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.geolite2.asn}")
                 if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi._as}")
+                    row_texts.append(f"{player.iplookup.ipapi.asn}")
                 if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3461,7 +3350,7 @@ def rendering_core():
                     row_bg_color = player.userip.settings.COLOR
                 else:
                     row_fg_color = QColor("red")
-                    row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUD_CELL_COLOR
+                    row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
 
                 # Initialize a list for cell colors for the current row, creating a new CellColor object for each column
                 row_colors = [CellColor(foreground=row_fg_color, background=row_bg_color) for _ in range(GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS)]
@@ -3520,7 +3409,7 @@ def rendering_core():
                 if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.geolite2.asn}")
                 if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi._as}")
+                    row_texts.append(f"{player.iplookup.ipapi.asn}")
                 if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.iplookup.ipapi.as_name}")
                 if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3541,18 +3430,20 @@ def rendering_core():
                 session_connected_table__compiled_colors,
                 len(session_disconnected_table__processed_data),
                 session_disconnected_table__processed_data,
-                session_disconnected_table__compiled_colors
+                session_disconnected_table__compiled_colors,
             )
 
         def generate_gui_header_text(global_pps_last_update_time: float, global_pps_rate: int):
-            global global_pps_counter
+            global global_pps_counter  # noqa: PLW0603
+
+            from modules.constants.standalone import PPS_THRESHOLD_WARNING, PPS_THRESHOLD_CRITICAL
 
             if capture.extracted_tshark_version == TSHARK_RECOMMENDED_VERSION_NUMBER:
                 tshark_version_color = '<span style="color: green;">'
             else:
                 tshark_version_color = '<span style="color: yellow;">'
 
-            one_second_ago = datetime.now() - timedelta(seconds=1)
+            one_second_ago = datetime.now(tz=DT_UTC) - timedelta(seconds=1)
 
             # Filter packets received in the last second
             recent_packets = [(pkt_time, pkt_latency) for pkt_time, pkt_latency in tshark_packets_latencies if pkt_time >= one_second_ago]
@@ -3585,9 +3476,9 @@ def rendering_core():
             # For reference, in a GTA Online session, the packets per second (PPS) typically range from 0 (solo session) to 1500 (public session, 32 players).
             # If the packet rate exceeds these ranges, we flag them with yellow or red color to indicate potential issues (such as scanning unwanted packets outside of the GTA game).
             # Also these values averagely indicates the max performances my script can run at during my testings. Luckely it's just enough to process GTA V game.
-            if global_pps_rate >= 3000:
+            if global_pps_rate >= PPS_THRESHOLD_CRITICAL:
                 pps_color = '<span style="color: red;">'
-            elif global_pps_rate >= 1500:
+            elif global_pps_rate >= PPS_THRESHOLD_WARNING:
                 pps_color = '<span style="color: yellow;">'
             else:
                 pps_color = '<span style="color: green;">'
@@ -3626,11 +3517,11 @@ def rendering_core():
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────<br>"
                 if invalid_ip_count:
-                    header += f"Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{invalid_ip_count}</span><br>"
+                    header += f'Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{invalid_ip_count}</span><br>'
                 if conflict_ip_count:
-                    header += f"Number of conflicting IP{pluralize(conflict_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{conflict_ip_count}</span><br>"
+                    header += f'Number of conflicting IP{pluralize(conflict_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{conflict_ip_count}</span><br>'
                 if corrupted_settings_count:
-                    header += f"Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style=\"color: red;\">{corrupted_settings_count}</span><br>"
+                    header += f'Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{corrupted_settings_count}</span><br>'
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
             return header, global_pps_last_update_time, global_pps_rate
 
@@ -3643,7 +3534,7 @@ def rendering_core():
             GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
             GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES,
             LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
-            LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES
+            LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES,
         ) = compile_tables_header_field_names()
 
         GUIrenderingData.SESSION_CONNECTED_TABLE__NUM_COLS = len(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
@@ -3669,7 +3560,7 @@ def rendering_core():
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
-                return None
+                return
 
             # Wait for sorting fields to be initialized from the GUI
             while (
@@ -3716,7 +3607,7 @@ def rendering_core():
                             modmenu__plugins__ip_to_usernames[ip].append(username)
 
             if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
-                last_userip_parse_time = update_userip_databases(last_userip_parse_time)
+                last_userip_parse_time = update_userip_databases()
 
             if Settings.GUI_SESSIONS_LOGGING:
                 session_connected__padding_country_name = 0
@@ -3729,33 +3620,41 @@ def rendering_core():
                     player.userip = None
                     player.userip_detection = None
 
-                if player.mod_menus:
-                    if modmenu__plugins__ip_to_usernames and player.ip in modmenu__plugins__ip_to_usernames:
-                        for username in modmenu__plugins__ip_to_usernames[player.ip]:
-                            if username not in player.mod_menus.usernames:
-                                player.mod_menus.usernames.append(username)
+                if (
+                    player.mod_menus
+                    and modmenu__plugins__ip_to_usernames
+                    and player.ip in modmenu__plugins__ip_to_usernames
+                ):
+                    for username in modmenu__plugins__ip_to_usernames[player.ip]:
+                        if username not in player.mod_menus.usernames:
+                            player.mod_menus.usernames.append(username)
 
                 player.usernames = concat_lists_no_duplicates(
                     player.mod_menus.usernames if player.mod_menus else [],
-                    player.userip.usernames if player.userip else []
+                    player.userip.usernames if player.userip else [],
                 )
 
                 if player.iplookup.country_flag is None:
-                    if country_code := (
+                    country_code = (
                         player.iplookup.geolite2.country_code
                         if player.iplookup.geolite2.country_code != "..."
                         else player.iplookup.ipapi.country_code
                         if player.iplookup.ipapi.country_code != "..."
                         else None
-                    ):
-                        if (flag_path := Path(f"images/country_flags/{country_code.upper()}.png")).exists():
-                            pixmap = QPixmap()
-                            pixmap.loadFromData(flag_path.read_bytes())
-                            player.iplookup.country_flag = QIcon(pixmap)
+                    )
+                    if country_code:
+                        flag_path = Path(f"images/country_flags/{country_code.upper()}.png")
+                        if flag_path.exists():
+                            pixmap = QPixmap()  # Create a new QPixmap
+                            pixmap.loadFromData(flag_path.read_bytes())  # Load the data into the QPixmap
+                            player.iplookup.country_flag = PlayerCountryFlag(
+                                pixmap=pixmap,  # Assign the pixmap to the object
+                                icon=QIcon(pixmap),  # Create QIcon from QPixmap
+                            )
 
                 if (
                     not player.datetime.left
-                    and (datetime.now() - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
+                    and (datetime.now(tz=DT_UTC) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
                 ):
                     player.datetime.left = player.datetime.last_seen
                     if player.userip_detection and player.userip_detection.as_processed_task:
@@ -3791,7 +3690,7 @@ def rendering_core():
                         player.pps.is_first_calculation = False
 
                     # Calculate PPM every minute
-                    if (time.monotonic() - player.ppm.last_update_time) >= 60.0:
+                    if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
                         player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
                         player.ppm.update_average(player.ppm.rate)
                         player.ppm.counter = 0
@@ -3799,10 +3698,9 @@ def rendering_core():
                         player.ppm.is_first_calculation = False
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
-                if SessionHost.player:
-                    if SessionHost.player.datetime.left:
-                        SessionHost.player = None
-                # TODO: We should also potentially needs to check that not more then 1s passed before each disconnected
+                if SessionHost.player and SessionHost.player.datetime.left:
+                    SessionHost.player = None
+                # TODO(BUZZARDGTA): We should also potentially needs to check that not more then 1s passed before each disconnected
                 if SessionHost.players_pending_for_disconnection and all(player.datetime.left for player in SessionHost.players_pending_for_disconnection):
                     SessionHost.player = None
                     SessionHost.search_player = True
@@ -3814,26 +3712,25 @@ def rendering_core():
                     SessionHost.players_pending_for_disconnection.clear()
                 elif len(session_connected) >= 1 and all(not player.pps.is_first_calculation and player.pps.rate == 0 for player in session_connected):
                     SessionHost.players_pending_for_disconnection = session_connected
-                else:
-                    if SessionHost.search_player:
-                        SessionHost.get_host_player(session_connected)
+                elif SessionHost.search_player:
+                    SessionHost.get_host_player(session_connected)
 
             session_connected_sorted = sort_session_table(
                 session_connected,
                 GUIrenderingData.session_connected_sorted_column_name,
-                GUIrenderingData.session_connected_sort_order
+                GUIrenderingData.session_connected_sort_order,
             )
             session_disconnected_sorted = sort_session_table(
                 session_disconnected,
                 GUIrenderingData.session_disconnected_sorted_column_name,
-                GUIrenderingData.session_disconnected_sort_order
+                GUIrenderingData.session_disconnected_sort_order,
             )
 
             if Settings.GUI_SESSIONS_LOGGING and (last_session_logging_processing_time is None or (time.monotonic() - last_session_logging_processing_time) >= 1.0):
                 process_session_logging()
                 last_session_logging_processing_time = time.monotonic()
 
-            if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):
+            if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):  # noqa: PLR2004
                 discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected")
 
             GUIrenderingData.header_text, global_pps_last_update_time, global_pps_rate = generate_gui_header_text(global_pps_last_update_time, global_pps_rate)
@@ -3843,7 +3740,7 @@ def rendering_core():
                 GUIrenderingData.session_connected_table__compiled_colors,
                 GUIrenderingData.session_disconnected_table__num_rows,
                 GUIrenderingData.session_disconnected_table__processed_data,
-                GUIrenderingData.session_disconnected_table__compiled_colors
+                GUIrenderingData.session_disconnected_table__compiled_colors,
             ) = process_gui_session_tables_rendering()
             GUIrenderingData.gui_rendering_ready_event.set()
 
@@ -3851,12 +3748,12 @@ def rendering_core():
 
 
 clear_screen()
-title(f"DEBUG CONSOLE - {TITLE}")
+set_window_title(f"DEBUG CONSOLE - {TITLE}")
 
 tshark_restarted_times = 0
 global_pps_counter = 0
 
-PlayersRegistry.start_cache_updater()
+PlayersRegistry.start_cache_updater_thread()
 
 rendering_core__thread = threading.Thread(target=rendering_core, daemon=True)
 rendering_core__thread.start()
@@ -3881,15 +3778,15 @@ class SessionTableModel(QAbstractTableModel):
         self._data: list[list[str]] = []  # The data to be displayed in the table
 
         # Custom Variables
-        self._view: Optional[SessionTableView] = None  # Initially, no view is attached
+        self._view: SessionTableView | None = None  # Initially, no view is attached
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
         self.IP_COLUMN_INDEX = self._headers.index("IP Address")  # pylint: disable=invalid-name
 
     # pylint: disable=invalid-name,unused-argument
-    def rowCount(self, parent=None):
+    def rowCount(self, parent: QModelIndex | None = None):  # noqa: ARG002, N802
         return len(self._data)  # The number of rows in the model
 
-    def columnCount(self, parent=None):
+    def columnCount(self, parent: QModelIndex | None = None):  # noqa: ARG002, N802
         return len(self._headers)  # The number of columns in the model
     # pylint: enable=unused-argument
 
@@ -3905,26 +3802,30 @@ class SessionTableModel(QAbstractTableModel):
         if row_idx >= len(self._data) or col_idx >= len(self._data[row_idx]):
             return None  # Return None for invalid index
 
-        if role == Qt.ItemDataRole.DecorationRole:
+        if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index("Country") == col_idx:
                 ip = self._data[row_idx][self.IP_COLUMN_INDEX]
+                if not isinstance(ip, str):
+                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                ip = ip.removesuffix(" 👑")
 
                 player = PlayersRegistry.get_player(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
-                return player.iplookup.country_flag
+                if player.iplookup.country_flag is not None:
+                    return player.iplookup.country_flag.icon
 
         if role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
             return self._data[row_idx][col_idx]
 
-        if role == Qt.ItemDataRole.ForegroundRole:
+        if role == Qt.ItemDataRole.ForegroundRole:  # noqa: SIM102
             # Return the cell's foreground color
             if row_idx < len(self._compiled_colors) and col_idx < len(self._compiled_colors[row_idx]):
                 return QBrush(self._compiled_colors[row_idx][col_idx].foreground)
 
-        if role == Qt.ItemDataRole.BackgroundRole:
+        if role == Qt.ItemDataRole.BackgroundRole:  # noqa: SIM102
             # Return the cell's background color
             if row_idx < len(self._compiled_colors) and col_idx < len(self._compiled_colors[row_idx]):
                 return QBrush(self._compiled_colors[row_idx][col_idx].background)
@@ -3956,7 +3857,7 @@ class SessionTableModel(QAbstractTableModel):
 
         return None
 
-    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # noqa: N802
         from modules.constants.standalone import GUI_COLUMN_HEADERS_TOOLTIPS
 
         if orientation == Qt.Orientation.Horizontal:
@@ -3969,7 +3870,7 @@ class SessionTableModel(QAbstractTableModel):
 
         return None
 
-    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+    def setData(self, index: QModelIndex, value: str, role: int = Qt.ItemDataRole.EditRole):  # noqa: N802
         if not index.isValid():
             return False
 
@@ -3980,15 +3881,14 @@ class SessionTableModel(QAbstractTableModel):
 
         return False
 
-    def flags(self, index):
+    def flags(self, index: QModelIndex):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
     def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder):
-        """
-        Sort the table by a specific column.
+        """Sort the table by a specific column.
 
         Args:
             column: The column index to sort by.
@@ -4006,7 +3906,7 @@ class SessionTableModel(QAbstractTableModel):
 
         sorted_column_name = self._headers[column]
         # Combine data and colors for sorting
-        combined = list(zip(self._data, self._compiled_colors))
+        combined = list(zip(self._data, self._compiled_colors, strict=True))
         if not combined:
             raise ValueError("Inconsistent state: 'combined' is unexpectedly empty at this point.")
         sort_order_bool = order == Qt.SortOrder.DescendingOrder
@@ -4017,14 +3917,12 @@ class SessionTableModel(QAbstractTableModel):
             # Sort by IP address
             combined.sort(
                 key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
-                reverse=sort_order_bool
+                reverse=sort_order_bool,
             )
-        elif sorted_column_name in ("First Seen", "Last Rejoin", "Last Seen"):
+        elif sorted_column_name in {"First Seen", "Last Rejoin", "Last Seen"}:
             # Retrieve the player datetime object from the IP column
             def extract_datetime_for_ip(ip: str):
-                """
-                Extracts a datetime object for a given IP address.
-                """
+                """Extract a datetime object for a given IP address."""
                 player = PlayersRegistry.get_player(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
@@ -4034,7 +3932,7 @@ class SessionTableModel(QAbstractTableModel):
                 datetime_attribute = {
                     "First Seen": "first_seen",
                     "Last Rejoin": "last_rejoin",
-                    "Last Seen": "last_seen"
+                    "Last Seen": "last_seen",
                 }.get(self._headers[column], None)
                 if not isinstance(datetime_attribute, str):
                     raise TypeError(f'Expected "str", got "{type(datetime_attribute).__name__}"')
@@ -4044,19 +3942,19 @@ class SessionTableModel(QAbstractTableModel):
 
             combined.sort(
                 key=lambda row: extract_datetime_for_ip(row[0][self.IP_COLUMN_INDEX].removesuffix(" 👑")),
-                reverse=not sort_order_bool
+                reverse=not sort_order_bool,
             )
         else:
             # Sort by other columns: numerically if the strings represent numbers, otherwise case-insensitively
             combined.sort(
                 key=lambda row: (
-                    float(row[0][column]) if row[0][column].replace('.', '', 1).isdigit() else row[0][column].casefold()
+                    float(row[0][column]) if row[0][column].replace(".", "", 1).isdigit() else row[0][column].casefold()
                 ),
-                reverse=sort_order_bool
+                reverse=sort_order_bool,
             )
 
         # Unpack the sorted data
-        self._data, self._compiled_colors = map(list, zip(*combined))
+        self._data, self._compiled_colors = map(list, zip(*combined, strict=True))
 
         self.layoutChanged.emit()
     # pylint: enable=invalid-name
@@ -4067,8 +3965,7 @@ class SessionTableModel(QAbstractTableModel):
         self._view = view
 
     def get_column_index(self, column_name: str):
-        """
-        Get the table index of a specified column.
+        """Get the table index of a specified column.
 
         Args:
             column_name: The column name to look for.
@@ -4076,28 +3973,25 @@ class SessionTableModel(QAbstractTableModel):
         Returns:
             The table column index.
         """
-        column_index = self._headers.index(column_name)
+        return self._headers.index(column_name)
 
-        return column_index
-
-    def get_row_index_by_ip(self, ip_address: str):
-        """
-        Finds the row index for the given IP address.
+    def get_row_index_by_ip(self, ip: str):
+        """Find the row index for the given IP address.
 
         Args:
-            ip_address: The IP address to search for.
+            ip: The IP address to search for.
 
         Returns:
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if row_data[self.IP_COLUMN_INDEX].removesuffix(" 👑") == ip_address:
+            if row_data[self.IP_COLUMN_INDEX].removesuffix(" 👑") == ip:
                 return row_index
         return None
 
     def sort_current_column(self):
-        """
-        Calls the sort method with the current column index and order.
+        """Call the sort method with the current column index and order.
+
         Ensures sorting reflects the current state of the header.
         """
         if not isinstance(self._view, SessionTableView):
@@ -4114,8 +4008,7 @@ class SessionTableModel(QAbstractTableModel):
         self.sort(sort_column, sort_order)
 
     def add_row_without_refresh(self, row_data: list[str], row_colors: list[CellColor]):
-        """
-        Adds a new row to the model without notifying the view in real time.
+        """Add a new row to the model without notifying the view in real time.
 
         Args:
             row_data: The data for the new row.
@@ -4126,8 +4019,7 @@ class SessionTableModel(QAbstractTableModel):
         self._compiled_colors.append(row_colors)
 
     def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]):
-        """
-        Updates an existing row in the model with new data and colors without notifying the view in real time.
+        """Update an existing row in the model with new data and colors without notifying the view in real time.
 
         Args:
             row_index: The index of the row to update.
@@ -4139,8 +4031,8 @@ class SessionTableModel(QAbstractTableModel):
             self._compiled_colors[row_index] = row_colors
 
     def delete_row(self, row_index: int):
-        """
-        Deletes a row from the model along with its associated colors.
+        """Delete a row from the model along with its associated colors.
+
         If any items are selected under this row, their selection moves one row up.
 
         Args:
@@ -4161,7 +4053,7 @@ class SessionTableModel(QAbstractTableModel):
                     # Select the row to be deleted
                     selection = QItemSelection(
                         self.index(index.row(), index.column()),
-                        self.index(index.row(), index.column())
+                        self.index(index.row(), index.column()),
                     )
                     selection_model.select(selection, QItemSelectionModel.SelectionFlag.Deselect)
 
@@ -4178,14 +4070,14 @@ class SessionTableModel(QAbstractTableModel):
                     # Deselect the original row
                     selection_to_deselect = QItemSelection(
                         self.index(index.row(), index.column()),  # Original row
-                        self.index(index.row(), index.column())
+                        self.index(index.row(), index.column()),
                     )
                     selection_model.select(selection_to_deselect, QItemSelectionModel.SelectionFlag.Deselect)
 
                     # Move the selection up by one row
                     selection_to_select = QItemSelection(
                         self.index(index.row() - 1, index.column()),  # New row after deletion
-                        self.index(index.row() - 1, index.column())
+                        self.index(index.row() - 1, index.column()),
                     )
                     selection_model.select(selection_to_select, QItemSelectionModel.SelectionFlag.Select)
 
@@ -4207,9 +4099,7 @@ class SessionTableModel(QAbstractTableModel):
             #     self._view.viewport().update()
 
     def refresh_view(self):
-        """
-        Notifies the view to refresh and reflect all changes made to the model.
-        """
+        """Notifies the view to refresh and reflect all changes made to the model."""
         self.layoutAboutToBeChanged.emit()
         self.layoutChanged.emit()
 
@@ -4219,7 +4109,7 @@ class SessionTableView(QTableView):
         super().__init__()
         self.setModel(model)
         self._is_dragging = False  # Track if the mouse is being dragged with Ctrl key
-        self._previous_sort_section_index: Optional[int] = None
+        self._previous_sort_section_index: int | None = None
 
         self.setMouseTracking(True)  # Track mouse without clicks
         viewport = self.viewport()
@@ -4252,13 +4142,9 @@ class SessionTableView(QTableView):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
-    def eventFilter(self, obj: Optional[QObject], event: Optional[QEvent]):  # pylint: disable=invalid-name
-        if (
-            obj is not None
-            and event is not None
-            and isinstance(obj, QWidget)
-            and isinstance(event, QHoverEvent)
-        ):
+    # pylint: disable=invalid-name
+    def eventFilter(self, obj: QObject, event: QEvent):  # noqa: N802
+        if isinstance(obj, QWidget) and isinstance(event, QHoverEvent):
             index = self.indexAt(event.position().toPoint())  # Get hovered cell
             if index.isValid():
                 col_idx = index.column()
@@ -4266,137 +4152,112 @@ class SessionTableView(QTableView):
                 if not isinstance(model, SessionTableModel):
                     raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
 
-                if model.get_column_index("Country") == col_idx:  # Check if it's the country column
-                    ip = model._data[index.row()][model.IP_COLUMN_INDEX]
+                if model.get_column_index("Country") == col_idx:
+                    ip = model.data(model.index(index.row(), model.IP_COLUMN_INDEX))
+                    if not isinstance(ip, str):
+                        raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                    ip = ip.removesuffix(" 👑")
 
                     player = PlayersRegistry.get_player(ip)
-                    if isinstance(player, Player):
-                        country_name = player.iplookup.geolite2.country
-
-                        # Show tooltip only if hovering over the flag (assumed flag size)
-                        cell_rect = self.visualRect(index)   # Get cell rectangle
-                        flag_x_start = cell_rect.left() + 4  # Assuming flag starts with a 4px horizontal padding
-                        flag_x_end = flag_x_start + 14       # Assuming flag ends with a 14px horizontal padding
-                        flag_y_start = cell_rect.top() + 10  # Assuming flag starts with a 10px vertical padding
-                        flag_y_end = flag_y_start + 10       # Assuming flag ends with a 10px vertical padding
-
-                        # Check if the mouse is over the flag both horizontally and vertically
-                        if flag_x_start <= event.position().toPoint().x() <= flag_x_end and flag_y_start <= event.position().toPoint().y() <= flag_y_end:
-                            QToolTip.showText(event.globalPosition().toPoint(), country_name, self)
-                        else:
-                            QToolTip.hideText()
+                    if player is not None and player.iplookup.country_flag is not None:
+                        self.show_flag_tooltip(event, index, player)
 
         return super().eventFilter(obj, event)
 
-    # pylint: disable=invalid-name
-    def keyPressEvent(self, event):
-        """
-        Handle key press events to capture Ctrl+A for selecting all and Ctrl+C for copying selected data to the clipboard.
+    def keyPressEvent(self, event: QKeyEvent):  # noqa: N802
+        """Handle key press events to capture Ctrl+A for selecting all and Ctrl+C for copying selected data to the clipboard.
+
         Fall back to default behavior for other key presses.
         """
-        if isinstance(event, QKeyEvent):
-            # Check for Ctrl+C key combination and copy selection
-            if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                if event.key() == Qt.Key.Key_A:
-                    self.select_all_cells()
-                elif event.key() == Qt.Key.Key_C:
-                    selected_model = self.model()
-                    if not isinstance(selected_model, SessionTableModel):
-                        raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:  # Check for Ctrl+C key combination and copy selection
+            if event.key() == Qt.Key.Key_A:
+                self.select_all_cells()
+            elif event.key() == Qt.Key.Key_C:
+                selected_model = self.model()
+                if not isinstance(selected_model, SessionTableModel):
+                    raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
 
-                    selection_model = self.selectionModel()
-                    if not isinstance(selection_model, QItemSelectionModel):
-                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+                selection_model = self.selectionModel()
+                if not isinstance(selection_model, QItemSelectionModel):
+                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
-                    selected_indexes = selection_model.selectedIndexes()
+                selected_indexes = selection_model.selectedIndexes()
 
-                    self.copy_selected_cells(selected_model, selected_indexes)
-                return
+                self.copy_selected_cells(selected_model, selected_indexes)
+            return
 
         # Fall back to default behavior
         super().keyPressEvent(event)
 
-    def mousePressEvent(self, event):
-        """
-        Handle mouse press events for selecting multiple items with Ctrl or single items otherwise.
+    def mousePressEvent(self, event: QMouseEvent):  # noqa: N802
+        """Handle mouse press events for selecting multiple items with Ctrl or single items otherwise.
+
         Fall back to default behavior for non-cell areas.
         """
-        if isinstance(event, QMouseEvent):
-            index = self.indexAt(event.pos())  # Determine the index of the clicked item
+        index = self.indexAt(event.pos())  # Determine the index of the clicked item
+        if index.isValid():
+            selection_model = self.selectionModel()
+            if not isinstance(selection_model, QItemSelectionModel):
+                raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+
+            selection_flag = None
+
+            if event.button() == Qt.MouseButton.RightButton:
+                if not selection_model.isSelected(index):
+                    selection_model.select(index, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+                    return
+
+            elif event.button() == Qt.MouseButton.LeftButton:
+                # Determine selection flag based on modifier keys
+                if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                    # Toggle selection while keeping other selections
+                    selection_flag = (
+                        QItemSelectionModel.SelectionFlag.Deselect
+                        if selection_model.isSelected(index)
+                        else QItemSelectionModel.SelectionFlag.Select
+                    )
+                    self._is_dragging = True  # Start tracking dragging
+                elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                    was_selection_index_selected = selection_model.isSelected(index)
+
+                    # Clear existing selections
+                    selection_model.clearSelection()
+
+                    # Select or Deselect the clicked cell
+                    selection_flag = (
+                        QItemSelectionModel.SelectionFlag.Deselect
+                        if was_selection_index_selected
+                        else QItemSelectionModel.SelectionFlag.Select
+                    )
+
+            if selection_flag is not None:
+                # Apply the determined selection flag
+                selection_model.select(index, selection_flag)
+                return
+
+        # Fall back to default behavior
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent):  # noqa: N802
+        """Handle mouse move events for selecting multiple items while holding the Ctrl key."""
+        if self._is_dragging and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            index = self.indexAt(event.pos())  # Get the index under the cursor
             if index.isValid():
                 selection_model = self.selectionModel()
                 if not isinstance(selection_model, QItemSelectionModel):
                     raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
-                selection_flag = None
-
-                if event.button() == Qt.MouseButton.RightButton:
-                    if not selection_model.isSelected(index):
-                        selection_model.select(index, QItemSelectionModel.SelectionFlag.ClearAndSelect)
-                        return
-
-                elif event.button() == Qt.MouseButton.LeftButton:
-                    # Determine selection flag based on modifier keys
-                    if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                        # Toggle selection while keeping other selections
-                        selection_flag = (
-                            QItemSelectionModel.SelectionFlag.Deselect
-                            if selection_model.isSelected(index)
-                            else QItemSelectionModel.SelectionFlag.Select
-                        )
-                        self._is_dragging = True  # Start tracking dragging
-                    elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                        was_selection_index_selected = selection_model.isSelected(index)
-
-                        # Clear existing selections
-                        selection_model.clearSelection()
-
-                        # Select or Deselect the clicked cell
-                        selection_flag = (
-                            QItemSelectionModel.SelectionFlag.Deselect
-                            if was_selection_index_selected
-                            else QItemSelectionModel.SelectionFlag.Select
-                        )
-
-                if selection_flag is not None:
-                    # Apply the determined selection flag
-                    selection_model.select(index, selection_flag)
-                    return
-
-        # Fall back to default behavior
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        """
-        Handle mouse move events for selecting multiple items while holding the Ctrl key.
-        """
-        if isinstance(event, QMouseEvent):
-            if self._is_dragging and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                index = self.indexAt(event.pos())  # Get the index under the cursor
-                if index.isValid():
-                    selection_model = self.selectionModel()
-                    if not isinstance(selection_model, QItemSelectionModel):
-                        raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
-
-                    # Select the current cell
-                    selection_model.select(index, QItemSelectionModel.SelectionFlag.Select)
-                    return
+                # Select the current cell
+                selection_model.select(index, QItemSelectionModel.SelectionFlag.Select)
+                return
 
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
-        """
-        Reset dragging state when the mouse button is released.
-        """
+    def mouseReleaseEvent(self, event: QMouseEvent):  # noqa: N802
+        """Reset dragging state when the mouse button is released."""
         self._is_dragging = False
-        super().mouseReleaseEvent(event)
 
-    def handleMenuHovered(self, action):
-        # Fixes: https://stackoverflow.com/questions/21725119/why-wont-qtooltips-appear-on-qactions-within-a-qmenu
-        if isinstance(action, QAction):
-            action_parent = action.parent()
-            if isinstance(action_parent, QMenu):
-                action_parent.setToolTip(action.toolTip())
+        super().mouseReleaseEvent(event)
     # pylint: enable=invalid-name
 
     # Custom Methods:
@@ -4426,7 +4287,7 @@ class SessionTableView(QTableView):
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
                 else:
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-            elif header_label in ("First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"):
+            elif header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"}:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -4454,6 +4315,12 @@ class SessionTableView(QTableView):
 
         return sorted_column_name, sort_order
 
+    def handle_menu_hovered(self, action: QAction):
+        # Fixes: https://stackoverflow.com/questions/21725119/why-wont-qtooltips-appear-on-qactions-within-a-qmenu
+        action_parent = action.parent()
+        if isinstance(action_parent, QMenu):
+            action_parent.setToolTip(action.toolTip())
+
     def on_section_clicked(self, section_index: int):
         model = self.model()
         if not isinstance(model, SessionTableModel):
@@ -4478,13 +4345,32 @@ class SessionTableView(QTableView):
         model.sort(section_index, horizontal_header.sortIndicatorOrder())
         self._previous_sort_section_index = section_index
 
+    def show_flag_tooltip(self, event: QHoverEvent, index: QModelIndex, player: Player):
+        """Show tooltip only if hovering exactly over the flag."""
+        # TODO(BUZZARDGTA): Make the tooltip appear precisely when hovering over the flag, using the pixmap or QIcon object if possible.
+        cell_rect = self.visualRect(index)   # Get cell rectangle
+        flag_x_start = cell_rect.left() + 4  # Assuming flag starts with a 4px horizontal padding
+        flag_x_end = flag_x_start + 14       # Assuming flag ends with a 14px horizontal padding
+        flag_y_start = cell_rect.top() + 10  # Assuming flag starts with a 10px vertical padding
+        flag_y_end = flag_y_start + 10       # Assuming flag ends with a 10px vertical padding
+        # Check if the mouse is over the flag both horizontally and vertically
+        if flag_x_start <= event.position().toPoint().x() <= flag_x_end and flag_y_start <= event.position().toPoint().y() <= flag_y_end:
+            QToolTip.showText(event.globalPosition().toPoint(), player.iplookup.geolite2.country, self)
+        else:
+            QToolTip.hideText()
+
     def show_context_menu(self, pos: QPoint):
-        """
-        Show the context menu at the specified position with options to interact with the table's content.
-        """
+        """Show the context menu at the specified position with options to interact with the table's content."""
         from modules.constants.standard import CUSTOM_CONTEXT_MENU_STYLESHEET, USERIP_DATABASES_PATH
 
-        def add_action(menu: QMenu, label: str, shortcut: Optional[str] = None, tooltip: Optional[str] = None, handler=None, enabled: Optional[bool] = None):
+        def add_action(
+            menu: QMenu,
+            label: str,
+            shortcut: str | None = None,
+            tooltip: str | None = None,
+            handler: Callable[..., None] | None = None,
+            enabled: bool | None = None,
+        ):
             """Helper to create and configure a QAction."""
             action = menu.addAction(label)
             if not isinstance(action, QAction):
@@ -4496,13 +4382,12 @@ class SessionTableView(QTableView):
                 action.setToolTip(tooltip)
             if enabled is False:
                 action.setEnabled(enabled)
-            else:
-                if handler:
-                    action.triggered.connect(handler)
+            elif handler:
+                action.triggered.connect(handler)
 
             return action
 
-        def add_menu(parent_menu: QMenu, label: str, tooltip: Optional[str] = None):
+        def add_menu(parent_menu: QMenu, label: str, tooltip: str | None = None):
             """Helper to create and configure a QMenu."""
             menu = parent_menu.addMenu(label)
             if not isinstance(menu, QMenu):
@@ -4532,7 +4417,7 @@ class SessionTableView(QTableView):
         context_menu = QMenu(self)
         context_menu.setStyleSheet(CUSTOM_CONTEXT_MENU_STYLESHEET)
         context_menu.setToolTipsVisible(True)
-        context_menu.hovered.connect(self.handleMenuHovered)
+        context_menu.hovered.connect(self.handle_menu_hovered)
 
         # Add "Copy Selection" action
         add_action(
@@ -4572,19 +4457,19 @@ class SessionTableView(QTableView):
             unselect_menu,
             "Unselect All",
             tooltip="Unselect all cells in the table.",
-            handler=lambda: self.select_all_cells(unselect=True),
+            handler=self.unselect_all_cells(),
         )
         add_action(
             unselect_menu,
             "Unselect Row",
             tooltip="Unselect all cells in this row.",
-            handler=lambda: self.select_row_cells(index.row(), unselect=True),
+            handler=lambda: self.unselect_row_cells(index.row()),
         )
         add_action(
             unselect_menu,
             "Unselect Column",
             tooltip="Unselect all cells in this column.",
-            handler=lambda: self.select_column_cells(index.column(), unselect=True),
+            handler=lambda: self.unselect_column_cells(index.column()),
         )
         context_menu.addSeparator()
 
@@ -4598,14 +4483,14 @@ class SessionTableView(QTableView):
 
             if column_name == "IP Address":
                 # Get the IP address from the selected cell
-                ip_address = selected_model.data(selected_indexes[0])
-                if not isinstance(ip_address, str):
+                ip = selected_model.data(selected_indexes[0])
+                if not isinstance(ip, str):
                     return  # Added this return cuz some rare times it would raise.
-                    # raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
-                ip_address = ip_address.removesuffix(" 👑")
+                    # raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                ip = ip.removesuffix(" 👑")
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
-                player = PlayersRegistry.get_player(ip_address)
+                player = PlayersRegistry.get_player(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
@@ -4613,7 +4498,7 @@ class SessionTableView(QTableView):
                     context_menu,
                     "IP Lookup Details",
                     tooltip="Displays a notification with a detailed IP lookup report for selected player.",
-                    handler=lambda: self.show_detailed_ip_lookup_player_cell(ip_address),
+                    handler=lambda: self.show_detailed_ip_lookup_player_cell(ip),
                 )
 
                 ping_menu = add_menu(context_menu, "Ping    ")
@@ -4621,19 +4506,19 @@ class SessionTableView(QTableView):
                     ping_menu,
                     "Normal",
                     tooltip="Checks if selected IP address responds to pings.",
-                    handler=lambda: self.ping(ip_address),
+                    handler=lambda: self.ping(ip),
                 )
                 add_action(
                     ping_menu,
                     "Spoofed (check-host.net API)",
                     tooltip="Checks if selected IP address responds to pings from 'check-host.net'.\n\nNOTE: This only works if Python is installed on your system.",
-                    handler=lambda: self.ping_spoofed(ip_address),
+                    handler=lambda: self.ping_spoofed(ip),
                 )
                 add_action(
                     ping_menu,
                     "TCP Port (paping.exe)",
                     tooltip="Checks if selected IP address responds to TCP pings on a given port.",
-                    handler=lambda: self.tcp_port_ping(ip_address),
+                    handler=lambda: self.tcp_port_ping(ip),
                 )
 
                 userip_menu = add_menu(context_menu, "UserIP  ")
@@ -4645,15 +4530,15 @@ class SessionTableView(QTableView):
                             add_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
                             tooltip="Add selected IP address to this UserIP database.",
-                            handler=lambda _, database_path=database_path: self.userip_manager__add([ip_address], database_path),
+                            handler=lambda _, database_path=database_path: self.userip_manager__add([ip], database_path),
                         )
                 else:
-                    # TODO:
+                    # TODO(BUZZARDGTA): Add a "Rename" UserIP method
                     #add_action(
                     #    userip_menu,
                     #    "Rename  ", # Extra spaces for alignment
                     #    tooltip="Rename this IP address from UserIP databases.",
-                    #    handler=lambda: self.userip_manager__rename([ip_address]),
+                    #    handler=lambda: self.userip_manager__rename([ip]),
                     #)
                     move_userip_menu = add_menu(userip_menu, "Move    ", "Move selected IP address to another database.")
                     for database_path in userip_database_filepaths:
@@ -4661,75 +4546,72 @@ class SessionTableView(QTableView):
                             move_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
                             tooltip="Move selected IP address to this UserIP database.",
-                            handler=lambda _, database_path=database_path: self.userip_manager__move([ip_address], database_path),
+                            handler=lambda _, database_path=database_path: self.userip_manager__move([ip], database_path),
                             enabled=player.userip.database_path != database_path,
                         )
                     add_action(
                         userip_menu,
                         "Delete  ",  # Extra spaces for alignment
                         tooltip="Delete selected IP address from UserIP databases.",
-                        handler=lambda: self.userip_manager__del([ip_address]),
+                        handler=lambda: self.userip_manager__del([ip]),
                     )
 
-        else:
-            # Check if all selected cells are in the "IP Address" column
-            if all(
-                selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
-                for index in selected_indexes
-            ):
-                all_ip_addresses: list[str] = []
+        # Check if all selected cells are in the "IP Address" column
+        elif all(
+            selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
+            for index in selected_indexes
+        ):
+            all_ips: list[str] = []
 
-                # Get the IP addreses from the selected cells
-                for index in selected_indexes:
-                    ip_address = selected_model.data(index)
-                    if not isinstance(ip_address, str):
-                        raise TypeError(f'Expected "str", got "{type(ip_address).__name__}"')
-                    ip_address = ip_address.removesuffix(" 👑")
-                    all_ip_addresses.append(ip_address)
+            # Get the IP addreses from the selected cells
+            for index in selected_indexes:
+                ip = selected_model.data(index)
+                if not isinstance(ip, str):
+                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                ip = ip.removesuffix(" 👑")
+                all_ips.append(ip)
 
-                if all(ip not in UserIPDatabases.ips_set for ip in all_ip_addresses):
-                    userip_menu = add_menu(context_menu, "UserIP  ")
-                    add_userip_menu = add_menu(userip_menu, "Add Selected")
-                    for database_path in UserIPDatabases.get_userip_database_filepaths():
-                        add_action(
-                            add_userip_menu,
-                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                            tooltip="Add selected IP addresses to this UserIP database.",
-                            handler=lambda _, database_path=database_path: self.userip_manager__add(all_ip_addresses, database_path),
-                        )
-                elif all(ip in UserIPDatabases.ips_set for ip in all_ip_addresses):
-                    userip_menu = add_menu(context_menu, "UserIP  ")
-
-                    # TODO:
-                    #add_action(
-                    #    userip_menu,
-                    #    "Rename Selected", # Extra spaces for alignment
-                    #    tooltip="Rename these IP addresses from UserIP databases.",
-                    #    handler=lambda: self.userip_manager__rename([ip_address]),
-                    #)
-
-                    move_userip_menu = add_menu(userip_menu, "Move Selected")
-                    for database_path in UserIPDatabases.get_userip_database_filepaths():
-                        add_action(
-                            move_userip_menu,
-                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                            tooltip="Move selected IP addresses to this UserIP database.",
-                            handler=lambda _, database_path=database_path: self.userip_manager__move(all_ip_addresses, database_path),
-                        )
+            if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
+                userip_menu = add_menu(context_menu, "UserIP  ")
+                add_userip_menu = add_menu(userip_menu, "Add Selected")
+                for database_path in UserIPDatabases.get_userip_database_filepaths():
                     add_action(
-                        userip_menu,
-                        "Delete Selected",  # Extra spaces for alignment
-                        tooltip="Delete selected IP addresses from UserIP databases.",
-                        handler=lambda: self.userip_manager__del(all_ip_addresses),
+                        add_userip_menu,
+                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                        tooltip="Add selected IP addresses to this UserIP database.",
+                        handler=lambda _, database_path=database_path: self.userip_manager__add(all_ips, database_path),
                     )
+            elif all(ip in UserIPDatabases.ips_set for ip in all_ips):
+                userip_menu = add_menu(context_menu, "UserIP  ")
+
+                # TODO(BUZZARDGTA):
+                #add_action(
+                #    userip_menu,
+                #    "Rename Selected", # Extra spaces for alignment
+                #    tooltip="Rename these IP addresses from UserIP databases.",
+                #    handler=lambda: self.userip_manager__rename([ip]),
+                #)
+
+                move_userip_menu = add_menu(userip_menu, "Move Selected")
+                for database_path in UserIPDatabases.get_userip_database_filepaths():
+                    add_action(
+                        move_userip_menu,
+                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
+                        tooltip="Move selected IP addresses to this UserIP database.",
+                        handler=lambda _, database_path=database_path: self.userip_manager__move(all_ips, database_path),
+                    )
+                add_action(
+                    userip_menu,
+                    "Delete Selected",  # Extra spaces for alignment
+                    tooltip="Delete selected IP addresses from UserIP databases.",
+                    handler=lambda: self.userip_manager__del(all_ips),
+                )
 
         # Execute the context menu at the right-click position
         context_menu.exec(self.mapToGlobal(pos))
 
     def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: list[QModelIndex]):
-        """
-        Copy the selected cells data from the table to the clipboard.
-        """
+        """Copy the selected cells data from the table to the clipboard."""
         # Access the system clipboard
         clipboard = QApplication.clipboard()
         if not isinstance(clipboard, QClipboard):
@@ -4758,10 +4640,10 @@ class SessionTableView(QTableView):
         # Set the formatted text in the system clipboard
         clipboard.setText(clipboard_content)
 
-    def show_detailed_ip_lookup_player_cell(self, ip_address: str):
+    def show_detailed_ip_lookup_player_cell(self, ip: str):
         from modules.constants.standard import USERIP_DATABASES_PATH
 
-        player = PlayersRegistry.get_player(ip_address)
+        player = PlayersRegistry.get_player(ip)
         if not isinstance(player, Player):
             raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
@@ -4770,7 +4652,7 @@ class SessionTableView(QTableView):
             IP Address: {player.ip}
             Hostname: {player.reverse_dns.hostname}
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
-            In UserIP database: {player.userip_detection is not None and f"{player.userip and player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}" or "No"}
+            In UserIP database: {(player.userip_detection is not None and f"{player.userip and player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')}") or "No"}
             Last Port: {player.ports.last}
             Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
             First Port: {player.ports.first}
@@ -4792,7 +4674,7 @@ class SessionTableView(QTableView):
             Organization: {player.iplookup.ipapi.org}
             ISP: {player.iplookup.ipapi.isp}
             ASN / ISP: {player.iplookup.geolite2.asn}
-            AS: {player.iplookup.ipapi._as}
+            AS: {player.iplookup.ipapi.asn}
             ASN: {player.iplookup.ipapi.as_name}
             Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
             Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
@@ -4813,42 +4695,38 @@ class SessionTableView(QTableView):
 
     def ping(self, ip: str):
         """Runs a continuous ping to a specified IP address in a new terminal window."""
+        from modules.constants.standard import CMD_EXE
 
-        try:
-            subprocess.Popen(
-                ["cmd.exe", "/K", "ping", ip, "-t"],
-                creationflags=subprocess.CREATE_NEW_CONSOLE
-            )
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to start ping:\n{e}")
+        subprocess.Popen(
+            [CMD_EXE, "/K", "ping", ip, "-t"],
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
+        )
 
     def ping_spoofed(self, ip: str):
         """Runs a continuous ping to a specified IP address in a new terminal window."""
+        from modules.constants.standard import CMD_EXE
         from modules.constants.local import SCRIPTS_PATH
 
-        try:
-            subprocess.Popen(
-                ["cmd.exe", "/K", "py", SCRIPTS_PATH / "spoofed_ping.py", ip],
-                creationflags=subprocess.CREATE_NEW_CONSOLE
-            )
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to start ping (spoofed):\n{e}")
+        subprocess.Popen(
+            [CMD_EXE, "/K", "py", SCRIPTS_PATH / "spoofed_ping.py", ip],
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
+        )
 
     def tcp_port_ping(self, ip: str):
         """Runs paping to check TCP connectivity to a host on a user-specified port indefinitely."""
 
         def run_paping(host: str, port: int):
             """Runs paping in a new terminal window to check TCP connectivity continuously."""
+            from modules.constants.standard import CMD_EXE
             from modules.constants.local import BIN_PATH
 
-            try:
-                # Start the subprocess and keep it running
-                subprocess.Popen(
-                    ["cmd.exe", "/K", BIN_PATH / 'paping.exe', host, "-p", str(port)],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-            except Exception as e:
-                QMessageBox.warning(self, "Error", f"Failed to start paping:\n{e}")
+            # Start the subprocess and keep it running
+            subprocess.Popen(
+                [CMD_EXE, "/K", BIN_PATH / "paping.exe", host, "-p", str(port)],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+
+        from modules.constants.standalone import MIN_PORT, MAX_PORT
 
         port_str, ok = QInputDialog.getText(self, "Input Port", "Enter the port number to check TCP connectivity:")
 
@@ -4861,20 +4739,19 @@ class SessionTableView(QTableView):
 
         port = int(port_str)
 
-        if not 1 <= port <= 65535:
+        if not MIN_PORT <= port <= MAX_PORT:
             QMessageBox.warning(self, "Error", "Please enter a valid port number between 1 and 65535.")
             return
 
         run_paping(ip, port)
 
-    # TODO:
+    # TODO(BUZZARDGTA): Add a "Rename" UserIP method
     #def userip_manager__rename(self, ip_addresses: list[str]):
     #    # Prompt the user for the new username
     #    new_username, ok = QInputDialog.getText(self, "Input New Username", F"Please enter the new username to associate with the selected IP{pluralize(len(ip_addresses))}:")
     #
     #    if ok and new_username:
-    #        # TODO:
-    #        pass
+    #        ...
 
     def userip_manager__add(self, ip_addresses: list[str], selected_database: Path):
         from modules.constants.standard import USERIP_DATABASES_PATH
@@ -4991,7 +4868,7 @@ class SessionTableView(QTableView):
 
         # After processing all databases, show a detailed report
         if deleted_entries_by_database:
-            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_database))}:</b><br><br><br>'
+            report = f"<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_database))}:</b><br><br><br>"
             for database_path, deleted_entries in deleted_entries_by_database.items():
                 report += f"<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>"
                 report += "<ul>"
@@ -5002,12 +4879,11 @@ class SessionTableView(QTableView):
 
             QMessageBox.information(self, TITLE, report)
 
-    def select_all_cells(self, unselect=False):
-        """
-        Select or unselect all rows and columns from the table.
+    def _select_all_cells_helper(self, *, select: bool):
+        """Helper function to select or deselect all cells in the table.
 
         Args:
-            unselect: If True, unselect all cells. If False, select all cells.
+            select: If True, select all cells; if False, deselect them.
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
@@ -5020,29 +4896,30 @@ class SessionTableView(QTableView):
         # Get the top-left and bottom-right QModelIndex for the entire table
         top_left = selected_model.createIndex(0, 0)  # Top-left item (first row, first column)
         bottom_right = selected_model.createIndex(
-            selected_model.rowCount() - 1, selected_model.columnCount() - 1
+            selected_model.rowCount() - 1, selected_model.columnCount() - 1,
         )  # Bottom-right item (last row, last column)
 
         # Create a selection range from top-left to bottom-right
         selection = QItemSelection(top_left, bottom_right)
 
-        # Determine selection flag based on the unselect argument
-        flag = (
-            QItemSelectionModel.SelectionFlag.Deselect
-            if unselect
-            else QItemSelectionModel.SelectionFlag.Select
-        )
-
-        # Apply the selection or deselection
+        # Use the appropriate selection flag based on the `select` argument
+        flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def select_row_cells(self, row: int, unselect=False):
-        """
-        Select or unselect all cells in the specified row from the table.
+    def select_all_cells(self):
+        """Select all cells in the table."""
+        self._select_all_cells_helper(select=True)
+
+    def unselect_all_cells(self):
+        """Unselect all cells in the table."""
+        self._select_all_cells_helper(select=False)
+
+    def _select_row_cells_helper(self, row: int, *, select: bool):
+        """Helper function to select or unselect all cells in a specific row.
 
         Args:
-            row: The row index to modify selection for.
-            unselect: If True, unselect the row. If False, select the row.
+            row: The index of the row to modify selection.
+            select: If True, select the row; if False, unselect it.
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
@@ -5058,17 +4935,24 @@ class SessionTableView(QTableView):
         # Create a selection range for the entire row
         selection = QItemSelection(top_index, bottom_index)
 
-        # Determine selection flag based on the argument
-        flag = QItemSelectionModel.SelectionFlag.Deselect if unselect else QItemSelectionModel.SelectionFlag.Select
+        # Use the appropriate selection flag based on the `select` argument
+        flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def select_column_cells(self, column: int, unselect=False):
-        """
-        Select or unselect all cells in the specified column from the table.
+    def select_row_cells(self, row: int):
+        """Select all cells in the specified row."""
+        self._select_row_cells_helper(row, select=True)
+
+    def unselect_row_cells(self, row: int):
+        """Unselect all cells in the specified row."""
+        self._select_row_cells_helper(row, select=False)
+
+    def _select_column_cells_helper(self, column: int, *, select: bool):
+        """Helper function to select or unselect all cells in a given column.
 
         Args:
-            column: The column index to modify selection for.
-            unselect: If True, unselect the column. If False, select the column.
+            column: The index of the column to modify selection.
+            select: If True, select the column; if False, unselect it.
         """
         selected_model = self.model()
         if not isinstance(selected_model, SessionTableModel):
@@ -5084,9 +4968,17 @@ class SessionTableView(QTableView):
         # Create a selection range for the entire column
         selection = QItemSelection(top_index, bottom_index)
 
-        # Determine selection flag based on the argument
-        flag = QItemSelectionModel.SelectionFlag.Deselect if unselect else QItemSelectionModel.SelectionFlag.Select
+        # Use the appropriate selection flag based on the `select` argument
+        flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
+
+    def select_column_cells(self, column: int):
+        """Select all cells in the specified column."""
+        self._select_column_cells_helper(column, select=True)
+
+    def unselect_column_cells(self, column: int):
+        """Unselect all cells in the specified column."""
+        self._select_column_cells_helper(column, select=False)
 
 
 class GUIWorkerThread(QThread):
@@ -5097,7 +4989,7 @@ class GUIWorkerThread(QThread):
         int,
         list,
         list,
-        int
+        int,
     )  # Signal to send updated table data and new size
 
     def __init__(
@@ -5105,7 +4997,7 @@ class GUIWorkerThread(QThread):
         connected_table_model: SessionTableModel,
         connected_table_view: SessionTableView,
         disconnected_table_model: SessionTableModel,
-        disconnected_table_view: SessionTableView
+        disconnected_table_view: SessionTableView,
     ):
         super().__init__()
 
@@ -5134,7 +5026,7 @@ class GUIWorkerThread(QThread):
                 GUIrenderingData.session_connected_table__num_rows,
                 GUIrenderingData.session_disconnected_table__processed_data,
                 GUIrenderingData.session_disconnected_table__compiled_colors,
-                GUIrenderingData.session_disconnected_table__num_rows
+                GUIrenderingData.session_disconnected_table__num_rows,
             )
 
 
@@ -5142,11 +5034,13 @@ class MainWindow(QMainWindow):
     def __init__(self, screen_width: int, screen_height: int):
         super().__init__()
 
+        from modules.guis.utils import resize_window_for_screen
+
         # Set up the window
         self.setWindowTitle(f"{TITLE}")
         # Set a minimum size for the window
         self.setMinimumSize(800, 600)
-        self.resize_window_for_screen(screen_width, screen_height)
+        resize_window_for_screen(self, screen_width, screen_height)
 
         # Central widget
         central_widget = QWidget()
@@ -5197,7 +5091,7 @@ class MainWindow(QMainWindow):
             gui_closed__event.wait(0.1)
         # Determine the sort order
         _sort_column = GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
-        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in ("Last Rejoin", "Last Seen"):
+        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in {"Last Rejoin", "Last Seen"}:
             _sort_order = Qt.SortOrder.AscendingOrder
         else:
             _sort_order = Qt.SortOrder.DescendingOrder
@@ -5223,31 +5117,21 @@ class MainWindow(QMainWindow):
             self.connected_table_model,
             self.connected_table_view,
             self.disconnected_table_model,
-            self.disconnected_table_view
+            self.disconnected_table_view,
         )
         self.worker_thread.update_signal.connect(self.update_gui)
         self.worker_thread.start()
 
-    def closeEvent(self, event: Optional[QCloseEvent]):  # pylint: disable=invalid-name
+    def closeEvent(self, event: QCloseEvent):  # pylint: disable=invalid-name  # noqa: N802
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
 
-        if event is not None:
-            event.accept()  # Accept the close event
+        event.accept()  # Accept the close event
 
         terminate_script("EXIT")
 
     # Custom Methods:
-
-    def resize_window_for_screen(self, screen_width: int, screen_height: int):
-        # Resize the window based on screen size
-        if screen_width >= 2560 and screen_height >= 1440:
-            self.resize(1400, 900)
-        elif screen_width >= 1920 and screen_height >= 1080:
-            self.resize(1200, 720)
-        elif screen_width >= 1024 and screen_height >= 768:
-            self.resize(940, 680)
 
     def update_gui(
         self,
@@ -5257,21 +5141,21 @@ class MainWindow(QMainWindow):
         session_connected_table__num_rows: int,
         session_disconnected_table__processed_data: list[list[str]],
         session_disconnected_table__compiled_colors: list[list[CellColor]],
-        session_disconnected_table__num_rows: int
+        session_disconnected_table__num_rows: int,
     ):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
         self.session_connected_header.setText(f"Players connected in your session ({session_connected_table__num_rows}):")
 
-        for processed_data, compiled_colors in zip(session_connected_table__processed_data, session_connected_table__compiled_colors):
-            ip_address = processed_data[self.connected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
+        for processed_data, compiled_colors in zip(session_connected_table__processed_data, session_connected_table__compiled_colors, strict=True):
+            ip = processed_data[self.connected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
-            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip_address)
+            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
             if disconnected_row_index is not None:
                 self.disconnected_table_model.delete_row(disconnected_row_index)
 
-            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip_address)
+            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
             if connected_row_index is None:
                 self.connected_table_model.add_row_without_refresh(processed_data, compiled_colors)
             else:
@@ -5282,14 +5166,14 @@ class MainWindow(QMainWindow):
 
         self.session_disconnected_header.setText(f"Players who've left your session ({session_disconnected_table__num_rows}):")
 
-        for processed_data, compiled_colors in zip(session_disconnected_table__processed_data, session_disconnected_table__compiled_colors):
-            ip_address = processed_data[self.disconnected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
+        for processed_data, compiled_colors in zip(session_disconnected_table__processed_data, session_disconnected_table__compiled_colors, strict=True):
+            ip = processed_data[self.disconnected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
-            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip_address)
+            connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
             if connected_row_index is not None:
                 self.connected_table_model.delete_row(connected_row_index)
 
-            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip_address)
+            disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
             if disconnected_row_index is None:
                 self.disconnected_table_model.add_row_without_refresh(processed_data, compiled_colors)
             else:
@@ -5299,13 +5183,12 @@ class MainWindow(QMainWindow):
         self.disconnected_table_view.adjust_table_column_widths()
 
 
-class ClickableLabel(QLabel):  # pylint: disable=too-few-public-methods
+class ClickableLabel(QLabel):
     clicked = pyqtSignal()  # Custom signal
 
-    def mousePressEvent(self, event):  # pylint: disable=invalid-name
-        if isinstance(event, QMouseEvent):
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.clicked.emit()  # Emit the signal when clicked
+    def mousePressEvent(self, event: QMouseEvent):  # pylint: disable=invalid-name  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()  # Emit the signal when clicked
 
 
 class DiscordIntro(QDialog):
@@ -5425,33 +5308,28 @@ class DiscordIntro(QDialog):
         self._drag_pos = None
 
     # pylint: disable=invalid-name
-    def mousePressEvent(self, event):
-        if isinstance(event, QMouseEvent):
-            if event.button() == Qt.MouseButton.LeftButton:
-                # Only allow dragging if the click is not on a button
-                if not self.exit_button.underMouse() and not self.join_button.underMouse() and not self.dont_remind_me_label.underMouse():
-                    self._drag_pos = event.globalPosition().toPoint()
+    def mousePressEvent(self, event: QMouseEvent):  # noqa: N802
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self.exit_button.underMouse() and not self.join_button.underMouse() and not self.dont_remind_me_label.underMouse()  # Only allow dragging if the click is not on a button
+        ):
+            self._drag_pos = event.globalPosition().toPoint()
 
         super().mousePressEvent(event)
 
-    # pylint: disable=invalid-name
-    def mouseMoveEvent(self, event):
-        if isinstance(event, QMouseEvent):
-            # If mouse is pressed, move the window
-            if self._drag_pos is not None:
-                delta = event.globalPosition().toPoint() - self._drag_pos
-                self.move(self.pos() + delta)
-                self._drag_pos = event.globalPosition().toPoint()
+    def mouseMoveEvent(self, event: QMouseEvent):  # noqa: N802
+        if self._drag_pos is not None:  # If mouse is pressed, move the window
+            delta = event.globalPosition().toPoint() - self._drag_pos
+            self.move(self.pos() + delta)
+            self._drag_pos = event.globalPosition().toPoint()
 
         super().mouseMoveEvent(event)
 
-    # pylint: disable=invalid-name
-    def mouseReleaseEvent(self, event):
-        if isinstance(event, QMouseEvent):
-            # Reset drag position when mouse is released
-            self._drag_pos = None
+    def mouseReleaseEvent(self, event: QMouseEvent):  # noqa: N802
+        self._drag_pos = None  # Reset drag position when mouse is released
 
         super().mouseReleaseEvent(event)
+    # pylint: enable=invalid-name
 
     def center_window(self):
         screen = QApplication.primaryScreen()

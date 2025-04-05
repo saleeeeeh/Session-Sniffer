@@ -1,16 +1,16 @@
-"""
-This script allows users to ping an IP address using the Check-Host API.
+"""Ping an IP address using the Check-Host API.
+
 It continuously sends ping requests and displays results using Rich formatting.
-"""
+"""  # noqa: INP001
 
 # Standard Python Libraries
 import sys
 import time
 import argparse
-import ipaddress
 import statistics
 from enum import Enum
-from typing import Union, Literal
+from typing import Literal
+from ipaddress import IPv4Address, AddressValueError
 
 # External/Third-party Python Libraries
 import requests
@@ -19,11 +19,9 @@ from rich import print as rprint
 
 
 PingCheckResults = dict[str, list[
-    Union[
-        list[list[Union[str, float]]],
-        list[Union[None, dict[Literal["message"], str]]]
-    ]
+    list[list[str | float]] | list[None | dict[Literal["message"], str]]
 ]]
+
 
 CHECK_HOST_API = "https://check-host.net"
 
@@ -47,18 +45,25 @@ class Colors(Enum):
         return f"#{self.value}"
 
 
+PING_COLOR_MAP = {
+    4: Colors.GREEN,
+    3: Colors.YELLOW,
+    2: Colors.ORANGE,
+    1: Colors.RED,
+}
+
+
 def ping_loop(target_ip: str):
     """Continuously pings the target IP until the user closes the script."""
-
     s = requests.Session()
     s.headers.update({
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
-        "Accept": "application/json"
+        "Accept": "application/json",
     })
     #s.verify = False
 
     def send_ping_request(ip: str):
-        """Sends a ping request to the Check-Host API."""
+        """Send a ping request to the Check-Host API."""
         response = s.get(f"{CHECK_HOST_API}/check-ping?host={ip}", headers={"Accept": "application/json"})
         response.raise_for_status()
 
@@ -69,11 +74,11 @@ def ping_loop(target_ip: str):
         if request_id is None:
             return None, None
         if not isinstance(request_id, str):
-            raise TypeError(f'Expected "NoneType", got "{type(request_id).__name__}"')
+            raise TypeError(f'Expected "str", got "{type(request_id).__name__}"')
         return request_id, nodes
 
     def get_ping_results(request_id: str, delay: int = 10):
-        """Fetches the results using the request ID."""
+        """Fetch the results using the request ID."""
         for i in range(delay, 0, -1):
             rprint(f"[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} for ping request to complete...  ", end="\r")
             time.sleep(1)
@@ -86,7 +91,7 @@ def ping_loop(target_ip: str):
         if not isinstance(results, dict):
             raise TypeError(f'Expected "dict", got "{type(results).__name__}"')
 
-        for _, pings in results.items():
+        for pings in results.values():
             if pings is None:
                 continue
 
@@ -103,16 +108,9 @@ def ping_loop(target_ip: str):
         return f"#{val:02X}{(0xFF - val):02X}00"
 
     def color_ping_result(successful_pings: int):
-        """Returns a color-coded string based on successful pings."""
-        if successful_pings == 4:
-            return f"[{Colors.GREEN}]{successful_pings}[/{Colors.GREEN}]"
-        if successful_pings == 3:
-            return f"[{Colors.YELLOW}]{successful_pings}[/{Colors.YELLOW}]"
-        if successful_pings == 2:
-            return f"[{Colors.ORANGE}]{successful_pings}[/{Colors.ORANGE}]"
-        if successful_pings == 1:
-            return f"[{Colors.RED}]{successful_pings}[/{Colors.RED}]"
-        return f"[{Colors.RED}]{successful_pings}[/{Colors.RED}]"
+        """Return a color-coded string based on successful pings."""
+        color = PING_COLOR_MAP.get(successful_pings, Colors.RED)
+        return f"[{color}]{successful_pings}[/{color}]"
 
     while True:
         request_id, nodes = send_ping_request(target_ip)
@@ -158,7 +156,7 @@ def ping_loop(target_ip: str):
             message = None
             if pings is None:
                 message = "Inactivity timeout"
-            elif pings[0] is None:  # and len(pings) == 2  # and isinstance(pings[1], dict) and pings[1].get("message"):  # in ("Connect timeout", "No route to host")
+            elif pings[0] is None:  # and len(pings) == 2  # and isinstance(pings[1], dict) and pings[1].get("message"):  # in {"Connect timeout", "No route to host"}
                 message = pings[1]["message"]
 
             this_rtt_values: list[float | int] = []
@@ -184,7 +182,7 @@ def ping_loop(target_ip: str):
             rows = [
                 country,
                 city,
-                f"{color_ping_result(successful_pings)}/[{Colors.GREEN}]4[/{Colors.GREEN}]"
+                f"{color_ping_result(successful_pings)}/[{Colors.GREEN}]4[/{Colors.GREEN}]",
             ]
 
             if this_rtt_values:
@@ -197,13 +195,13 @@ def ping_loop(target_ip: str):
                 rows.extend([
                     f"[{rtt_min_color}]{round(rtt_min, 1)}[/{rtt_min_color}] ms",
                     f"[{rtt_avg_color}]{round(rtt_avg, 1)}[/{rtt_avg_color}] ms",
-                    f"[{rtt_max_color}]{round(rtt_max, 1)}[/{rtt_max_color}] ms"
+                    f"[{rtt_max_color}]{round(rtt_max, 1)}[/{rtt_max_color}] ms",
                 ])
             else:
                 rows.extend([
                     f"[{Colors.RED}]{message}[/{Colors.RED}]",
                     f"[{Colors.RED}]{message}[/{Colors.RED}]",
-                    f"[{Colors.RED}]{message}[/{Colors.RED}]"
+                    f"[{Colors.RED}]{message}[/{Colors.RED}]",
                 ])
 
             table.add_row(*rows)
@@ -236,9 +234,18 @@ def ping_loop(target_ip: str):
         rprint(" " * 50, end="\r")
 
 
+def is_ipv4_address(ip_address: str):
+    try:
+        IPv4Address(ip_address)
+    except AddressValueError:
+        return False
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Ping an IP using Check-Host API.")
-    parser.add_argument("ip", metavar='<ip>', type=str, help="Target IP to ping")
+    parser.add_argument("ip", metavar="<ip>", type=str, help="Target IP to ping")
     args = parser.parse_args()
 
     target_ip = args.ip.strip() if isinstance(args.ip, str) else None
@@ -246,9 +253,7 @@ def main():
         rprint(f"[{Colors.RED}]Error: No IP address provided.[/{Colors.RED}]")
         sys.exit(1)
 
-    try:
-        ipaddress.ip_address(target_ip)
-    except ValueError:
+    if not is_ipv4_address(target_ip):
         rprint(f"[{Colors.RED}]Error: '{Colors.RED_LIGHT}{target_ip}{Colors.RED_LIGHT}' is not a valid IP address.[/{Colors.RED}]")
         sys.exit(1)
 

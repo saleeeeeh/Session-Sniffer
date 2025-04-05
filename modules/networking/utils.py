@@ -1,12 +1,13 @@
-"""
-Module for defining networking utility functions, including MAC address and IPv4 address operations.
-"""
+"""Module for defining networking utility functions, including MAC address and IPv4 address operations."""
 
 # Standard Python Libraries
 from ipaddress import IPv4Address, AddressValueError
 
 # Local Python Libraries (Included with Project)
 from modules.constants.standard import RE_MAC_ADDRESS_PATTERN
+
+
+IPV4_LAST_OCTET_VALUE = 255
 
 
 def is_mac_address(mac_address: str):
@@ -25,20 +26,27 @@ def format_mac_address(mac_address: str, separator: str = ":"):
 
 
 def get_mac_oui(mac_address: str, separator: str = ""):
-    """Extracts the OUI (first three hexadecimal pairs) from a MAC address and formats it with the specified separator."""
+    """Extract the OUI (first three hexadecimal pairs) from a MAC address and formats it with the specified separator."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, 6, 2))
 
 
 def is_ipv4_address(ip_address: str):
     try:
-        return IPv4Address(ip_address).version == 4
+        IPv4Address(ip_address)
     except AddressValueError:
         return False
 
+    return True
+
 
 def is_private_device_ipv4(ip_address: str):
-    return IPv4Address(ip_address).is_private
+    try:
+        ipv4_obj = IPv4Address(ip_address)
+    except AddressValueError:
+        return False
+
+    return ipv4_obj.is_private
 
 
 def is_valid_non_special_ipv4(ip_address: str):
@@ -48,20 +56,16 @@ def is_valid_non_special_ipv4(ip_address: str):
         return False
 
     invalid_conditions = [
-        ipv4_obj.version != 4,
-        ipv4_obj.packed[-1] == 255,
-        ipv4_obj.is_link_local,  # might wants to remove this
+        ipv4_obj.packed[-1] == IPV4_LAST_OCTET_VALUE,
+        ipv4_obj.is_link_local,  # might want to remove this
         ipv4_obj.is_loopback,
         ipv4_obj.is_reserved,
         ipv4_obj.is_unspecified,
         ipv4_obj.is_global,
-        ipv4_obj.is_multicast
+        ipv4_obj.is_multicast,
     ]
 
-    if any(invalid_conditions):
-        return False
-
-    return True
+    return not any(invalid_conditions)
 
 
 def get_network_arp_cache():
@@ -70,13 +74,13 @@ def get_network_arp_cache():
     cached_arp_dict: dict[int, list[dict[str, str]]] = {}
 
     for interface_index, ip_address, mac_address in iterate_network_neighbor_details(AddressFamily=2):
-        if None in (interface_index, ip_address, mac_address):
+        if None in {interface_index, ip_address, mac_address}:
             continue
 
         # Append ARP info directly to the dictionary entry
         entry = {
             "ip_address": ip_address,
-            "mac_address": mac_address
+            "mac_address": mac_address,
         }
         if entry not in cached_arp_dict.setdefault(interface_index, []):
             cached_arp_dict[interface_index].append(entry)

@@ -11,11 +11,9 @@ jobs:
     steps:
       - name: Log Release Information
         env:
-          RELEASE_NAME: ${{ github.event.release.name }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          echo "Release Name: $RELEASE_NAME"
           echo "Release Tag: $RELEASE_TAG"
           echo "Is Pre-Release: $IS_PRERELEASE"
 
@@ -94,31 +92,31 @@ jobs:
 
       - name: Update Files, Commit, and Push
         env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
-          RELEASE_NAME: ${{ github.event.release.name }}
         run: |
           # Set GitHub Actions bot identity
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Set variables for release type (pre-release or stable) and prepare/update
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            release_version=$(echo "$RELEASE_NAME" | sed 's/(Alpha) //I')
-            updated_json=$(jq --arg release_version "$release_version" '.Alpha = $release_version' "versions.json")
-          else
-            release_version=$(echo "$RELEASE_NAME" | sed 's/(Stable) //I')
-            updated_json=$(jq --arg release_version "$release_version" '.Stable = $release_version' "versions.json")
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: 3.x
 
-            # For backward compatibility, update the "version.txt" file with the new version (only stores stable releases)
-            echo "$release_version" > "version.txt"
-            git add "version.txt"
-            git commit -m "Update version.txt"
-          fi
+      - name: Install Packaging Library
+        run: pip install packaging
 
-          # Update the "versions.json" file with the new version
-          echo "$updated_json" > "versions.json"
-          git add "versions.json"
-          git commit -m "Update versions.json"
+      - name: Run Version Update Script
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          python "scripts/update_release_versions.py" "$RELEASE_TAG" "$IS_PRERELEASE"
+
+          # Update the "release_versions.json" file with the new version
+          git add "release_versions.json"
+          git commit -m "Update release_versions.json"
 
           # Push Changes
           git push origin version

@@ -1,11 +1,11 @@
-"""
-Module for packet capture using TShark, including packet processing and handling of TShark crashes.
-"""
+"""Module for packet capture using TShark, including packet processing and handling of TShark crashes."""
 
 # Standard Python Libraries
 import subprocess
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional
+from typing import NamedTuple
+from collections.abc import Callable
+from datetime import UTC
 
 
 class PacketFields(NamedTuple):
@@ -16,7 +16,7 @@ class PacketFields(NamedTuple):
     dst_port: str
 
 
-class TSharkCrashException(Exception):
+class TSharkCrashExceptionError(Exception):
     pass
 
 
@@ -33,8 +33,8 @@ class IP:
 
 class UDP:
     def __init__(self, srcport: str, dstport: str):
-        self.srcport = int(srcport) if srcport else None
-        self.dstport = int(dstport) if dstport else None
+        self.srcport = int(srcport)
+        self.dstport = int(dstport)
 
 
 class Packet:
@@ -50,8 +50,8 @@ class PacketCapture:
         interface: str,
         tshark_path: Path,
         tshark_version: str,
-        capture_filter: Optional[str] = None,
-        display_filter: Optional[str] = None
+        capture_filter: str | None = None,
+        display_filter: str | None = None,
     ):
         from modules.constants.standard import RE_WIRESHARK_VERSION_PATTERN
 
@@ -60,6 +60,8 @@ class PacketCapture:
         self.tshark_version = tshark_version
         self.capture_filter = capture_filter
         self.display_filter = display_filter
+
+        self._EXPECTED_PACKET_FIELDS = 5
 
         # Extract Wireshark version
         if not (match := RE_WIRESHARK_VERSION_PATTERN.search(tshark_version)):
@@ -74,21 +76,21 @@ class PacketCapture:
         # Build TShark command
         self._tshark_command = [
             str(tshark_path),
-            '-l', '-n', '-Q',
-            '--log-level', 'critical',
-            '-B', '1',
-            '-i', interface,
-            *(['-f', capture_filter] if capture_filter else []),
-            *(['-Y', display_filter] if display_filter else []),
-            '-T', 'fields',
-            '-E', 'separator=|',
-            '-e', 'frame.time_epoch',
-            '-e', 'ip.src',
-            '-e', 'ip.dst',
-            '-e', 'udp.srcport',
-            '-e', 'udp.dstport',
+            "-l", "-n", "-Q",
+            "--log-level", "critical",
+            "-B", "1",
+            "-i", interface,
+            *(["-f", capture_filter] if capture_filter else []),
+            *(["-Y", display_filter] if display_filter else []),
+            "-T", "fields",
+            "-E", "separator=|",
+            "-e", "frame.time_epoch",
+            "-e", "ip.src",
+            "-e", "ip.dst",
+            "-e", "udp.srcport",
+            "-e", "udp.dstport",
         ]
-        self._tshark_process: Optional[subprocess.Popen[str]] = None
+        self._tshark_process: subprocess.Popen[str] | None = None
 
     def apply_on_packets(self, callback: Callable[[Packet], None]):
         for packet in self._capture_packets():
@@ -96,33 +98,58 @@ class PacketCapture:
 
     def _capture_packets(self):
         def process_tshark_stdout(line: str):
-            fields = line.rstrip().split('|', 4)
-            return PacketFields(*fields) if len(fields) == 5 else None
+            fields = line.split("|", self._EXPECTED_PACKET_FIELDS - 1)
+            if len(fields) != self._EXPECTED_PACKET_FIELDS:
+                raise ValueError(
+                    "Unexpected number of fields in TShark output. "
+                    f'Expected "{self._EXPECTED_PACKET_FIELDS}", got "{len(fields)}": "{fields}"',
+                )
+
+            fields = [field.strip() for field in fields]  # Strip whitespace from each field
+
+            # Ensure the first three fields are not empty
+            if any(not field for field in fields[:3]):
+                raise ValueError(
+                    "One of the required first three fields is empty. Fields: " + str(fields),
+                )
+
+            # TODO(BUZZARDGTA): In future development, it would be ideal to retain these packets instead of discarding them.
+            # Displaying "None" in the Port field should be supported at some point.
+            # Allow the last two fields (source and destination ports) to be empty.
+            if "" in {fields[-2], fields[-1]}:
+                print(f"Source or destination port is missing. Packet ignored: [{line}]")
+                return None  # Skip processing if either of the last two fields is empty
+
+            if not (fields[-2].isdigit() and fields[-1].isdigit()):
+                raise ValueError("Source and destination ports must be digits.")
+
+            return PacketFields(*fields)
 
         with subprocess.Popen(
             self._tshark_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
         ) as process:
             self._tshark_process = process
 
             if process.stdout:
                 # Iterate over stdout line by line as it is being produced
                 for line in process.stdout:
-                    if (packet_fields := process_tshark_stdout(line)) and all([
-                        packet_fields.src_ip, packet_fields.dst_ip, packet_fields.src_port, packet_fields.dst_port
-                    ]):
-                        yield Packet(packet_fields)
+                    packet_fields = process_tshark_stdout(line.rstrip())
+                    if packet_fields is None:
+                        continue
+
+                    yield Packet(packet_fields)
 
             # After stdout is done, check if there were any errors in stderr
             if process.stderr:
                 stderr_output = process.stderr.read()
                 if process.returncode != 0:
-                    raise TSharkCrashException(f"TShark exited with error code {process.returncode}:\n{stderr_output.strip()}")
+                    raise TSharkCrashExceptionError(f"TShark exited with error code {process.returncode}:\n{stderr_output.strip()}")
 
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
     from datetime import datetime
 
-    return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch))
+    return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch), tz=UTC)

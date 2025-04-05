@@ -1,18 +1,25 @@
-"""
-Module for defining constants that include only imports from standard Python libraries.
-"""
+"""Module for defining constants that include only imports from standard Python libraries."""
 
 # Standard Python Libraries
+import os
 import re
 import textwrap
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC as DT_UTC
+
+# Get the SystemRoot environment variable dynamically
+system_root = Path(os.environ.get("SYSTEMROOT", "C:/Windows"))
+system32 = system_root / "System32"
+CMD_EXE = system32 / "cmd.exe"
+SC_EXE = system32 / "sc.exe"
+SHUTDOWN_EXE = system32 / "shutdown.exe"
 
 SETTINGS_PATH = Path("Settings.ini")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
-SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now().strftime("%Y/%m/%d") / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+PYPROJECT_PATH = Path("pyproject.toml")
 USERIP_LOGGING_PATH = Path("UserIP_Logging.log")
 GEOLITE2_DATABASES_FOLDER_PATH = Path("GeoLite2 Databases")
+SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now(tz=DT_UTC).strftime("%Y/%m/%d") / f"{datetime.now(tz=DT_UTC).strftime('%Y-%m-%d_%H-%M-%S')}.log"
 TWO_TAKE_ONE__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/PopstarDevs/2Take1Menu/scripts/GTA_V_Session_Sniffer-plugin/log.txt"
 STAND__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/Stand/Lua Scripts/GTA_V_Session_Sniffer-plugin/log.txt"
 
@@ -22,7 +29,7 @@ RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$", re.I
 RE_OUI_MAC_ADDRESS_PATTERN = re.compile(r"^[0-9A-F]{6}$", re.IGNORECASE)
 RE_OUI_ENTRY_PATTERN = re.compile(
     r"^(?P<OUI>[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}) {3}\(hex\)\t{2}(?P<ORGANIZATION_NAME>.*)\r\n(?P<COMPANY_ID>[0-9A-Fa-f]{6}) {5}\(base 16\)\t{2}(?P<ORGANIZATION_NAME_BIS>.*)\r\n\t{4}(?P<ADDRESS_LINE_1>.*)\r\n\t{4}(?P<ADDRESS_LINE_2>.*)\r\n\t{4}(?P<ADDRESS_COUNTRY_ISO_CODE>.*)",
-    re.M
+    re.MULTILINE,
 )
 RE_SETTINGS_INI_PARSER_PATTERN = re.compile(r"^(?![;#])(?P<key>[^=]+)=(?P<value>[^;#]+)")
 RE_USERIP_INI_PARSER_PATTERN = re.compile(r"^(?![;#])(?P<username>[^=]+)=(?P<ip>[^;#]+)")
@@ -34,7 +41,7 @@ RE_BYTES_PATTERN = re.compile(r"(?P<NUM_OF_BYTES>[\d]+) bytes? from (?P<IP>\d+\.
 RE_PACKET_STATS_PATTERN = re.compile(r"(?P<PACKETS_TRANSMITTED>\d+) packets? transmitted, (?P<PACKETS_RECEIVED>\d+) received(?:, \+(?P<ERRORS>\d+) errors?)?, (?P<PACKET_LOSS_PERCENTAGE>\d+(?:\.\d+)?)% packet loss, time (?P<TIME>\d+)ms")
 RE_RTT_STATS_PATTERN = re.compile(r"rtt min/avg/max/mdev = (?P<RTT_MIN>[\d\.]+)/(?P<RTT_AVG>[\d\.]+)/(?P<RTT_MAX>[\d\.]+)/(?P<RTT_MDEV>[\d\.]+) ms")
 
-# TODO: Implement a better way to retrieve the default background color for table cells.
+# TODO(BUZZARDGTA): Implement a better way to retrieve the default background color for table cells.
 # Currently hardcoded to Gray.B10, which should be the same color for everyone.
 CUSTOM_CONTEXT_MENU_STYLESHEET = textwrap.dedent("""
     QMenu {

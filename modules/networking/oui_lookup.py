@@ -1,10 +1,10 @@
-"""
-This module provides functionality for MAC address lookup using the OUI database.
-It includes functions to fetch, parse, and search the database.
+"""Provide functionality for MAC address lookup using the OUI database.
+
+Includes functions to fetch, parse, and search the database.
 """
 
 # Standard Python Libraries
-from typing import Optional
+from requests.exceptions import RequestException
 
 # Local Python Libraries (Included with Project)
 from modules.constants.standalone import OUI_URL
@@ -16,7 +16,7 @@ from modules.networking.utils import is_mac_address, get_mac_oui
 OuiDatabaseType = dict[str, list[dict[str, str]]]
 
 
-class FetchError(Exception):
+class OUIFetchError(Exception):
     """Raised when fetching the OUI database fails."""
 
 
@@ -25,13 +25,12 @@ class InvalidMacError(Exception):
 
 
 class MacLookup:
-    def __init__(self, load_on_init: bool = False):
-        """
-        Initializes the MacLookup instance.
+    def __init__(self, *, load_on_init: bool = False):
+        """Initialize the MacLookup instance.
 
         :param load_on_init: If True, fetches and loads the OUI database immediately.
         """
-        self.oui_database: Optional[OuiDatabaseType] = None
+        self.oui_database: OuiDatabaseType | None = None
         if load_on_init:
             self.refresh_oui_database()
 
@@ -40,14 +39,14 @@ class MacLookup:
         self.oui_database = fetch_and_parse_oui_database()
 
     def lookup(self, mac_address: str):
-        """
-        Lookup the MAC address in the OUI database.
+        """Lookup the MAC address in the OUI database.
+
         Will load the database if it's not already loaded.
         """
         if not is_mac_address(mac_address):
             raise InvalidMacError(
                 f"Invalid MAC address: {mac_address}\n"
-                "A MAC address must be a 12-digit hexadecimal number long."
+                "A MAC address must be a 12-digit hexadecimal number long.",
             )
 
         # Ensure the database is loaded before performing lookup
@@ -60,6 +59,19 @@ class MacLookup:
         oui = get_mac_oui(mac_address)
         return self.oui_database.get(oui)
 
+    def get_mac_address_organization_name(self, mac_address: str):
+        """Return the organization name for a given MAC address, if available."""
+        oui_infos = self.lookup(mac_address)
+        if not oui_infos:
+            return None
+
+        for oui_info in oui_infos:
+            organization_name = oui_info.get("organization_name")
+            if organization_name:
+                return organization_name
+
+        return None
+
 
 def fetch_and_parse_oui_database():
     def strip_tuple(tuple_to_strip: tuple):
@@ -67,9 +79,9 @@ def fetch_and_parse_oui_database():
 
     try:
         response = s.get(OUI_URL)
-    except Exception as e:
-        # TODO:
-        raise FetchError("Failed to retrieve data from OUI URL.") from e
+        response.raise_for_status()
+    except RequestException as e:
+        raise OUIFetchError("Failed to retrieve data from OUI URL.") from e
 
     oui_database: OuiDatabaseType = {}
 
@@ -95,7 +107,7 @@ def fetch_and_parse_oui_database():
             "organization_name": organization_name,
             "address_line_1": address_line_1,
             "address_line_2": address_line_2,
-            "address_country_iso_code": address_country_iso_code
+            "address_country_iso_code": address_country_iso_code,
         }
         if entry not in oui_database.setdefault(company_id.upper(), []):
             oui_database[company_id.upper()].append(entry)

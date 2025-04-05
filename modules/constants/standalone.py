@@ -1,13 +1,9 @@
-"""
-Module for defining constants that don't require imports or functions, using only pure Python.
-"""
+"""Module for defining constants that don't require imports or functions, using only pure Python."""
 
 TITLE = "Session Sniffer"
-VERSION = "v1.3.7 - 30/03/2025 (16:16)"
-
 GITHUB_REPO_URL = "https://github.com/BUZZARDGTA/Session-Sniffer"
 GITHUB_RELEASES_URL = "https://github.com/BUZZARDGTA/Session-Sniffer/releases"
-GITHUB_VERSIONS_URL = "https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/versions.json"
+GITHUB_VERSIONS_URL = "https://raw.githubusercontent.com/BUZZARDGTA/Session-Sniffer/version/release_versions.json"
 DISCORD_INVITE_URL = "https://discord.gg/hMZ7MsPX7G"
 OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
 GITHUB_RELEASE_API__GEOLITE2__URL = "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest"
@@ -15,14 +11,28 @@ GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL = "https://api.github.com/repos/PrxyHu
 
 TSHARK_RECOMMENDED_FULL_VERSION = "TShark (Wireshark) 4.2.11 (v4.2.11-0-g53ee01efc521)."
 TSHARK_RECOMMENDED_VERSION_NUMBER = "4.2.11"
-# TODO: NPCAP_RECOMMENDED_VERSION_NUMBER = "1.78"
+# TODO(BUZZARDGTA): NPCAP_RECOMMENDED_VERSION_NUMBER = "1.78"
+USER_SHELL_FOLDERS__REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
 
 DISCORD_APPLICATION_ID = 1313304495958261781
-USER_SHELL_FOLDERS__REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+INTERFACE_PARTS_LENGTH = 3
+MIN_PORT = 1
+MAX_PORT = 65535
+PPS_THRESHOLD_WARNING  = 1500  # Warning  threshold (yellow alert)
+PPS_THRESHOLD_CRITICAL = 3000  # Critical threshold (red    alert)
+ERROR_USER_MAPPED_FILE = 1224  # https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-
+NETWORK_ADAPTER_DISABLED = 3  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
+RATE_ZERO = 0
+RATE_LOW  = 1
+RATE_MAX  = 3
+MAX_PPS_VALUES = 3
+MAX_PPM_VALUES = 3
+MINIMUM_PACKETS_FOR_SESSION_HOST = 50
+
 USERIP_INI_SETTINGS = ["ENABLED", "COLOR", "NOTIFICATIONS", "VOICE_NOTIFICATIONS", "LOG", "PROTECTION", "PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH", "PROTECTION_SUSPEND_PROCESS_MODE"]
 EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
     "Adapter for loopback traffic capture",
-    "Event Tracing for Windows (ETW) reader"
+    "Event Tracing for Windows (ETW) reader",
 }
 GUI_COLUMN_HEADERS_TOOLTIPS = {
     "Usernames": "Displays the username(s) of players from your UserIP database files.\n\nFor GTA V PC users who have used the Session Sniffer mod menu plugin,\nit automatically resolves usernames while the plugin is running,\nor shows previously resolved players that were seen by the plugin.",

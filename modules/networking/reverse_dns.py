@@ -1,5 +1,5 @@
-"""
-This module provides functionality for performing reverse DNS lookups.
+"""This module provides functionality for performing reverse DNS lookups.
+
 It includes a function `lookup` which resolves hostnames from IP addresses.
 """
 
@@ -8,7 +8,7 @@ import dns.resolver
 import dns.reversename
 
 
-NAMESERVERS = ['1.1.1.1', '1.0.0.1']
+NAMESERVERS = ["1.1.1.1", "1.0.0.1"]
 
 resolver = dns.resolver.Resolver()
 resolver.nameservers = NAMESERVERS
@@ -28,12 +28,11 @@ def lookup(target_ip: str):
     """
     try:
         rev_name = dns.reversename.from_address(target_ip)
-        answer = resolver.resolve(rev_name, 'PTR')
+        answer = resolver.resolve(rev_name, "PTR")
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
         return target_ip
 
-    if answer and answer[0]:
-        if hostname := str(answer[0]).removesuffix('.'):
-            return hostname
+    if answer and answer[0] and (hostname := str(answer[0]).removesuffix(".")):
+        return hostname
 
     return target_ip
