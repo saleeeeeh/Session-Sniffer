@@ -120,11 +120,11 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" "$IS_PRERELEASE"
+          # Build the argument string for prerelease
+          PRERELEASE_ARG=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_ARG="--prerelease"
+          fi
 
-          # Update the "release_versions.json" file with the new version
-          git add "release_versions.json"
-          git commit -m "Update release_versions.json"
-
-          # Push Changes
-          git push origin version
+          # Run the Python script with the correct arguments
+          python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" $PRERELEASE_ARG
