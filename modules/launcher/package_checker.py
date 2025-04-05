@@ -2,27 +2,27 @@
 
 # Standard Python Libraries
 import importlib.metadata
-from pathlib import Path
 
 # External/Third-party Python Libraries
-import toml
 from packaging.requirements import Requirement
 
 
-def get_dependencies_from_pyproject(file_path: Path = Path("pyproject.toml")):
-    data = toml.load(file_path)
+def get_dependencies_from_pyproject():
+    from modules.constants.local import PYPROJECT_DATA
 
-    dependencies = data.get("project", {}).get("dependencies", [])
+    dependencies = PYPROJECT_DATA.get("project", {}).get("dependencies", [])
 
     return {
         req.name: req for req in map(Requirement, dependencies)
     }
 
 
-def get_dependencies_from_requirements(file_path: Path = Path("requirements.txt")):
+def get_dependencies_from_requirements():
+    from modules.constants.local import REQUIEREMENTS_PATH
+
     dependencies: dict[str, Requirement] = {}
 
-    with file_path.open("r") as f:
+    with REQUIEREMENTS_PATH.open("r") as f:
         for line in f:
             stripped_line = line.strip()
             if (

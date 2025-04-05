@@ -1660,8 +1660,6 @@ while not is_npcap_installed():
 
     subprocess.run([SETUP_PATH / "npcap-1.78.exe"], shell=True, check=True)
 
-del SETUP_PATH
-
 clear_screen()
 set_window_title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
 print('\nApplying your custom settings from "Settings.ini" ...\n')

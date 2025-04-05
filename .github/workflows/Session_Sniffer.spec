@@ -10,6 +10,7 @@ a = Analysis(
         ('..\\..\\requirements.txt', '.'),
         ('..\\..\\bin', 'bin'),
         ('..\\..\\scripts', 'scripts'),
+        ('..\\..\\setup', 'setup'),
         ('..\\..\\TTS', 'TTS')
     ],
     hiddenimports=[],

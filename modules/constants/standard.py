@@ -16,7 +16,6 @@ SHUTDOWN_EXE = system32 / "shutdown.exe"
 
 SETTINGS_PATH = Path("Settings.ini")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
-PYPROJECT_PATH = Path("pyproject.toml")
 USERIP_LOGGING_PATH = Path("UserIP_Logging.log")
 GEOLITE2_DATABASES_FOLDER_PATH = Path("GeoLite2 Databases")
 SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now(tz=DT_UTC).strftime("%Y/%m/%d") / f"{datetime.now(tz=DT_UTC).strftime('%Y-%m-%d_%H-%M-%S')}.log"
