@@ -90,6 +90,10 @@ jobs:
         with:
           ref: version
 
+      - name: Copy update_release_versions.py from main branch
+        run: |
+          git checkout main -- .github/workflows/scripts/update_release_versions.py
+
       - name: Update Files, Commit, and Push
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -112,7 +116,7 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          python "scripts/update_release_versions.py" "$RELEASE_TAG" "$IS_PRERELEASE"
+          python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" "$IS_PRERELEASE"
 
           # Update the "release_versions.json" file with the new version
           git add "release_versions.json"
