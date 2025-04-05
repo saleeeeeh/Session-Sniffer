@@ -3524,7 +3524,7 @@ def rendering_core():
             return header, global_pps_last_update_time, global_pps_rate
 
         from modules.constants.standard import TWO_TAKE_ONE__PLUGIN__LOG_PATH, STAND__PLUGIN__LOG_PATH, RE_MODMENU_LOGS_USER_PATTERN
-        from modules.constants.local import CHERAX__PLUGIN__LOG_PATH
+        from modules.constants.local import CHERAX__PLUGIN__LOG_PATH, IMAGES_PATH
         from modules.utils import concat_lists_no_duplicates
 
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
@@ -3641,7 +3641,7 @@ def rendering_core():
                         else None
                     )
                     if country_code:
-                        flag_path = Path(f"images/country_flags/{country_code.upper()}.png")
+                        flag_path = IMAGES_PATH / f"country_flags/{country_code.upper()}.png"
                         if flag_path.exists():
                             pixmap = QPixmap()  # Create a new QPixmap
                             pixmap.loadFromData(flag_path.read_bytes())  # Load the data into the QPixmap
