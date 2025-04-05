@@ -1,4 +1,4 @@
-# Standard Python Libraries
+# Standard Python Libraries  # noqa: D100, INP001
 import json
 import argparse
 from pathlib import Path
