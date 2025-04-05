@@ -127,10 +127,10 @@ jobs:
           # Execute the Python version update script with the release tag and prerelease argument
           python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" $PRERELEASE_ARG
 
-      - name: Remove Temporary Script File
+      - name: Remove Temporary Script Path
         run: |
-          # Delete the update_release_versions.py script after it's used to avoid committing it
-          rm ".github/workflows/scripts/update_release_versions.py"
+          # Delete the "update_release_versions.py" script path after it's used to avoid committing it
+          rm -rf ".github/"
 
       - name: Commit and Push Changes to release_versions.json
         run: |
