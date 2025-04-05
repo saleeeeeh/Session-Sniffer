@@ -9,6 +9,7 @@ a = Analysis(
         ('..\\..\\pyproject.toml', '.'),
         ('..\\..\\requirements.txt', '.'),
         ('..\\..\\bin', 'bin'),
+        ('..\\..\\images', 'images'),
         ('..\\..\\scripts', 'scripts'),
         ('..\\..\\setup', 'setup'),
         ('..\\..\\TTS', 'TTS')
