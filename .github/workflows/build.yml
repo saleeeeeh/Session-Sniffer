@@ -90,47 +90,54 @@ jobs:
         with:
           ref: version
 
-      - name: Verify File and Checkout from Main Branch
+      - name: Fetch Latest Changes and Checkout Main Branch Script
         run: |
-          # Verify that the correct branch exists
+          # Fetch all branches to ensure we have the latest changes
           git fetch --all
 
-          # Checkout the file from the main branch
+          # Checkout the update_release_versions.py script from the main branch
           git checkout origin/main -- .github/workflows/scripts/update_release_versions.py
 
-      - name: Update Files, Commit, and Push
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+      - name: Set Git Identity for Commits
         run: |
-          # Set GitHub Actions bot identity
+          # Set GitHub Actions bot identity for commits
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Set up Python
+      - name: Setup Python Environment
         uses: actions/setup-python@v5.3.0
         with:
           python-version: 3.x
 
-      - name: Install Packaging Library
-        run: pip install packaging
+      - name: Install Packaging Python Library
+        run: |
+          pip install packaging
 
       - name: Run Version Update Script
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          # Build the argument string for prerelease
+          # Determine if the release is a pre-release and build the appropriate argument
           PRERELEASE_ARG=""
           if [ "$IS_PRERELEASE" = "true" ]; then
             PRERELEASE_ARG="--prerelease"
           fi
 
-          # Run the Python script with the correct arguments
+          # Execute the Python version update script with the release tag and prerelease argument
           python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" $PRERELEASE_ARG
 
-          # Update the "release_versions.json" file with the new version
+      - name: Remove Temporary Script File
+        run: |
+          # Delete the update_release_versions.py script after it's used to avoid committing it
+          rm ".github/workflows/scripts/update_release_versions.py"
+
+      - name: Commit and Push Changes to release_versions.json
+        run: |
+          # Stage the modified release_versions.json file for commit
           git add "release_versions.json"
+
+          # Commit the changes with a meaningful message
           git commit -m "Update release_versions.json"
 
           # Push Changes
