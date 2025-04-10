@@ -17,6 +17,14 @@
 
 ---
 
+## ⬇️ Download
+
+Grab the latest stable release and get started instantly!  
+
+[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-%23007ACC?style=for-the-badge&logo=github&logoColor=white)](https://github.com/BUZZARDGTA/Session-Sniffer/releases/latest/download/Session_Sniffer.exe)
+
+---
+
 ### 🔑 Key Features
 
 - **Free & Open Source**: Completely free to use and modify, unlike other similar software.
