@@ -6,7 +6,7 @@ This module contains a variety of helper functions and custom exceptions used ac
 # Standard Python Libraries
 import contextlib
 from pathlib import Path
-from typing import Literal, Any
+from typing import Literal, TypeVar
 
 # External/Third-party Python Libraries
 from packaging.version import Version
@@ -30,6 +30,9 @@ class NoMatchFoundError(Exception):
         self.input_value = input_value
         self.message = f"{message}: '{input_value}'"
         super().__init__(self.message)
+
+
+T = TypeVar("T")
 
 
 def is_pyinstaller_compiled():
@@ -109,19 +112,32 @@ def resource_path(relative_path: Path):
     return base_path / relative_path
 
 
-def take(n: int, input_list: list[Any]):
+def take(n: int, input_list: list[T]):
     """Return first n items from the given input list."""
     return input_list[:n]
 
 
-def concat_lists_no_duplicates(*lists: list[Any]):
+def remove_duplicates_from_list(lst: list[T]):
+    """Remove duplicates from a single list while preserving order."""
+    seen = set()
+    unique_list = []
+
+    for item in lst:
+        if item not in seen:
+            seen.add(item)
+            unique_list.append(item)
+
+    return unique_list
+
+
+def concat_lists_no_duplicates(*lists: list[T]):
     """Concatenate multiple lists while removing duplicates and preserving order.
 
     Args:
         *lists: One or more lists to concatenate.
     """
-    unique_list: list[Any] = []
     seen = set()
+    unique_list: list[T] = []
 
     for lst in lists:
         for item in lst:

@@ -66,23 +66,3 @@ def is_valid_non_special_ipv4(ip_address: str):
     ]
 
     return not any(invalid_conditions)
-
-
-def get_network_arp_cache():
-    from modules.networking.wmi_utils import iterate_network_neighbor_details
-
-    cached_arp_dict: dict[int, list[dict[str, str]]] = {}
-
-    for interface_index, ip_address, mac_address in iterate_network_neighbor_details(AddressFamily=2):
-        if None in {interface_index, ip_address, mac_address}:
-            continue
-
-        # Append ARP info directly to the dictionary entry
-        entry = {
-            "ip_address": ip_address,
-            "mac_address": mac_address,
-        }
-        if entry not in cached_arp_dict.setdefault(interface_index, []):
-            cached_arp_dict[interface_index].append(entry)
-
-    return cached_arp_dict

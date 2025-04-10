@@ -29,7 +29,6 @@ from dataclasses import dataclass, field
 # 📦 External/Third-party Python Libraries 📦
 # --------------------------------------------
 import psutil
-
 import colorama
 import requests
 import qdarkstyle
@@ -53,12 +52,11 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADAPTER_DISABLED, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
 from modules.constants.standard import SETTINGS_PATH
 from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
-from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file
+from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
 from modules.networking.unsafe_https import s
-from modules.networking.wmi_utils import iterate_network_adapter_details, iterate_legacy_network_adapter_details, iterate_network_ip_details, iterate_legacy_network_ip_details
-from modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address, format_mac_address
+from modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address, is_mac_address, format_mac_address
 from modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashExceptionError
 from modules.capture.utils.tshark_validator import TSharkNotFoundError, TSharkVersionNotFoundError, InvalidTSharkVersionError, validate_tshark_path
 from modules.capture.utils.npcap_checker import is_npcap_installed
@@ -714,74 +712,216 @@ class Settings(DefaultSettings):
             Settings.reconstruct_settings()
 
 
-@dataclass
-class AdapterProperties:
-    interface_description: Literal["N/A"] | str = "N/A"
-    interface_index      : Literal["N/A"] | int = "N/A"
-    manufacturer         : Literal["N/A"] | str = "N/A"
+@dataclass(slots=True, kw_only=True, eq=True)
+class ARPEntry:
+    ip_address: str
+    mac_address: str
+    manufacturer: str | None = None
 
 
+@dataclass(slots=True, kw_only=True)
 class Interface:
-    all_interfaces: ClassVar[list["Interface"]] = []
+    index:        int
+    ip_enabled:   bool | None    = None
+    state:        int  | None    = None
+    name:         str  | None    = None
+    mac_address:  str  | None    = None
+    manufacturer: str  | None    = None
+    packets_sent: int  | None    = None
+    packets_recv: int  | None    = None
+    descriptions: list[str]      = field(default_factory=list)
+    ip_addresses: list[str]      = field(default_factory=list)
+    arp_entries:  list[ARPEntry] = field(default_factory=list)
 
-    def __init__(self, interface_name: str):
-        self.interface_name = interface_name
+    def add_arp_entry(self, arp_entry: ARPEntry):
+        """Add an ARP entry for the given interface."""
+        if arp_entry in self.arp_entries:
+            return False
 
-        self.ip_addresses     : list[str]            = []
-        self.mac_address      : Literal["N/A"] | str = "N/A"
-        self.organization_name: Literal["N/A"] | str = "N/A"
-        self.packets_sent     : Literal["N/A"] | int = "N/A"
-        self.packets_recv     : Literal["N/A"] | int = "N/A"
-        self.arp_infos        : list[dict[str, str]] = []
+        self.arp_entries.append(arp_entry)
+        return True
 
-        self.adapter_properties = AdapterProperties()
-
-        Interface.all_interfaces.append(self)
-
-    def add_arp_infos(self, arp_infos: list[dict[str, str]]):
-        """Add ARP informations for the given interface."""
-        for arp_info in arp_infos:
-            if arp_info not in self.arp_infos:
-                self.arp_infos.append(arp_info)
-
-    def get_arp_infos(self):
-        """Get ARP informations for the given interface."""
-        return self.arp_infos
+    def get_arp_entries(self):
+        """Get ARP entries for the given interface."""
+        return self.arp_entries
 
     def is_interface_inactive(self):
         """Determine if an interface is inactive based on lack of traffic, IP addresses, and identifying details."""
         return (
-            self.packets_sent in {"N/A", 0}
-            and self.packets_recv in {"N/A", 0}
+            self.mac_address is None
+            and self.manufacturer is None
+            and self.packets_sent in {None, 0}
+            and self.packets_recv in {None, 0}
+            and not self.descriptions
             and not self.ip_addresses
-            and self.mac_address == "N/A"
-            and self.adapter_properties.interface_description == "N/A"
-            and self.adapter_properties.manufacturer == "N/A"
         )
 
+    # ─────────────────────────────────────────────────────────────
+    # Update/Add Methods
+    # ─────────────────────────────────────────────────────────────
+
+    def update_ip_enabled(self, new_value: bool | None):
+        if new_value is None:
+            return False
+
+        if self.ip_enabled is not None and self.ip_enabled != new_value:
+            raise ValueError(f"ip_enabled mismatch: existing={self.ip_enabled}, new={new_value}")
+        self.ip_enabled = new_value
+        return True
+
+    def update_state(self, new_value: int | None):
+        if new_value is None:
+            return False
+
+        if self.state is not None and self.state != new_value:
+            raise ValueError(f"state mismatch: existing={self.state}, new={new_value}")
+        self.state = new_value
+        return True
+
+    def update_name(self, new_value: str | None):
+        if new_value is None:
+            return False
+
+        if self.name is not None and self.name != new_value:
+            raise ValueError(f"name mismatch: existing={self.name}, new={new_value}")
+        self.name = new_value
+        return True
+
+    def update_mac_address(self, new_value: str | None):
+        if new_value is None:
+            return False
+
+        if self.mac_address is not None and self.mac_address != new_value:
+            raise ValueError(f"mac_address mismatch: existing={self.mac_address}, new={new_value}")
+        self.mac_address = new_value
+        return True
+
+    def update_manufacturer(self, new_value: str | None):
+        if new_value is None:
+            return False
+
+        if self.manufacturer is not None and self.manufacturer != new_value:
+            raise ValueError(f"manufacturer mismatch: existing={self.manufacturer}, new={new_value}")
+        self.manufacturer = new_value
+        return True
+
+    def update_packets_sent(self, new_value: int | None):
+        if new_value is None:
+            return False
+
+        if self.packets_sent is not None and self.packets_sent != new_value:
+            raise ValueError(f"packets_sent mismatch: existing={self.packets_sent}, new={new_value}")
+        self.packets_sent = new_value
+        return True
+
+    def update_packets_recv(self, new_value: int | None):
+        if new_value is None:
+            return False
+
+        if self.packets_recv is not None and self.packets_recv != new_value:
+            raise ValueError(f"packets_recv mismatch: existing={self.packets_recv}, new={new_value}")
+        self.packets_recv = new_value
+        return True
+
+    def add_description(self, new_value: str | None):
+        if new_value is None:
+            return False
+
+        normalized_new = new_value.casefold()
+        if normalized_new not in {desc.casefold() for desc in self.descriptions}:
+            self.descriptions.append(new_value)
+            return True
+
+        return False
+
+    def add_ip_address(self, new_value: str | None):
+        if new_value is None:
+            return False
+
+        if new_value not in self.ip_addresses:
+            self.ip_addresses.append(new_value)
+            return True
+
+        return False
+
+
+class AllInterfaces:
+    all_interfaces: ClassVar[dict[int, Interface]] = {}
+    _name_map: ClassVar[dict[str, int]] = {}
+
     @classmethod
-    def get_interface_by_name(cls, interface_name: str):
-        for interface in cls.iterate_safely():
-            if interface.interface_name == interface_name:
-                return interface
+    def iterate(cls):
+        """Yield each interface from `all_interfaces`.
+
+        This is an iterator that will provide all interfaces stored in the dictionary.
+        The iteration will be done over the dictionary values (the Interface objects).
+
+        Yields:
+            Interface: Each interface from `all_interfaces`.
+        """
+        yield from cls.all_interfaces.values()
+
+    @classmethod
+    def get_interface(cls, index: int):
+        """Retrieve an interface by its `index`.
+
+        Args:
+            index (int): The index of the interface to retrieve.
+
+        Returns:
+            Interface | None: The interface matching the index, or None if not found.
+        """
+        return cls.all_interfaces.get(index)
+
+    @classmethod
+    def get_interface_by_name(cls, name: str):
+        """Retrieve an interface by its `name`, case-insensitively.
+
+        Args:
+            name (str): The name of the interface to retrieve.
+
+        Returns:
+            Interface | None: The interface matching the name, or None if not found.
+        """
+        normalized_name = name.casefold()
+        index = cls._name_map.get(normalized_name)
+        if index is not None:
+            return cls.get_interface(index)
         return None
 
     @classmethod
-    def get_interface_by_id(cls, interface_index: int):
-        for interface in cls.iterate_safely():
-            if interface.adapter_properties.interface_index == interface_index:
-                return interface
-        return None
+    def add_interface(cls, new_interface: Interface):
+        """Add a new interface to the dictionary if it doesn't already exist.
+
+        Args:
+            new_interface (Interface): The interface object to add.
+
+        Returns:
+            bool: True if the interface was added, False if it already exists.
+        """
+        if new_interface.index not in cls.all_interfaces:
+            cls.all_interfaces[new_interface.index] = new_interface
+            if new_interface.name:
+                cls._name_map[new_interface.name.casefold()] = new_interface.index
+            return True
+        return False
 
     @classmethod
-    def delete_interface(cls, interface: "Interface"):
-        """Delete an interface."""
-        cls.all_interfaces.remove(interface)
+    def delete_interface(cls, index: int):
+        """Delete an interface by its `index`.
 
-    @classmethod
-    def iterate_safely(cls):
-        """Safely iterate over all_interfaces, allowing modifications during iteration."""
-        yield from cls.all_interfaces[:]  # Iterate over a copy of the list
+        Args:
+            index (int): The index of the interface to delete.
+
+        Returns:
+            bool: True if the interface was deleted, False if no matching interface was found.
+        """
+        interface = cls.all_interfaces.pop(index, None)
+        if interface:
+            if interface.name:
+                cls._name_map.pop(interface.name.casefold(), None)
+            return True
+        return False
 
 
 class ThirdPartyServers(enum.Enum):
@@ -1311,6 +1451,216 @@ def check_for_updates():
             sys.exit(0)
 
 
+def populate_network_interfaces_info():
+    """Populate the AllInterfaces collection with network interface details."""
+    from modules.networking.wmi_utils import (
+        iterate_project_network_adapter_details,
+        iterate_project_legacy_network_adapter_details,
+        iterate_project_network_ip_details,
+        iterate_project_legacy_network_ip_details,
+        iterate_project_network_neighbor_details,
+    )
+
+    def validate_mac_address(mac_address: str | None):
+        """Validate the MAC address, ensuring it is in the correct format and not a placeholder."""
+        formatted_mac_address = format_mac_address(mac_address) if mac_address is not None and is_mac_address(mac_address) else None
+
+        if formatted_mac_address is not None and not is_mac_address(formatted_mac_address):
+            stdout_crash_text = textwrap.dedent(f"""
+                ERROR:
+                    Developer didn't expect this scenario to be possible.
+
+                INFOS:
+                    The value does not appear to be a valid MAC address.
+
+                DEBUG:
+                    formatted_mac_address: {formatted_mac_address}
+            """.removeprefix("\n").removesuffix("\n"))
+            terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+
+        return formatted_mac_address
+
+    def validate_ip_address(ip_address: str | None):
+        """Validate the IP address, ensuring it is a valid IPv4 address and not a special one."""
+        formatted_ip_address = ip_address if ip_address is not None and is_ipv4_address(ip_address) else None
+
+        if formatted_ip_address is not None and not is_ipv4_address(formatted_ip_address):
+            stdout_crash_text = textwrap.dedent(f"""
+                ERROR:
+                    Developer didn't expect this scenario to be possible.
+
+                INFOS:
+                    The value does not appear to be a valid IPv4 address.
+
+                DEBUG:
+                    formatted_ip_address: {formatted_ip_address}
+            """.removeprefix("\n").removesuffix("\n"))
+            terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+
+        return formatted_ip_address
+
+    def _populate_network_adapter_details():
+        """Populate AllInterfaces collection with network adapter details from MSFT_NetAdapter."""
+        for interface_index, name, interface_description, state, permanent_address in iterate_project_network_adapter_details():
+            formatted_mac_address = validate_mac_address(permanent_address)
+
+            interface = AllInterfaces.get_interface(interface_index)
+            if not interface:
+                AllInterfaces.add_interface(Interface(
+                    index=interface_index,
+                    state=state,
+                    name=name,
+                    mac_address=formatted_mac_address,
+                    descriptions=[interface_description],
+                ))
+                continue
+
+            interface.update_state(state)
+            interface.update_name(name)
+            interface.update_mac_address(formatted_mac_address)
+            interface.add_description(interface_description)
+
+    def _populate_legacy_network_adapter_details():
+        """Populate AllInterfaces collection with legacy network adapter details."""
+        for interface_index, net_connection_id, description, mac_address, manufacturer in iterate_project_legacy_network_adapter_details():
+            formatted_mac_address = validate_mac_address(mac_address)
+
+            interface = AllInterfaces.get_interface(interface_index)
+            if not interface:
+                AllInterfaces.add_interface(Interface(
+                    index=interface_index,
+                    name=net_connection_id,
+                    mac_address=formatted_mac_address,
+                    manufacturer=manufacturer,
+                    descriptions=[description],
+                ))
+                continue
+
+            interface.update_name(net_connection_id)
+            interface.update_mac_address(formatted_mac_address)
+            interface.update_manufacturer(manufacturer)
+            interface.add_description(description)
+
+    def _populate_network_ip_details():
+        """Populate AllInterfaces collection with network IP address details."""
+        for interface_index, interface_alias, ipv4_address in iterate_project_network_ip_details():
+            formatted_ip_address = validate_ip_address(ipv4_address)
+
+            interface = AllInterfaces.get_interface(interface_index)
+            if not interface:
+                AllInterfaces.add_interface(Interface(
+                    index=interface_index,
+                    name=interface_alias,
+                    ip_addresses=[formatted_ip_address],
+                ))
+                continue
+
+            interface.update_name(interface_alias)
+            interface.add_ip_address(formatted_ip_address)
+
+    def _populate_legacy_network_ip_details():
+        """Populate AllInterfaces collection with legacy network IP address details."""
+        for interface_index, description, mac_address, ip_address, ip_enabled in iterate_project_legacy_network_ip_details():
+            formatted_ip_addresses: list[str] = [
+                validated_ip
+                for ip in remove_duplicates_from_list(
+                    [ip for ip in ip_address if is_ipv4_address(ip)]
+                    if ip_address is not None else [],
+                )
+                if (validated_ip := validate_ip_address(ip))
+            ]
+            formatted_mac_address: list[str] = validate_mac_address(mac_address)
+
+            interface = AllInterfaces.get_interface(interface_index)
+            if not interface:
+                AllInterfaces.add_interface(Interface(
+                    index=interface_index,
+                    ip_enabled=ip_enabled,
+                    mac_address=mac_address,
+                    ip_addresses=formatted_ip_addresses,
+                    descriptions=[description],
+                ))
+                continue
+
+            interface.update_mac_address(formatted_mac_address)
+            interface.update_ip_enabled(ip_enabled)
+            interface.add_description(description)
+            for ip in formatted_ip_addresses:
+                interface.add_ip_address(ip)
+
+    def _update_network_io_stats():
+        """Update network interface statistics like packets sent and received."""
+        net_io_stats = psutil.net_io_counters(pernic=True)
+        for interface_name, interface_stats in net_io_stats.items():
+            interface = AllInterfaces.get_interface_by_name(interface_name)
+            if not interface:
+                continue
+
+            interface.update_packets_sent(interface_stats.packets_sent)
+            interface.update_packets_recv(interface_stats.packets_recv)
+
+    def _populate_arp_cache_details():
+        """Populate ARP cache information for each interface."""
+        for interface_index, ip_address, mac_address in iterate_project_network_neighbor_details():
+            if None in {interface_index, ip_address, mac_address}:
+                continue
+
+            interface = AllInterfaces.get_interface(interface_index)
+            if not interface:
+                continue
+
+            formatted_mac_address = format_mac_address(mac_address)
+
+            # Skip ARP entries with known placeholder MAC addresses
+            if formatted_mac_address in {"00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF"}:
+                continue
+
+            formatted_ip_address = ip_address if ip_address and is_ipv4_address(ip_address) else None
+
+            if not is_ipv4_address(formatted_ip_address):
+                stdout_crash_text = textwrap.dedent(f"""
+                    ERROR:
+                        Developer didn't expect this scenario to be possible.
+
+                    INFOS:
+                        The value does not appear to be a valid IPv4 address.
+
+                    DEBUG:
+                        formatted_ip_address: {formatted_ip_address}
+                """.removeprefix("\n").removesuffix("\n"))
+                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+
+            if not is_valid_non_special_ipv4(formatted_ip_address):
+                continue
+
+            if not is_mac_address(formatted_mac_address):
+                stdout_crash_text = textwrap.dedent(f"""
+                    ERROR:
+                        Developer didn't expect this scenario to be possible.
+
+                    INFOS:
+                        The value does not appear to be a valid MAC address.
+
+                    DEBUG:
+                        formatted_mac_address: {formatted_mac_address}
+                """.removeprefix("\n").removesuffix("\n"))
+                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+
+            interface.add_arp_entry(ARPEntry(
+                ip_address=formatted_ip_address,
+                mac_address=formatted_mac_address,
+                manufacturer=mac_lookup.get_mac_address_organization_name(formatted_mac_address) or "N/A",
+            ))
+
+    _populate_network_adapter_details()
+    _populate_legacy_network_adapter_details()
+    _populate_network_ip_details()
+    _populate_legacy_network_ip_details()
+    _update_network_io_stats()
+    if Settings.CAPTURE_ARP:
+        _populate_arp_cache_details()
+
+
 def get_filtered_tshark_interfaces():
     """Retrieve a list of available TShark interfaces, excluding a list of exclusions.
 
@@ -1365,7 +1715,7 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
             """
             priority = 0
 
-            if Settings.CAPTURE_INTERFACE_NAME is not None and interface.interface_name == Settings.CAPTURE_INTERFACE_NAME:
+            if Settings.CAPTURE_INTERFACE_NAME is not None and interface.name == Settings.CAPTURE_INTERFACE_NAME:
                 priority += 1
             if Settings.CAPTURE_MAC_ADDRESS is not None and interface.mac_address == Settings.CAPTURE_MAC_ADDRESS:
                 priority += 1
@@ -1385,7 +1735,7 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
                 selected_interface_index = None  # If multiple matches found, reset selection
             elif priority > max_priority:
                 max_priority = priority
-                selected_interface_index = interface.interface_selection_index
+                selected_interface_index = interface.selection_index
 
         if selected_interface_index is not None:
             return interfaces_selection_data[selected_interface_index]
@@ -1737,153 +2087,24 @@ mac_lookup = MacLookup(load_on_init=True)
 clear_screen()
 set_window_title(f"Capture network interface selection - {TITLE}")
 print("\nCapture network interface selection ...\n")
+populate_network_interfaces_info()
+
+tshark_interfaces: list[Interface] = []
 for _, _, name in get_filtered_tshark_interfaces():
-    Interface(name)
-
-net_io_stats = psutil.net_io_counters(pernic=True)
-for interface_name, interface_stats in net_io_stats.items():
-    i = Interface.get_interface_by_name(interface_name)
-    if not i:
+    interface = AllInterfaces.get_interface_by_name(name)
+    if (
+        not interface
+        or not interface.ip_enabled
+        or interface.state == NETWORK_ADAPTER_DISABLED
+    ):
         continue
 
-    i.packets_sent = interface_stats.packets_sent
-    i.packets_recv = interface_stats.packets_recv
+    tshark_interfaces.append(interface)
 
-for name, interface_description, state, interface_index, permanent_address in iterate_network_adapter_details():
-    i = Interface.get_interface_by_name(name)
-    if not i:
-        continue
-
-    # Filter out interfaces that are not enabled
-    # This should never happen as interfaces listed in tshark already are filtered, but you never know.
-    if state == NETWORK_ADAPTER_DISABLED:
-        Interface.delete_interface(i)
-        continue
-
-    if i.adapter_properties.interface_index != "N/A":
-        stdout_crash_text = textwrap.dedent(f"""
-            ERROR:
-                Developer didn't expect this scenario to be possible.
-
-            INFOS:
-                \"WMI\" Python's module returned more then one
-                index for a given interface.
-
-            DEBUG:
-                i.interface_name: {i.interface_name}
-                interface_index: {interface_index}
-        """.removeprefix("\n").removesuffix("\n"))
-        terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
-    i.adapter_properties.interface_index = interface_index
-
-    if i.mac_address != "N/A":
-        stdout_crash_text = textwrap.dedent(f"""
-            ERROR:
-                Developer didn't expect this scenario to be possible.
-
-            INFOS:
-                \"WMI\" Python's module returned more then one
-                mac address for a given interface.
-
-            DEBUG:
-                i.interface_name: {i.interface_name}
-                i.mac_address: {i.mac_address}
-                permanent_address: {permanent_address}
-        """.removeprefix("\n").removesuffix("\n"))
-        terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
-
-    i.mac_address = format_mac_address(permanent_address)
-    i.organization_name = (
-        mac_lookup.get_mac_address_organization_name(i.mac_address)
-        or "N/A"
-    )
-    i.adapter_properties.interface_description = interface_description
-
-for interface_index, manufacturer in iterate_legacy_network_adapter_details():
-    i = Interface.get_interface_by_id(interface_index)
-    if not i:
-        continue
-
-    i.adapter_properties.manufacturer = manufacturer
-
-for interface_index, ip_address in iterate_network_ip_details():
-    i = Interface.get_interface_by_id(interface_index)
-    if not i:
-        continue
-
-    if not is_ipv4_address(ip_address):
-        continue
-
-    if ip_address not in i.ip_addresses:
-        i.ip_addresses.append(ip_address)
-
-for interface_index, ip_enabled in iterate_legacy_network_ip_details():
-    i = Interface.get_interface_by_id(interface_index)
-    if not i:
-        continue
-
-    # Filter out interfaces that are not enabled
-    if not ip_enabled:
-        Interface.delete_interface(i)
-        continue
-
-if Settings.CAPTURE_ARP:
-    from modules.networking.utils import get_network_arp_cache, is_mac_address
-
-    for cached_arp_interface_index, cached_arp_infos in get_network_arp_cache().items():
-        i = Interface.get_interface_by_id(cached_arp_interface_index)
-        if not i or cached_arp_interface_index != i.adapter_properties.interface_index:
-            continue
-
-        interface_arp_infos: list[dict[str, str]] = []
-
-        for entry in cached_arp_infos:
-            # Skip ARP entries with known placeholder MAC addresses
-            if entry["mac_address"] in {"00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"}:
-                continue
-
-            if not is_ipv4_address(entry["ip_address"]):
-                stdout_crash_text = textwrap.dedent(f"""
-                    ERROR:
-                        Developer didn't expect this scenario to be possible.
-
-                    INFOS:
-                        The value does not appear to be a valid IPv4 address.
-
-                    DEBUG:
-                        ip_address: {entry["ip_address"]}
-                """.removeprefix("\n").removesuffix("\n"))
-                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
-
-            if not is_valid_non_special_ipv4(entry["ip_address"]):
-                continue
-
-            if not is_mac_address(entry["mac_address"]):
-                stdout_crash_text = textwrap.dedent(f"""
-                    ERROR:
-                        Developer didn't expect this scenario to be possible.
-
-                    INFOS:
-                        The value does not appear to be a valid MAC address.
-
-                    DEBUG:
-                        mac_address: {entry["mac_address"]}
-                """.removeprefix("\n").removesuffix("\n"))
-                terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
-
-            interface_arp_infos.append({
-                "ip_address": entry["ip_address"],
-                "mac_address": format_mac_address(entry["mac_address"]),
-                "organization_name": (
-                    mac_lookup.get_mac_address_organization_name(entry["mac_address"])
-                    or "N/A"
-                ),
-            })
-
-        if not interface_arp_infos:
-            continue
-
-        i.add_arp_infos(interface_arp_infos)
+tshark_interfaces = [
+    interface for interface in tshark_interfaces
+    if not interface.is_interface_inactive()
+]
 
 # Create a QApplication instance
 app = QApplication([])  # Passing an empty list for application arguments
@@ -1892,41 +2113,34 @@ screen_width, screen_height = get_screen_size(app)
 
 interfaces_selection_data: list[InterfaceSelectionData] = []
 
-for i in Interface.iterate_safely():
+for interface in tshark_interfaces:
     if (
         Settings.CAPTURE_INTERFACE_NAME is not None
-        and i.interface_name.casefold() == Settings.CAPTURE_INTERFACE_NAME.casefold()
-        and i.interface_name != Settings.CAPTURE_INTERFACE_NAME
+        and interface.name.casefold() == Settings.CAPTURE_INTERFACE_NAME.casefold()
+        and interface.name != Settings.CAPTURE_INTERFACE_NAME
     ):
-        Settings.CAPTURE_INTERFACE_NAME = i.interface_name
+        Settings.CAPTURE_INTERFACE_NAME = interface.name
         Settings.reconstruct_settings()
 
-    if i.is_interface_inactive():
-        Interface.delete_interface(i)
-        continue
+    manufacturer = "N/A" if interface.manufacturer is None else interface.manufacturer
+    packets_sent = "N/A" if interface.packets_sent is None else interface.packets_sent
+    packets_recv = "N/A" if interface.packets_recv is None else interface.packets_recv
 
-    if i.adapter_properties.manufacturer == "N/A":
-        manufacturer_or_organization_name = i.organization_name
+    if interface.ip_addresses:
+        for ip_address in interface.ip_addresses:
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface.name, ", ".join(interface.descriptions), packets_sent, packets_recv, ip_address, interface.mac_address, manufacturer))
     else:
-        manufacturer_or_organization_name = i.adapter_properties.manufacturer
-
-    if i.ip_addresses:
-        for ip_address in i.ip_addresses:
-            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, i.packets_sent, i.packets_recv, ip_address, i.mac_address, manufacturer_or_organization_name))
-    else:
-        interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, i.packets_sent, i.packets_recv, "N/A", i.mac_address, manufacturer_or_organization_name))
+        interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface.name, ", ".join(interface.descriptions), packets_sent, packets_recv, "N/A", interface.mac_address, manufacturer))
 
     if Settings.CAPTURE_ARP:
-        arp_infos = i.get_arp_infos()
-        if not arp_infos:
-            continue
+        for arp_entry in interface.get_arp_entries():
+            manufacturer = "N/A" if arp_entry.manufacturer is None else arp_entry.manufacturer
 
-        for arp_info in arp_infos:
-            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), i.interface_name, i.adapter_properties.interface_description, "N/A", "N/A", arp_info["ip_address"], arp_info["mac_address"], arp_info["organization_name"], is_arp=True))
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface.name, ", ".join(interface.descriptions), "N/A", "N/A", arp_entry.ip_address, arp_entry.mac_address, manufacturer, is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
-if not isinstance(selected_interface.interface_name, str):
-    raise TypeError(f'Expected "str" object, got "{type(selected_interface.interface_name).__name__}"')
+if not isinstance(selected_interface.name, str):
+    raise TypeError(f'Expected "str" object, got "{type(selected_interface.name).__name__}"')
 
 clear_screen()
 set_window_title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
@@ -1937,9 +2151,9 @@ fixed__capture_ip_address = selected_interface.ip_address if selected_interface.
 
 if (
     Settings.CAPTURE_INTERFACE_NAME is None
-    or selected_interface.interface_name != Settings.CAPTURE_INTERFACE_NAME
+    or selected_interface.name != Settings.CAPTURE_INTERFACE_NAME
 ):
-    Settings.CAPTURE_INTERFACE_NAME = selected_interface.interface_name
+    Settings.CAPTURE_INTERFACE_NAME = selected_interface.name
     need_rewrite_settings = True
 
 if fixed__capture_mac_address != Settings.CAPTURE_MAC_ADDRESS:
@@ -5222,8 +5436,8 @@ class DiscordIntro(QDialog):
             background-color: #FF4C4C;  /* Light red background */
             border-radius: 15px;        /* Make it circular */
         """)
-        self.exit_button.clicked.connect(self.close_popup)
         self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.exit_button.clicked.connect(self.close_popup)
 
         # Layout for the window content
         layout = QVBoxLayout()
@@ -5254,8 +5468,8 @@ class DiscordIntro(QDialog):
             border-radius: 10px;
             border: none;
         """)
-        self.join_button.clicked.connect(self.open_discord)
         self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.join_button.clicked.connect(self.open_discord)
 
         # Set button width to 75% of the window width
         self.join_button.setMaximumWidth(int(self.width() * 0.75))
