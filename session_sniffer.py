@@ -476,11 +476,11 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_MAC_ADDRESS, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        if is_mac_address(setting_value):
-                            validated_and_formatted_mac_address = format_mac_address(setting_value)
-                            if validated_and_formatted_mac_address != setting_value:
+                        formatted_mac_address = format_mac_address(setting_value)
+                        if is_mac_address(formatted_mac_address):
+                            if formatted_mac_address != setting_value:
                                 need_rewrite_settings = True
-                            Settings.CAPTURE_MAC_ADDRESS = validated_and_formatted_mac_address
+                            Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address
                         else:
                             need_rewrite_settings = True
                 elif setting_name == "CAPTURE_ARP":
@@ -747,13 +747,18 @@ class Interface:
 
     def is_interface_inactive(self):
         """Determine if an interface is inactive based on lack of traffic, IP addresses, and identifying details."""
+        # Check if interface is disabled
+        if self.ip_enabled is False or self.state == NETWORK_ADAPTER_DISABLED:
+            return True
+
+        # Check if all identifying details and traffic data are missing
         return (
             self.mac_address is None
-            and self.manufacturer is None
             and self.packets_sent in {None, 0}
             and self.packets_recv in {None, 0}
             and not self.descriptions
             and not self.ip_addresses
+            and not self.arp_entries
         )
 
     # ─────────────────────────────────────────────────────────────
@@ -1463,11 +1468,11 @@ def populate_network_interfaces_info():
 
     def validate_and_format_mac_address(mac_address: str | None):
         """Validate the MAC address, ensuring it is in the correct format."""
-        if mac_address is None or mac_address == "":
+        if mac_address in (None, ""):
             return None
 
-        validated_and_formatted_mac_address = format_mac_address(mac_address)
-        if not is_mac_address(validated_and_formatted_mac_address):
+        formatted_mac_address = format_mac_address(mac_address)
+        if not is_mac_address(formatted_mac_address):
             stdout_crash_text = textwrap.dedent(f"""
                 ERROR:
                     Developer didn't expect this scenario to be possible.
@@ -1477,15 +1482,15 @@ def populate_network_interfaces_info():
 
                 DEBUG:
                     mac_address={mac_address}
-                    validated_and_formatted_mac_address={validated_and_formatted_mac_address}
+                    formatted_mac_address={formatted_mac_address}
             """.removeprefix("\n").removesuffix("\n"))
             terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
-        return validated_and_formatted_mac_address
+        return formatted_mac_address
 
     def validate_ip_address(ip_address: str | None):
         """Validate the IP address, ensuring it is a valid IPv4 address."""
-        if ip_address is None or ip_address == "":
+        if ip_address in (None, ""):
             return None
 
         if not is_ipv4_address(ip_address):
@@ -1507,8 +1512,6 @@ def populate_network_interfaces_info():
         """Populate AllInterfaces collection with network adapter details from MSFT_NetAdapter."""
         for interface_index, name, interface_description, state, permanent_address in iterate_project_network_adapter_details():
             validated_and_formatted_mac_address = validate_and_format_mac_address(permanent_address)
-            if validated_and_formatted_mac_address is None:
-                continue
 
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
@@ -1530,8 +1533,6 @@ def populate_network_interfaces_info():
         """Populate AllInterfaces collection with legacy network adapter details."""
         for interface_index, net_connection_id, description, mac_address, manufacturer in iterate_project_legacy_network_adapter_details():
             validated_and_formatted_mac_address = validate_and_format_mac_address(mac_address)
-            if validated_and_formatted_mac_address is None:
-                continue
 
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
@@ -1553,15 +1554,13 @@ def populate_network_interfaces_info():
         """Populate AllInterfaces collection with network IP address details."""
         for interface_index, interface_alias, ipv4_address in iterate_project_network_ip_details():
             validated_ip_address = validate_ip_address(ipv4_address)
-            if validated_ip_address is None:
-                continue
 
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
                 AllInterfaces.add_interface(Interface(
                     index=interface_index,
                     name=interface_alias,
-                    ip_addresses=[validated_ip_address],
+                    ip_addresses=[validated_ip_address] if validated_ip_address else [],
                 ))
                 continue
 
@@ -1580,22 +1579,20 @@ def populate_network_interfaces_info():
                 if (validated_ip_address := validate_ip_address(ip))
             ]
             validated_and_formatted_mac_address = validate_and_format_mac_address(mac_address)
-            if validated_and_formatted_mac_address is None:
-                continue
 
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
                 AllInterfaces.add_interface(Interface(
                     index=interface_index,
                     ip_enabled=ip_enabled,
-                    mac_address=mac_address,
+                    mac_address=validated_and_formatted_mac_address,
                     ip_addresses=validated_ip_addresses,
                     descriptions=[description],
                 ))
                 continue
 
-            interface.update_mac_address(validated_and_formatted_mac_address)
             interface.update_ip_enabled(ip_enabled)
+            interface.update_mac_address(validated_and_formatted_mac_address)
             interface.add_description(description)
             for ip in validated_ip_addresses:
                 interface.add_ip_address(ip)
@@ -1614,29 +1611,19 @@ def populate_network_interfaces_info():
     def _populate_arp_cache_details():
         """Populate ARP cache information for each interface."""
         for interface_index, ip_address, mac_address in iterate_project_network_neighbor_details():
-            if (
-                interface_index is None
-                or ip_address is None
-                or mac_address is None
-            ):
-                continue
-
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
                 continue
 
-            validated_and_formatted_mac_address = validate_and_format_mac_address(mac_address)
-            if (
-                validated_and_formatted_mac_address is None
-                or validated_and_formatted_mac_address in {"00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF"}  # Skip ARP entries with known placeholder MAC addresses
-            ):
-                continue
-
             validated_ip_address = validate_ip_address(ip_address)
-            if validated_ip_address is None:
-                continue
+            validated_and_formatted_mac_address = validate_and_format_mac_address(mac_address)
 
-            if not is_valid_non_special_ipv4(ip_address):
+            if (
+                validated_ip_address is None
+                or validated_and_formatted_mac_address is None
+                or validated_and_formatted_mac_address in {"00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF"}  # Skip ARP entries with known placeholder MAC addresses
+                or not is_valid_non_special_ipv4(validated_ip_address)
+            ):
                 continue
 
             interface.add_arp_entry(ARPEntry(
@@ -2082,21 +2069,9 @@ set_window_title(f"Capture network interface selection - {TITLE}")
 print("\nCapture network interface selection ...\n")
 populate_network_interfaces_info()
 
-tshark_interfaces: list[Interface] = []
-for _, _, name in get_filtered_tshark_interfaces():
-    interface = AllInterfaces.get_interface_by_name(name)
-    if (
-        not interface
-        or not interface.ip_enabled
-        or interface.state == NETWORK_ADAPTER_DISABLED
-    ):
-        continue
-
-    tshark_interfaces.append(interface)
-
 tshark_interfaces = [
-    interface for interface in tshark_interfaces
-    if not interface.is_interface_inactive()
+    i for _, _, name in get_filtered_tshark_interfaces()
+    if (i := AllInterfaces.get_interface_by_name(name)) and not i.is_interface_inactive()
 ]
 
 # Create a QApplication instance
@@ -2139,8 +2114,8 @@ clear_screen()
 set_window_title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
 print("\nInitializing addresses and establishing connection to your PC / Console ...\n")
 need_rewrite_settings = False
-fixed__capture_mac_address = selected_interface.mac_address if selected_interface.mac_address != "N/A" else None
-fixed__capture_ip_address = selected_interface.ip_address if selected_interface.ip_address != "N/A" else None
+fixed__capture_mac_address = selected_interface.mac_address
+fixed__capture_ip_address = selected_interface.ip_address
 
 if (
     Settings.CAPTURE_INTERFACE_NAME is None
