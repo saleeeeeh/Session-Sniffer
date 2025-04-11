@@ -53,14 +53,8 @@ PING_COLOR_MAP = {
 }
 
 
-def ping_loop(target_ip: str):
+def ping_loop(target_ip: str, s: requests.Session):
     """Continuously pings the target IP until the user closes the script."""
-    s = requests.Session()
-    s.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
-        "Accept": "application/json",
-    })
-    #s.verify = False
 
     def send_ping_request(ip: str):
         """Send a ping request to the Check-Host API."""
@@ -258,7 +252,13 @@ def main():
         sys.exit(1)
 
     try:
-        ping_loop(target_ip)
+        with requests.Session() as s:
+            s.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
+                "Accept": "application/json",
+            })
+            #s.verify = False
+            ping_loop(target_ip, s)
     except KeyboardInterrupt:
         sys.exit(0)
 
