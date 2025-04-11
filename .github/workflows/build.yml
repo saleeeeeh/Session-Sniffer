@@ -138,13 +138,6 @@ jobs:
           # Delete the "update_release_versions.py" script path after it's used to avoid committing it
           rm -rf ".github/"
 
-          # Check if the folder still exists
-          if [ -d ".github/" ]; then
-            echo "The .github/ folder still exists. Deletion failed."
-          else
-            echo "The .github/ folder was successfully deleted."
-          fi
-
       - name: Commit and Push Changes to release_versions.json
         run: |
           # Stage the modified release_versions.json file for commit
