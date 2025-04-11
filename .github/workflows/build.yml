@@ -127,10 +127,23 @@ jobs:
           # Execute the Python version update script with the release tag and prerelease argument
           python ".github/workflows/scripts/update_release_versions.py" "$RELEASE_TAG" $PRERELEASE_ARG
 
+      - name: Ensure Script Is Not Staged for Commit
+        run: |
+          # Ensure the script is not staged for commit
+          # This is to prevent the script from being committed to the repository
+          git reset ".github/workflows/scripts/update_release_versions.py"
+
       - name: Remove Temporary Script Path
         run: |
           # Delete the "update_release_versions.py" script path after it's used to avoid committing it
           rm -rf ".github/"
+
+          # Check if the folder still exists
+          if [ -d ".github/" ]; then
+            echo "The .github/ folder still exists. Deletion failed."
+          else
+            echo "The .github/ folder was successfully deleted."
+          fi
 
       - name: Commit and Push Changes to release_versions.json
         run: |
