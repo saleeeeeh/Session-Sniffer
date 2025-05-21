@@ -1,14 +1,16 @@
 /.devfolder
+/.history
 /.venv
 /.vscode
 /GeoLite2 Databases
 /modules/**/__pycache__/
 /Sessions Logging
 /UserIP Databases
-*.pyc
 .dccache
-Settings.ini
-error.log
+*.pyc
 debug.log
-UserIP_Logging.log
+error.log
 Session_Sniffer.exe
+Settings.ini
+UserIP_Logging.csv
+UserIP_Logging.log
