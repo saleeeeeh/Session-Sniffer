@@ -5,7 +5,10 @@ import subprocess
 from pathlib import Path
 from typing import NamedTuple
 from collections.abc import Callable
-from datetime import UTC
+from datetime import datetime
+
+# Local Python Libraries (Included with Project)
+from modules.constants.external import LOCAL_TZ
 
 
 class PacketFields(NamedTuple):
@@ -150,6 +153,4 @@ class PacketCapture:
 
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
-    from datetime import datetime
-
-    return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch), tz=UTC)
+    return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch), tz=LOCAL_TZ)

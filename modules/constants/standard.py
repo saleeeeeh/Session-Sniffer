@@ -5,7 +5,9 @@ import os
 import re
 import textwrap
 from pathlib import Path
-from datetime import datetime, UTC as DT_UTC
+from datetime import datetime
+
+from .external import LOCAL_TZ
 
 # Get the SystemRoot environment variable dynamically
 system_root = Path(os.environ.get("SYSTEMROOT", "C:/Windows"))
@@ -18,7 +20,7 @@ SETTINGS_PATH = Path("Settings.ini")
 USERIP_DATABASES_PATH = Path("UserIP Databases")
 USERIP_LOGGING_PATH = Path("UserIP_Logging.log")
 GEOLITE2_DATABASES_FOLDER_PATH = Path("GeoLite2 Databases")
-SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now(tz=DT_UTC).strftime("%Y/%m/%d") / f"{datetime.now(tz=DT_UTC).strftime('%Y-%m-%d_%H-%M-%S')}.log"
+SESSIONS_LOGGING_PATH = Path("Sessions Logging") / datetime.now(tz=LOCAL_TZ).strftime("%Y/%m/%d") / f"{datetime.now(tz=LOCAL_TZ).strftime('%Y-%m-%d_%H-%M-%S')}.log"
 TWO_TAKE_ONE__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/PopstarDevs/2Take1Menu/scripts/GTA_V_Session_Sniffer-plugin/log.txt"
 STAND__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/Stand/Lua Scripts/GTA_V_Session_Sniffer-plugin/log.txt"
 

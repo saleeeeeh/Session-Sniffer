@@ -61,12 +61,13 @@ def validate_file(file_path: Path):
 
 
 def format_project_version(version: Version):
-    from datetime import datetime, UTC as DT_UTC
+    from datetime import datetime, UTC
 
     if version.local:
-        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=DT_UTC).strftime("%Y/%m/%d (%H:%M)")
+        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=UTC).strftime("%Y/%m/%d (%H:%M)")
+        return f"v{version.public} - {date_time}"
 
-    return f"v{version.public} - {date_time}" if version.local else f"v{version.public}"
+    return f"v{version.public}"
 
 
 def get_documents_folder(*, use_alternative_method: bool = False):

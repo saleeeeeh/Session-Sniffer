@@ -22,7 +22,7 @@ from operator import attrgetter
 from collections.abc import Callable
 from types import FrameType, TracebackType
 from typing import Literal, NamedTuple, ClassVar, Any
-from datetime import datetime, timedelta, UTC as DT_UTC
+from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 
 # --------------------------------------------
@@ -52,6 +52,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboar
 from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADAPTER_DISABLED, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
 from modules.constants.standard import SETTINGS_PATH
 from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
+from modules.constants.external import LOCAL_TZ
 from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
@@ -2282,7 +2283,7 @@ def process_userip_task(
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
         if connection_type == "connected":
-            while not player.datetime.left and (datetime.now(tz=DT_UTC) - player.datetime.last_seen) < timedelta(seconds=10):
+            while not player.datetime.left and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
                 if player.userip.usernames and player.iplookup.geolite2.is_initialized:
                     break
                 gui_closed__event.wait(0.1)
@@ -2302,7 +2303,7 @@ def process_userip_task(
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
-                while not player.datetime.left and (datetime.now(tz=DT_UTC) - player.datetime.last_seen) < timedelta(seconds=10):
+                while not player.datetime.left and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
                     if player.iplookup.ipapi.is_initialized:
                         break
                     gui_closed__event.wait(0.1)
@@ -2558,7 +2559,7 @@ def capture_core():
 
             packet_datetime = packet.frame.datetime
 
-            packet_latency = datetime.now(tz=DT_UTC) - packet_datetime
+            packet_latency = datetime.now(tz=LOCAL_TZ) - packet_datetime
             tshark_packets_latencies.append((packet_datetime, packet_latency))
             if packet_latency >= timedelta(seconds=Settings.CAPTURE_OVERFLOW_TIMER):
                 tshark_restarted_times += 1
@@ -3356,7 +3357,7 @@ def rendering_core():
                 formatted_elapsed = None
 
                 if Settings.GUI_DATE_FIELDS_SHOW_ELAPSED:
-                    elapsed_time = datetime.now(tz=DT_UTC) - datetime_object
+                    elapsed_time = datetime.now(tz=LOCAL_TZ) - datetime_object
 
                     hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
                     minutes, remainder = divmod(remainder, 60)
@@ -3618,7 +3619,7 @@ def rendering_core():
             else:
                 tshark_version_color = '<span style="color: yellow;">'
 
-            one_second_ago = datetime.now(tz=DT_UTC) - timedelta(seconds=1)
+            one_second_ago = datetime.now(tz=LOCAL_TZ) - timedelta(seconds=1)
 
             # Filter packets received in the last second
             recent_packets = [(pkt_time, pkt_latency) for pkt_time, pkt_latency in tshark_packets_latencies if pkt_time >= one_second_ago]
@@ -3829,7 +3830,7 @@ def rendering_core():
 
                 if (
                     not player.datetime.left
-                    and (datetime.now(tz=DT_UTC) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
+                    and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
                 ):
                     player.datetime.left = player.datetime.last_seen
                     if player.userip_detection and player.userip_detection.as_processed_task:
