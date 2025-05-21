@@ -51,12 +51,11 @@ def iterate_project_network_adapter_details():
         - Name (str): The name of the network adapter.
         - InterfaceDescription (str | None): Adapter description, if available.
         - State (int | None): The operational state of the network adapter.
-        - PermanentAddress (str | None): The permanent MAC address of the network adapter.
 
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_adapter in standard_cimv2_namespace.query("SELECT InterfaceIndex, Name, InterfaceDescription, State, PermanentAddress FROM MSFT_NetAdapter"):  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
+    for net_adapter in standard_cimv2_namespace.query("SELECT InterfaceIndex, Name, InterfaceDescription, State FROM MSFT_NetAdapter"):  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
         if not isinstance(net_adapter.InterfaceIndex, int):
             raise TypeError(f'Expected "int" object, got "{type(net_adapter.InterfaceIndex).__name__}"')
         if not isinstance(net_adapter.Name, str):
@@ -65,10 +64,8 @@ def iterate_project_network_adapter_details():
             raise TypeError(f'Expected "str | None" object, got "{type(net_adapter.InterfaceDescription).__name__}"')
         if not isinstance(net_adapter.state, (int, type(None))):
             raise TypeError(f'Expected "int | None" object, got "{type(net_adapter.state).__name__}"')
-        if not isinstance(net_adapter.PermanentAddress, (str, type(None))):
-            raise TypeError(f'Expected "str | None" object, got "{type(net_adapter.PermanentAddress).__name__}"')
 
-        yield net_adapter.InterfaceIndex, net_adapter.Name, net_adapter.InterfaceDescription, net_adapter.state, net_adapter.PermanentAddress
+        yield net_adapter.InterfaceIndex, net_adapter.Name, net_adapter.InterfaceDescription, net_adapter.state
 
 
 def iterate_project_legacy_network_adapter_details():

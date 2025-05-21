@@ -1510,23 +1510,19 @@ def populate_network_interfaces_info():
 
     def _populate_network_adapter_details():
         """Populate AllInterfaces collection with network adapter details from MSFT_NetAdapter."""
-        for interface_index, name, interface_description, state, permanent_address in iterate_project_network_adapter_details():
-            validated_and_formatted_mac_address = validate_and_format_mac_address(permanent_address)
-
+        for interface_index, name, interface_description, state in iterate_project_network_adapter_details():
             interface = AllInterfaces.get_interface(interface_index)
             if not interface:
                 AllInterfaces.add_interface(Interface(
                     index=interface_index,
                     state=state,
                     name=name,
-                    mac_address=validated_and_formatted_mac_address,
                     descriptions=[interface_description],
                 ))
                 continue
 
             interface.update_state(state)
             interface.update_name(name)
-            interface.update_mac_address(validated_and_formatted_mac_address)
             interface.add_description(interface_description)
 
     def _populate_legacy_network_adapter_details():
