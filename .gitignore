@@ -1,7 +1,6 @@
 /.devfolder
 /.history
 /.venv
-/.vscode
 /GeoLite2 Databases
 /modules/**/__pycache__/
 /Sessions Logging

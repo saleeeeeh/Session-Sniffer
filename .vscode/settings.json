@@ -1,0 +1,21 @@
+{
+    "search.useIgnoreFiles": false,
+    "files.exclude": {
+        ".dccache": true,
+        ".devfolder": true,
+        ".git": true,
+        ".github": true,
+        ".history": true,
+        ".mypy_cache": true,
+        ".ruff_cache": true,
+        ".venv": true,
+        "*.pyc": true,
+        "bin": true,
+        "GeoLite2 Databases": true,
+        "images": true,
+        "modules/**/__pycache__/": true,
+        "Session_Sniffer.exe": true,
+        "setup": true,
+        "TTS": true,
+    }
+}
