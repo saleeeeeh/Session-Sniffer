@@ -4633,7 +4633,7 @@ class SessionTableView(QTableView):
             unselect_menu,
             "Unselect All",
             tooltip="Unselect all cells in the table.",
-            handler=self.unselect_all_cells(),
+            handler=self.unselect_all_cells,
         )
         add_action(
             unselect_menu,
