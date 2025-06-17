@@ -48,8 +48,8 @@ Grab the latest stable release and get started instantly!
 | Red Dead Redemption                 | PS3                                      |
 | Call of Duty: Black Ops 2           | PS3                                      |
 | Call of Duty: Black Ops 3           | PS3                                      |
-| Skate 3                             | PS3                                      |
 | Destiny                             | PS3                                      |
+| Skate 3                             | PS3                                      |
 | Sniper Elite 3                      | PS3                                      |
 
 > _Note_: The script works for all P2P (Peer-To-Peer) games, but only the games listed above have servers filtering.
