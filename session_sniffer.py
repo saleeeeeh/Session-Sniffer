@@ -3229,7 +3229,7 @@ def rendering_core():
                 return datetime_object.strftime("%m/%d/%Y %H:%M:%S.%f")[:-3]
 
             def format_player_logging_usernames(player_usernames: list[str]):
-                return ", ".join(player_usernames) if player_usernames else "N/A"
+                return ", ".join(player_usernames) if player_usernames else ""
 
             def format_player_logging_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
@@ -3394,7 +3394,7 @@ def rendering_core():
                 return formatted_datetime
 
             def format_player_gui_usernames(player_usernames: list[str]):
-                return ", ".join(player_usernames) if player_usernames else "N/A"
+                return ", ".join(player_usernames) if player_usernames else ""
 
             def format_player_gui_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
@@ -4453,13 +4453,12 @@ class SessionTableView(QTableView):
             header_label = model.headerData(column, Qt.Orientation.Horizontal)
 
             if header_label == "Usernames":
-                # Check if the column contains any data other than "N/A"
-                contains_non_na = any(
-                    model.data(model.index(row, column)) != "N/A"
+                contain_usernames = any(
+                    model.data(model.index(row, column)) != ""
                     for row in range(model.rowCount())
                 )
 
-                if contains_non_na:
+                if contain_usernames:
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
                 else:
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
@@ -4827,7 +4826,7 @@ class SessionTableView(QTableView):
             ############ Player Infos #############
             IP Address: {player.ip}
             Hostname: {player.reverse_dns.hostname}
-            Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or "N/A"}
+            Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or ""}
             In UserIP database: {(player.userip_detection is not None and f"{player.userip and player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')}") or "No"}
             Last Port: {player.ports.last}
             Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
