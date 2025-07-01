@@ -287,8 +287,6 @@ class DefaultSettings:
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
     GUI_FIELD_SHOW_COUNTRY_CODE = True
     GUI_FIELD_SHOW_CONTINENT_CODE = True
-    GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY = "Last Rejoin"
-    GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY = "Last Seen"
     GUI_DISCONNECTED_PLAYERS_TIMER = 10.0
     DISCORD_PRESENCE = True
     SHOW_DISCORD_POPUP = True
@@ -602,22 +600,6 @@ class Settings(DefaultSettings):
                         Settings.GUI_FIELD_SHOW_COUNTRY_CODE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY":
-                    try:
-                        case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, Settings.gui_all_connected_fields)
-                        Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY = normalized_match
-                        if not case_sensitive_match:
-                            need_rewrite_current_setting = True
-                    except NoMatchFoundError:
-                        need_rewrite_settings = True
-                elif setting_name == "GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY":
-                    try:
-                        case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, Settings.gui_all_disconnected_fields)
-                        Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY = normalized_match
-                        if not case_sensitive_match:
-                            need_rewrite_current_setting = True
-                    except NoMatchFoundError:
-                        need_rewrite_settings = True
                 elif setting_name == "GUI_DISCONNECTED_PLAYERS_TIMER":
                     try:
                         player_disconnected_timer = float(setting_value)
@@ -658,34 +640,6 @@ class Settings(DefaultSettings):
 
         if need_rewrite_settings:
             Settings.reconstruct_settings()
-
-        for field_name in Settings.GUI_FIELDS_TO_HIDE:
-            for sort_field_name, sort_field_value, default_sort_value in (
-                ("GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY),
-                ("GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY", Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY, DefaultSettings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY),
-            ):
-                if field_name in sort_field_value:
-                    need_rewrite_settings = True
-
-                    msgbox_title = TITLE
-                    msgbox_message = textwrap.dedent(f"""
-                        ERROR in your custom \"Settings.ini\" file:
-
-                        You cannot sort players in the output from a hidden gui field (<GUI_FIELDS_TO_HIDE>).
-
-                        Would you like to replace:
-                        {sort_field_name}={sort_field_value}
-                        with its default value:
-                        {sort_field_name}={default_sort_value}
-                    """.removeprefix("\n").removesuffix("\n"))
-                    msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                    errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-
-                    if errorlevel != MsgBox.ReturnValues.IDYES:
-                        terminate_script("EXIT")
-
-                    setattr(Settings, sort_field_name, getattr(DefaultSettings, sort_field_name))  # Replace the incorrect field with its default value
-                    Settings.reconstruct_settings()
 
         if Settings.GUI_DATE_FIELDS_SHOW_DATE is False and Settings.GUI_DATE_FIELDS_SHOW_TIME is False and Settings.GUI_DATE_FIELDS_SHOW_ELAPSED is False:
             msgbox_title = TITLE
@@ -5201,11 +5155,8 @@ class MainWindow(QMainWindow):
         while not GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
         # Determine the sort order
-        _sort_column = GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_CONNECTED_PLAYERS_SORTED_BY)
-        _sort_order = Qt.SortOrder.DescendingOrder
         self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.connected_table_view = SessionTableView(self.connected_table_model, _sort_column, _sort_order)
-        del _sort_column, _sort_order
+        self.connected_table_view = SessionTableView(self.connected_table_model, GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Rejoin"), Qt.SortOrder.DescendingOrder)
         self.connected_table_model.set_view(self.connected_table_view)
 
         # Add a horizontal line separator
@@ -5224,14 +5175,8 @@ class MainWindow(QMainWindow):
         while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
         # Determine the sort order
-        _sort_column = GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index(Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY)
-        if Settings.GUI_FIELD_DISCONNECTED_PLAYERS_SORTED_BY in {"Last Rejoin", "Last Seen"}:
-            _sort_order = Qt.SortOrder.AscendingOrder
-        else:
-            _sort_order = Qt.SortOrder.DescendingOrder
         self.disconnected_table_model = SessionTableModel(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.disconnected_table_view = SessionTableView(self.disconnected_table_model, _sort_column, _sort_order)
-        del _sort_column, _sort_order
+        self.disconnected_table_view = SessionTableView(self.disconnected_table_model, GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Seen"), Qt.SortOrder.AscendingOrder)
         self.disconnected_table_model.set_view(self.disconnected_table_view)
 
         # Layout to organize the widgets
