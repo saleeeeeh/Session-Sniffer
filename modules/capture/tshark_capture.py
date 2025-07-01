@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import NamedTuple
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Local Python Libraries (Included with Project)
 from modules.constants.external import LOCAL_TZ
@@ -153,4 +153,5 @@ class PacketCapture:
 
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
-    return datetime.fromtimestamp(timestamp=float(packet_frame_time_epoch), tz=LOCAL_TZ)
+    dt_utc = datetime.fromtimestamp(float(packet_frame_time_epoch), tz=UTC)
+    return dt_utc.astimezone(LOCAL_TZ)
