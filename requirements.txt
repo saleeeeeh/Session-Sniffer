@@ -1,15 +1,15 @@
 colorama==0.4.6
 dnspython==2.7.0
-geoip2==4.8.1
-packaging==24.2
-prettytable==3.12.0
-psutil==6.1.0
+geoip2==5.1.0
+packaging==25.0
+prettytable==3.16.0
+psutil==7.0.0
 pypresence==4.3.0
-PyQt6==6.8.0
-pywin32==308; platform_system == "Windows"
+PyQt6==6.8.1
+pywin32==310; platform_system == "Windows"
 QDarkStyle==3.2.3
 requests==2.32.4
-rich==13.9.4
+rich==14.0.0
 sentinel==1.0.0
 toml==0.10.2
 tzlocal==5.3.1
