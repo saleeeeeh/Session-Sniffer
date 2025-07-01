@@ -297,7 +297,7 @@ class DefaultSettings:
 
 class Settings(DefaultSettings):
     gui_fields_mapping = {
-        "Usernames": "userip.usernames",
+        "Usernames": "usernames",
         "First Seen": "datetime.first_seen",
         "Last Rejoin": "datetime.last_rejoin",
         "Last Seen": "datetime.last_seen",
@@ -307,7 +307,7 @@ class Settings(DefaultSettings):
         "PPS": "pps.rate",
         "PPM": "ppm.rate",
         "IP Address": "ip",
-        "Hostname": "hostname",
+        "Hostname": "reverse_dns.hostname",
         "Last Port": "ports.last",
         "Intermediate Ports": "ports.intermediate",
         "First Port": "ports.first",
@@ -2718,6 +2718,12 @@ def rendering_core():
                         break
                 return item
 
+            if sorted_column_name == "Usernames":
+                return sorted(
+                    session_list,
+                    key=lambda player: ", ".join(player.usernames),
+                    reverse=sort_order_to_reverse(sort_order),
+                )
             if sorted_column_name == "IP Address":
                 import ipaddress
 
@@ -4035,6 +4041,11 @@ class SessionTableModel(QAbstractTableModel):
             raise ValueError("Inconsistent state: 'combined' is unexpectedly empty at this point.")
         sort_order_bool = order == Qt.SortOrder.DescendingOrder
 
+        if sorted_column_name == "Usernames":
+            combined.sort(
+                key=lambda row: ", ".join(row[0][column]).casefold(),
+                reverse=not sort_order_bool,
+            )
         if sorted_column_name == "IP Address":
             import ipaddress
 
