@@ -281,7 +281,7 @@ class DefaultSettings:
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: str | None = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["PPM", "Avg PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]  # TODO(BUZZARDGTA): Add type hint `list[str]`
+    GUI_FIELDS_TO_HIDE = ["PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]  # TODO(BUZZARDGTA): Add type hint `list[str]`
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
@@ -305,9 +305,7 @@ class Settings(DefaultSettings):
         "T. Packets": "total_packets",
         "Packets": "packets",
         "PPS": "pps.rate",
-        # "Avg PPS": "pps.get_average()",
         "PPM": "ppm.rate",
-        # "Avg PPM": "ppm.get_average()",
         "IP Address": "ip",
         "Hostname": "hostname",
         "Last Port": "ports.last",
@@ -335,9 +333,9 @@ class Settings(DefaultSettings):
         "Hosting": "iplookup.ipapi.hosting",
         "Pinging": "ping.is_pinging",
     }
-    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "IP Address"]
-    gui_hideable_fields         = ["PPS", "Avg PPS", "PPM", "Avg PPM", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address"]
+    gui_hideable_fields         = [                                                                                           "PPS", "PPM",                                     "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM",                       "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
     gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
 
     @classmethod
@@ -966,26 +964,12 @@ class PlayerPPS:
 
     def _initialize(self):
         self.is_first_calculation = True
-        self.last_pps_values: list[int] = []  # Stores last 3 PPS values
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = 0
-        self.avg_rate = 0
 
     def reset(self):
         self._initialize()
-
-    def update_average(self, player_pps_rate: int):
-        """Safely updates the last PPS values list, keeping only the latest 3 values."""
-        from modules.constants.standalone import MAX_PPS_VALUES
-
-        if len(self.last_pps_values) >= MAX_PPS_VALUES:
-            self.last_pps_values.pop(0)  # Keep only the last 3 values
-        self.last_pps_values.append(player_pps_rate)
-
-    def get_average(self):
-        """Return the average of the last 3 PPS values (or fewer if not enough data)."""
-        return round(sum(self.last_pps_values) / len(self.last_pps_values)) if self.last_pps_values else 0
 
 
 class PlayerPPM:
@@ -994,26 +978,12 @@ class PlayerPPM:
 
     def _initialize(self):
         self.is_first_calculation = True
-        self.last_ppm_values: list[int] = []  # Stores last 3 PPM values
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = 0
-        self.avg_rate = 0
 
     def reset(self):
         self._initialize()
-
-    def update_average(self, player_ppm_counter: int):
-        """Safely updates the last PPM values list, keeping only the latest 3 values."""
-        from modules.constants.standalone import MAX_PPM_VALUES
-
-        if len(self.last_ppm_values) >= MAX_PPM_VALUES:
-            self.last_ppm_values.pop(0)  # Keep only the last 3 values
-        self.last_ppm_values.append(player_ppm_counter)
-
-    def get_average(self):
-        """Return the average of the last 3 PPM values (or fewer if not enough data)."""
-        return round(sum(self.last_ppm_values) / len(self.last_ppm_values)) if self.last_ppm_values else 0
 
 
 class PlayerPorts:
@@ -2748,18 +2718,6 @@ def rendering_core():
                         break
                 return item
 
-            if sorted_column_name == "Avg PPS":
-                return sorted(
-                    session_list,
-                    key=lambda player: player.pps.get_average(),
-                    reverse=sort_order_to_reverse(sort_order),
-                )
-            if sorted_column_name == "Avg PPM":
-                return sorted(
-                    session_list,
-                    key=lambda player: player.ppm.get_average(),
-                    reverse=sort_order_to_reverse(sort_order),
-                )
             if sorted_column_name == "IP Address":
                 import ipaddress
 
@@ -3267,9 +3225,7 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 row_texts.append(f"{player.pps.rate}")
-                row_texts.append(f"{player.pps.get_average()}")
                 row_texts.append(f"{player.ppm.rate}")
-                row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
                 row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
@@ -3450,15 +3406,9 @@ def rendering_core():
                 if "PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
                     row_texts.append(f"{player.pps.rate}")
-                if "Avg PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
-                    row_texts.append(f"{player.pps.get_average()}")
                 if "PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
                     row_texts.append(f"{player.ppm.rate}")
-                if "Avg PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["Avg PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
-                    row_texts.append(f"{player.ppm.get_average()}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
                 if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.reverse_dns.hostname}")
@@ -3860,7 +3810,6 @@ def rendering_core():
                     # Calculate PPS every second
                     if (time.monotonic() - player.pps.last_update_time) >= 1.0:
                         player.pps.rate = player.pps.counter  # Count of packets in the last second
-                        player.pps.update_average(player.pps.rate)
                         player.pps.counter = 0
                         player.pps.last_update_time = time.monotonic()
                         player.pps.is_first_calculation = False
@@ -3868,7 +3817,6 @@ def rendering_core():
                     # Calculate PPM every minute
                     if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
                         player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
-                        player.ppm.update_average(player.ppm.rate)
                         player.ppm.counter = 0
                         player.ppm.last_update_time = time.monotonic()
                         player.ppm.is_first_calculation = False
@@ -4462,7 +4410,7 @@ class SessionTableView(QTableView):
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
                 else:
                     horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-            elif header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "Avg PPS", "PPM", "Avg PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"}:
+            elif header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"}:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
