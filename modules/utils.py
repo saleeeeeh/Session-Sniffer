@@ -306,7 +306,7 @@ def custom_str_to_nonetype(string: str):
     return None, is_string_literal_none
 
 
-def validate_and_strip_balanced_outer_parens(expr: str) -> str:
+def validate_and_strip_balanced_outer_parens(expr: str):
     """Validate and strip balanced outer parentheses from a string.
 
     This function checks for balanced parentheses in the input string and removes
@@ -323,7 +323,7 @@ def validate_and_strip_balanced_outer_parens(expr: str) -> str:
 
     expr = expr.strip()
     if not expr:
-        return expr
+        return ""
 
     unmatched_opening = []
     unmatched_closing = []
