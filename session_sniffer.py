@@ -186,6 +186,21 @@ class PacketCaptureOverflowError(Exception):
     pass
 
 
+class PlayerAlreadyExistsError(ValueError):
+    """Raised when attempting to add a player that already exists in the registry."""
+
+    def __init__(self, ip: str):
+        """"Initialize the exception with a message."""
+        super().__init__(f'Player with IP "{ip}" already exists.')
+
+
+class UnsupportedSortColumnError(Exception):
+    """Raised when an unsupported column name is used for sorting."""
+    def __init__(self, column_name: str):
+        super().__init__(f"Sorting by column '{column_name}' is not supported.")
+        self.column_name = column_name
+
+
 class ScriptControl:
     _lock = threading.Lock()
     _crashed = False
@@ -331,10 +346,10 @@ class Settings(DefaultSettings):
         "Hosting": "iplookup.ipapi.hosting",
         "Pinging": "ping.is_pinging",
     }
-    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address"]
-    gui_hideable_fields         = [                                                                                           "PPS", "PPM",                                     "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM",                       "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",                                     "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address"]
+    gui_hideable_fields         = [                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
 
     @classmethod
     def iterate_over_settings(cls):
@@ -1080,60 +1095,76 @@ class Player:
 
 
 class PlayersRegistry:
-    players_registry: ClassVar[dict[str, Player]] = {}
+    """Class to manage the registry of connected and disconnected players.
 
-    _sorted_players_cache: ClassVar[list[Player]] = []
-    _cache_lock = threading.Lock()
+    This class provides methods to add, retrieve, and iterate over players in the registry.
+    """
+    from threading import Lock
 
-    # Constant for the default sort order
-    DEFAULT_SORT_ORDER = "datetime.last_rejoin"
+    _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar[str] = "datetime.last_rejoin"
+    _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar[str] = "datetime.last_seen"
 
-    @classmethod
-    def add_player(cls, player: Player):
-        if player.ip in cls.players_registry:
-            raise ValueError(f'Player with IP "{player.ip}" already exists.')
-        cls.players_registry[player.ip] = player
-        return player
+    _registry_lock: ClassVar[Lock] = Lock()
+    _connected_players_registry   : ClassVar[dict[str, Player]] = {}
+    _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
 
     @classmethod
-    def get_player(cls, ip: str):
-        return cls.players_registry.get(ip)
+    def add_connected_player(cls, player: Player):
+        """Add a connected player to the registry.
+
+        Args:
+            player (Player): The player object to add.
+
+        Returns:
+            Player: The player object that was added.
+
+        Raies:
+            PlayerAlreadyExistsError: If the player already exists in the registry.
+        """
+        with cls._registry_lock:
+            if player.ip in cls._connected_players_registry:
+                raise PlayerAlreadyExistsError(player.ip)
+
+            cls._connected_players_registry[player.ip] = player
+            return player
 
     @classmethod
-    def iterate_players_from_registry(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
-        yield from sorted(
-            cls.players_registry.values(),
-            key=attrgetter(sort_order),
-            reverse=reverse,
-        )
+    def get_player_by_ip(cls, ip: str, /):
+        """Get a player by their IP address.
+
+        Args:
+            ip (str): The IP address of the player.
+
+        Returns:
+            The player object if found, otherwise None.
+        """
+        with cls._registry_lock:
+            return cls._connected_players_registry.get(ip) or cls._disconnected_players_registry.get(ip)
 
     @classmethod
-    def _update_sorted_cache_core(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
-        """Refresh the cached sorted player list every second."""
-        with ThreadsExceptionHandler():
-            while not gui_closed__event.is_set():
-                with cls._cache_lock:
-                    cls._sorted_players_cache = sorted(
-                        cls.players_registry.values(),
-                        key=attrgetter(sort_order),
-                        reverse=reverse,
-                    )
-                gui_closed__event.wait(1)  # Sleep for 1 second
+    def iterate_all_players(cls):
+        """Iterate over all players in the registry.
 
-    @classmethod
-    def get_sorted_players(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
-        """Return the cached sorted players list (thread-safe)."""
-        with cls._cache_lock:
-            if sort_order == cls.DEFAULT_SORT_ORDER:
-                # Return the list as is if the default sort order is requested
-                return cls._sorted_players_cache.copy()
-            return sorted(cls._sorted_players_cache, key=attrgetter(sort_order), reverse=reverse)
+        This method yields players from both connected and disconnected registries.<br>
+        The connected players are sorted by `Last Rejoin`, while the disconnected players are sorted by `Last Seen`.
 
-    @classmethod
-    def start_cache_updater_thread(cls, sort_order: str = DEFAULT_SORT_ORDER, *, reverse: bool = False):
-        """Start the background thread to update the player cache."""
-        thread = threading.Thread(target=cls._update_sorted_cache_core, kwargs={"sort_order": sort_order, "reverse": reverse}, daemon=True)
-        thread.start()
+        Yields:
+            Player: Each player object from the registry.
+        """
+        with cls._registry_lock:
+            # Iterate over connected players first
+            yield from sorted(
+                cls._connected_players_registry.values(),
+                key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
+                reverse=False,
+            )
+
+            # Then iterate over disconnected players
+            yield from sorted(
+                cls._disconnected_players_registry.values(),
+                key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
+                reverse=True,
+            )
 
 
 class SessionHost:
@@ -1293,7 +1324,7 @@ class UserIPDatabases:
                             ip_to_userip[ip].usernames.append(username)
 
                         # Assign the UserIP object to the PlayerRegistry if applicable
-                        if player := PlayersRegistry.get_player(ip):
+                        if player := PlayersRegistry.get_player_by_ip(ip):
                             player.userip = ip_to_userip[ip]
 
             # Remove resolved conflicts
@@ -2296,7 +2327,7 @@ def iplookup_core():
 
             ips_to_lookup: list[str] = []
 
-            for player in PlayersRegistry.get_sorted_players():
+            for player in PlayersRegistry.iterate_all_players():
                 if player.iplookup.ipapi.is_initialized:
                     continue
 
@@ -2338,7 +2369,7 @@ def iplookup_core():
                 if not isinstance(player_ip, str):
                     raise TypeError(f'Expected "str" object, got "{type(player_ip).__name__}"')
 
-                if player := PlayersRegistry.get_player(player_ip):
+                if player := PlayersRegistry.get_player_by_ip(player_ip):
                     player.iplookup.ipapi.is_initialized = True
 
                     field_mappings: dict[str, tuple[str, tuple[type[Any], ...]]] = {
@@ -2384,7 +2415,7 @@ def hostname_core():
                 if ScriptControl.has_crashed():
                     return
 
-                for player in PlayersRegistry.get_sorted_players():
+                for player in PlayersRegistry.iterate_all_players():
                     if player.reverse_dns.is_initialized or player.ip in pending_ips:
                         continue
 
@@ -2406,7 +2437,7 @@ def hostname_core():
                     if not isinstance(hostname, str):
                         raise TypeError(f'Expected "str" object, got "{type(hostname).__name__}"')
 
-                    if player := PlayersRegistry.get_player(ip):
+                    if player := PlayersRegistry.get_player_by_ip(ip):
                         player.reverse_dns.is_initialized = True
 
                         player.reverse_dns.hostname = hostname
@@ -2427,7 +2458,7 @@ def pinger_core():
                 if ScriptControl.has_crashed():
                     return
 
-                for player in PlayersRegistry.get_sorted_players():
+                for player in PlayersRegistry.iterate_all_players():
                     if player.ping.is_initialized or player.ip in pending_ips:
                         continue
 
@@ -2457,7 +2488,7 @@ def pinger_core():
                     if not isinstance(ping_result, PingResult):
                         raise TypeError(f'Expected "PingResult" object, got "{type(ping_result).__name__}"')
 
-                    if player := PlayersRegistry.get_player(ip):
+                    if player := PlayersRegistry.get_player_by_ip(ip):
                         player.ping.is_initialized = True
                         player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
 
@@ -2516,8 +2547,8 @@ def capture_core():
 
             global_pps_counter += 1
 
-            if (player := PlayersRegistry.get_player(target_ip)) is None:
-                player = PlayersRegistry.add_player(
+            if (player := PlayersRegistry.get_player_by_ip(target_ip)) is None:
+                player = PlayersRegistry.add_connected_player(
                     Player(target_ip, target_port, packet_datetime),
                 )
 
@@ -2642,68 +2673,6 @@ def rendering_core():
                 gui_disconnected_players_table__field_names,
                 logging_connected_players_table__field_names,
                 logging_disconnected_players_table__field_names,
-            )
-
-        def sort_session_table(session_list: list[Player], sorted_column_name: str, sort_order: Qt.SortOrder):
-            """Sort a list of players based on the given column name and sort order.
-
-            Args:
-                session_list: The list of players to sort.
-                sorted_column_name: The column name to sort by.
-                sort_order: The sort order ("ascending" or "descending").
-
-            Returns:
-                The sorted list of players.
-            """
-
-            def sort_order_to_reverse(sort_order: Qt.SortOrder):
-                """Convert a Qt.SortOrder to a reverse parameter for sorted().
-
-                Args:
-                    sort_order: The sort order from Qt (Ascending or Descending).
-                """
-                return sort_order == Qt.SortOrder.DescendingOrder
-
-            def get_nested_attr(item: object, attr_path: str):
-                """Retrieve a nested attribute from an object using a dot-separated path."""
-                for attr in attr_path.split("."):
-                    item = getattr(item, attr, None)
-                    if item is None:
-                        break
-                return item
-
-            if sorted_column_name == "Usernames":
-                return sorted(
-                    session_list,
-                    key=lambda player: ", ".join(player.usernames),
-                    reverse=sort_order_to_reverse(sort_order),
-                )
-            if sorted_column_name == "IP Address":
-                import ipaddress
-
-                return sorted(
-                    session_list,
-                    key=lambda player: ipaddress.ip_address(player.ip),
-                    reverse=sort_order_to_reverse(sort_order),
-                )
-            if sorted_column_name in {"First Seen", "Last Rejoin", "Last Seen"}:
-                return sorted(
-                    session_list,
-                    key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
-                    reverse=not sort_order_to_reverse(sort_order),
-                )
-            # Force sorting those fields as strings as they contain both bools AND strings.
-            if sorted_column_name in {"Mobile", "VPN", "Hosting", "Pinging"}:
-                return sorted(
-                    session_list,
-                    key=lambda item: str(get_nested_attr(item, Settings.gui_fields_mapping[sorted_column_name])).casefold(),
-                    reverse=not sort_order_to_reverse(sort_order),
-                )
-            # Handle sorting for other columns
-            return sorted(
-                session_list,
-                key=attrgetter(Settings.gui_fields_mapping[sorted_column_name]),
-                reverse=sort_order_to_reverse(sort_order),
             )
 
         def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]):
@@ -3167,16 +3136,16 @@ def rendering_core():
                     for field in field_names
                 ]
 
-            logging_connected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order)
-            logging_disconnected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order)
+            logging_connected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, "Last Rejoin", Qt.SortOrder.DescendingOrder)
+            logging_disconnected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, "Last Seen", Qt.SortOrder.AscendingOrder)
             row_texts: list[str] = []
 
             logging_connected_players_table = PrettyTable()
             logging_connected_players_table.set_style(TableStyle.SINGLE_BORDER)
-            logging_connected_players_table.title = f"Player{pluralize(len(session_connected_sorted))} connected in your session ({len(session_connected_sorted)}):"
+            logging_connected_players_table.title = f"Player{pluralize(len(session_connected))} connected in your session ({len(session_connected)}):"
             logging_connected_players_table.field_names = logging_connected_players__field_names__with_down_arrow
             logging_connected_players_table.align = "l"
-            for player in session_connected_sorted:
+            for player in session_connected:
                 row_texts = []
                 row_texts.append(f"{format_player_logging_usernames(player.usernames)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
@@ -3216,10 +3185,10 @@ def rendering_core():
 
             logging_disconnected_players_table = PrettyTable()
             logging_disconnected_players_table.set_style(TableStyle.SINGLE_BORDER)
-            logging_disconnected_players_table.title = f"Player{pluralize(len(session_disconnected_sorted))} who've left your session ({len(session_disconnected_sorted)}):"
+            logging_disconnected_players_table.title = f"Player{pluralize(len(session_disconnected))} who've left your session ({len(session_disconnected)}):"
             logging_disconnected_players_table.field_names = logging_disconnected_players__field_names__with_down_arrow
             logging_disconnected_players_table.align = "l"
-            for player in session_disconnected_sorted:
+            for player in session_disconnected:
                 row_texts = []
                 row_texts.append(f"{format_player_logging_usernames(player.usernames)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
@@ -3342,7 +3311,7 @@ def rendering_core():
             session_disconnected_table__processed_data: list[list[str]] = []
             session_disconnected_table__compiled_colors: list[list[CellColor]] = []
 
-            for player in session_connected_sorted:
+            for player in session_connected:
                 if player.userip and player.userip.usernames:
                     row_fg_color = QColor("white")
                     row_bg_color = player.userip.settings.COLOR
@@ -3430,7 +3399,7 @@ def rendering_core():
                 session_connected_table__processed_data.append(row_texts)
                 session_connected_table__compiled_colors.append(row_colors)
 
-            for player in session_disconnected_sorted:
+            for player in session_disconnected:
                 if player.userip and player.userip.usernames:
                     row_fg_color = QColor("white")
                     row_bg_color = player.userip.settings.COLOR
@@ -3701,7 +3670,7 @@ def rendering_core():
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
 
-            for player in PlayersRegistry.get_sorted_players():
+            for player in PlayersRegistry.iterate_all_players():
                 if player.userip and player.ip not in UserIPDatabases.ips_set:
                     player.userip = None
                     player.userip_detection = None
@@ -3799,23 +3768,12 @@ def rendering_core():
                 elif SessionHost.search_player:
                     SessionHost.get_host_player(session_connected)
 
-            session_connected_sorted = sort_session_table(
-                session_connected,
-                GUIrenderingData.session_connected_sorted_column_name,
-                GUIrenderingData.session_connected_sort_order,
-            )
-            session_disconnected_sorted = sort_session_table(
-                session_disconnected,
-                GUIrenderingData.session_disconnected_sorted_column_name,
-                GUIrenderingData.session_disconnected_sort_order,
-            )
-
             if Settings.GUI_SESSIONS_LOGGING and (last_session_logging_processing_time is None or (time.monotonic() - last_session_logging_processing_time) >= 1.0):
                 process_session_logging()
                 last_session_logging_processing_time = time.monotonic()
 
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):  # noqa: PLR2004
-                discord_rpc_manager.update(f"{len(session_connected_sorted)} player{pluralize(len(session_connected_sorted))} connected")
+                discord_rpc_manager.update(f"{len(session_connected)} player{pluralize(len(session_connected))} connected")
 
             GUIrenderingData.header_text, global_pps_last_update_time, global_pps_rate = generate_gui_header_text(global_pps_last_update_time, global_pps_rate)
             (
@@ -3836,8 +3794,6 @@ set_window_title(f"DEBUG CONSOLE - {TITLE}")
 
 tshark_restarted_times = 0
 global_pps_counter = 0
-
-PlayersRegistry.start_cache_updater_thread()
 
 rendering_core__thread = threading.Thread(target=rendering_core, daemon=True)
 rendering_core__thread.start()
@@ -3893,7 +3849,7 @@ class SessionTableModel(QAbstractTableModel):
                     raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
                 ip = ip.removesuffix(" 👑")
 
-                player = PlayersRegistry.get_player(ip)
+                player = PlayersRegistry.get_player_by_ip(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
@@ -3998,21 +3954,13 @@ class SessionTableModel(QAbstractTableModel):
         if sorted_column_name == "Usernames":
             combined.sort(
                 key=lambda row: ", ".join(row[0][column]).casefold(),
-                reverse=not sort_order_bool,
-            )
-        if sorted_column_name == "IP Address":
-            import ipaddress
-
-            # Sort by IP address
-            combined.sort(
-                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
                 reverse=sort_order_bool,
             )
         elif sorted_column_name in {"First Seen", "Last Rejoin", "Last Seen"}:
             # Retrieve the player datetime object from the IP column
             def extract_datetime_for_ip(ip: str):
                 """Extract a datetime object for a given IP address."""
-                player = PlayersRegistry.get_player(ip)
+                player = PlayersRegistry.get_player_by_ip(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
@@ -4033,14 +3981,46 @@ class SessionTableModel(QAbstractTableModel):
                 key=lambda row: extract_datetime_for_ip(row[0][self.IP_COLUMN_INDEX].removesuffix(" 👑")),
                 reverse=not sort_order_bool,
             )
-        else:
-            # Sort by other columns: numerically if the strings represent numbers, otherwise case-insensitively
+        elif sorted_column_name == "IP Address":
+            # Sort by IP address
+            import ipaddress
+
             combined.sort(
-                key=lambda row: (
-                    float(row[0][column]) if row[0][column].replace(".", "", 1).isdigit() else row[0][column].casefold()
-                ),
+                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
                 reverse=sort_order_bool,
             )
+        elif sorted_column_name in {"Rejoins", "T. Packets", "Packets", "PPS", "PPM", "Last Port", "First Port"}:
+            # Sort by integer/float value of the column value
+            combined.sort(
+                key=lambda row: float(row[0][column]),
+                reverse=sort_order_bool,
+            )
+        elif sorted_column_name == "Intermediate Ports":
+            # Sort by the number of ports in the list (length)
+            combined.sort(
+                key=lambda row: len(row[0][column]),
+                reverse=sort_order_bool,
+            )
+        elif sorted_column_name in {"Lat", "Lon", "Offset"}:
+            # Sort by integer/float value of the column value but keep "..." at the end
+            combined.sort(
+                key=lambda row: float(row[0][column]) if row[0][column] != "..." else float("-inf"),
+                reverse=sort_order_bool,
+            )
+        elif sorted_column_name in {"Hostname", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Time Zone", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN"}:
+            # Sort by string representation of the column value
+            combined.sort(
+                key=lambda row: str(row[0][column]).casefold(),
+                reverse=sort_order_bool,
+            )
+        elif sorted_column_name in {"Mobile", "VPN", "Hosting", "Pinging"}:
+            # Sort by boolean representation of the column value
+            combined.sort(
+                key=lambda row: str(row[0][column]).casefold(),
+                reverse=sort_order_bool,
+            )
+        else:
+            raise UnsupportedSortColumnError(sorted_column_name)
 
         # Unpack the sorted data
         self._data, self._compiled_colors = map(list, zip(*combined, strict=True))
@@ -4247,7 +4227,7 @@ class SessionTableView(QTableView):
                         raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
                     ip = ip.removesuffix(" 👑")
 
-                    player = PlayersRegistry.get_player(ip)
+                    player = PlayersRegistry.get_player_by_ip(ip)
                     if player is not None and player.iplookup.country_flag is not None:
                         self.show_flag_tooltip(event, index, player)
 
@@ -4578,7 +4558,7 @@ class SessionTableView(QTableView):
                 ip = ip.removesuffix(" 👑")
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
-                player = PlayersRegistry.get_player(ip)
+                player = PlayersRegistry.get_player_by_ip(ip)
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
@@ -4731,7 +4711,7 @@ class SessionTableView(QTableView):
     def show_detailed_ip_lookup_player_cell(self, ip: str):
         from modules.constants.standard import USERIP_DATABASES_PATH
 
-        player = PlayersRegistry.get_player(ip)
+        player = PlayersRegistry.get_player_by_ip(ip)
         if not isinstance(player, Player):
             raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
