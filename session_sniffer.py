@@ -60,6 +60,7 @@ from modules.networking.unsafe_https import s
 from modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address, is_mac_address, format_mac_address
 from modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashExceptionError
 from modules.capture.utils.tshark_validator import TSharkNotFoundError, TSharkVersionNotFoundError, InvalidTSharkVersionError, validate_tshark_path
+from modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
 from modules.capture.utils.npcap_checker import is_npcap_installed
 from modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
 from modules.launcher.package_checker import check_packages_version, get_dependencies_from_pyproject, get_dependencies_from_requirements
@@ -290,7 +291,6 @@ class DefaultSettings:
     CAPTURE_ARP = True
     CAPTURE_BLOCK_THIRD_PARTY_SERVERS = True
     CAPTURE_PROGRAM_PRESET: str | None = None
-    CAPTURE_VPN_MODE = False
     CAPTURE_OVERFLOW_TIMER = 3.0
     CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER: str | None = None
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: str | None = None
@@ -516,11 +516,6 @@ class Settings(DefaultSettings):
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_VPN_MODE":
-                    try:
-                        Settings.CAPTURE_VPN_MODE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
-                    except InvalidBooleanValueError:
-                        need_rewrite_settings = True
                 elif setting_name == "CAPTURE_OVERFLOW_TIMER":
                     try:
                         CAPTURE_OVERFLOW_TIMER = float(setting_value)
@@ -2094,14 +2089,18 @@ excluded_protocols: list[str] = []
 if Settings.CAPTURE_IP_ADDRESS:
     capture_filter.append(f"((src host {Settings.CAPTURE_IP_ADDRESS} and (not (dst net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))) or (dst host {Settings.CAPTURE_IP_ADDRESS} and (not (src net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))))")
 
-force_enable_capture_vpn_mode = False
-if not Settings.CAPTURE_VPN_MODE:
-    from modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
-
-    if all(check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)):
-        capture_filter.append("not (broadcast or multicast)")
-    else:
-        force_enable_capture_vpn_mode = True
+broadcast_support, multicast_support = check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)
+if broadcast_support and multicast_support:
+    capture_filter.append("not (broadcast or multicast)")
+    vpn_mode_enabled = False
+elif broadcast_support:
+    capture_filter.append("not broadcast")
+    vpn_mode_enabled = True
+elif multicast_support:
+    capture_filter.append("not multicast")
+    vpn_mode_enabled = True
+else:
+    vpn_mode_enabled = True
 
 capture_filter.append("not (portrange 0-1023 or port 5353)")
 
@@ -3538,7 +3537,7 @@ def rendering_core():
             else:
                 pps_color = '<span style="color: green;">'
 
-            is_vpn_mode_enabled = "Enabled" if Settings.CAPTURE_VPN_MODE or force_enable_capture_vpn_mode else "Disabled"
+            is_vpn_mode_enabled = "Enabled" if vpn_mode_enabled else "Disabled"
             is_arp_enabled = "Enabled" if selected_interface.is_arp else "Disabled"
             displayed_capture_ip_address = Settings.CAPTURE_IP_ADDRESS if Settings.CAPTURE_IP_ADDRESS else "N/A"
             color_tshark_restarted_time = '<span style="color: green;">' if tshark_restarted_times == 0 else '<span style="color: red;">'

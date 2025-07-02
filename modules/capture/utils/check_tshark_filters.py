@@ -1,6 +1,4 @@
 """Module for checking support for broadcast and multicast capture filters on a specified network interface using tshark."""
-
-# Standard Python Libraries
 import subprocess
 from pathlib import Path
 
@@ -17,26 +15,26 @@ def check_broadcast_multicast_support(tshark_path: Path, interface: str):
                and the second indicates support for 'multicast' capture filters.
     """
 
-    def run_tshark_filter_test(tshark_filter: str):
+    def run_capture_filter_test(capture_filter: str):
         """Run tshark with a given capture filter and return whether it was successful.
 
         Args:
-            tshark_filter (str): The capture filter to test (e.g. "broadcast" or "multicast").
+            capture_filter (str): The capture filter to test (e.g. "broadcast" or "multicast").
 
         Returns:
             bool: True if tshark ran successfully with the given filter, False otherwise.
         """
-        cmd = [
+        cmd = (
             str(tshark_path),
             "-i", interface,
-            "-f", tshark_filter,
+            "-f", capture_filter,
             "-a", "duration:0",
             "-Q",
-        ]
+        )
         try:
-            subprocess.run(cmd, capture_output=True, check=True, text=True)
+            subprocess.run(cmd, capture_output=True, check=True, encoding="utf-8", text=True)
         except subprocess.CalledProcessError:
             return False
         return True
 
-    return (run_tshark_filter_test("broadcast"), run_tshark_filter_test("multicast"))
+    return (run_capture_filter_test("broadcast"), run_capture_filter_test("multicast"))
