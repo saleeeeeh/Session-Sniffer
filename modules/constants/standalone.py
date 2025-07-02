@@ -47,7 +47,7 @@ GUI_COLUMN_HEADERS_TOOLTIPS = {
     "IP Address": "The IP address of the player.",
     "Hostname": "The domain name associated with the player's IP address, resolved through a reverse DNS lookup.",
     "Last Port": "The port used by the player's last captured packet.",
-    "Intermediate Ports": "The ports used by the player between the first and last captured packets.",
+    "Middle Ports": "The ports used by the player between the first and last captured packets.",
     "First Port": "The port used by the player's first captured packet.",
     "Continent": "The continent of the player's IP location.",
     "Country": "The country of the player's IP location.",

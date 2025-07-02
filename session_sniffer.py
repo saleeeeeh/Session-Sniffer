@@ -296,7 +296,7 @@ class DefaultSettings:
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: str | None = None
     GUI_SESSIONS_LOGGING = True
     GUI_RESET_PORTS_ON_REJOINS = True
-    GUI_FIELDS_TO_HIDE = ["PPM", "Intermediate Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]  # TODO(BUZZARDGTA): Add type hint `list[str]`
+    GUI_FIELDS_TO_HIDE = ["PPM", "Middle Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN"]  # TODO(BUZZARDGTA): Add type hint `list[str]`
     GUI_DATE_FIELDS_SHOW_DATE = False
     GUI_DATE_FIELDS_SHOW_TIME = False
     GUI_DATE_FIELDS_SHOW_ELAPSED = True
@@ -322,7 +322,7 @@ class Settings(DefaultSettings):
         "IP Address": "ip",
         "Hostname": "reverse_dns.hostname",
         "Last Port": "ports.last",
-        "Intermediate Ports": "ports.intermediate",
+        "Middle Ports": "ports.middle",
         "First Port": "ports.first",
         "Continent": "iplookup.ipapi.continent",
         "Country": "iplookup.geolite2.country",
@@ -347,9 +347,9 @@ class Settings(DefaultSettings):
         "Pinging": "ping.is_pinging",
     }
     gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address"]
-    gui_hideable_fields         = [                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Intermediate Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_hideable_fields         = [                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
 
     @classmethod
     def iterate_over_settings(cls):
@@ -962,7 +962,7 @@ class PlayerPorts:
     def _initialize(self, port: int):
         self.list = [port]
         self.first = port
-        self.intermediate: list[int] = []
+        self.middle: list[int] = []
         self.last = port
 
     def reset(self, port: int):
@@ -3123,10 +3123,10 @@ def rendering_core():
                     return f"{player_ip} 👑"
                 return player_ip
 
-            def format_player_logging_intermediate_ports(player_ports: PlayerPorts):
-                player_ports.intermediate = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
-                if player_ports.intermediate:
-                    return ", ".join(map(str, player_ports.intermediate))
+            def format_player_logging_middle_ports(player_ports: PlayerPorts):
+                player_ports.middle = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
+                if player_ports.middle:
+                    return ", ".join(map(str, player_ports.middle))
                 return ""
 
             def add_sort_arrow_char_to_sorted_logging_table_field(field_names: list[str], sorted_field: str, sort_order: Qt.SortOrder):
@@ -3158,7 +3158,7 @@ def rendering_core():
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
                 row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
+                row_texts.append(f"{format_player_logging_middle_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
                 row_texts.append(f"{player.iplookup.ipapi.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
                 row_texts.append(f"{player.iplookup.geolite2.country:<{session_connected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
@@ -3200,7 +3200,7 @@ def rendering_core():
                 row_texts.append(f"{player.ip}")
                 row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_intermediate_ports(player.ports)}")
+                row_texts.append(f"{format_player_logging_middle_ports(player.ports)}")
                 row_texts.append(f"{player.ports.first}")
                 row_texts.append(f"{player.iplookup.ipapi.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
                 row_texts.append(f"{player.iplookup.geolite2.country:<{session_disconnected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
@@ -3286,10 +3286,10 @@ def rendering_core():
                     return f"{player_ip} 👑"
                 return player_ip
 
-            def format_player_gui_intermediate_ports(player_ports: PlayerPorts):
-                player_ports.intermediate = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
-                if player_ports.intermediate:
-                    return ", ".join(map(str, player_ports.intermediate))
+            def format_player_gui_middle_ports(player_ports: PlayerPorts):
+                player_ports.middle = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
+                if player_ports.middle:
+                    return ", ".join(map(str, player_ports.middle))
                 return ""
 
             def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
@@ -3343,8 +3343,8 @@ def rendering_core():
                     row_texts.append(f"{player.reverse_dns.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
-                if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_intermediate_ports(player.ports)}")
+                if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{format_player_gui_middle_ports(player.ports)}")
                 if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3423,8 +3423,8 @@ def rendering_core():
                     row_texts.append(f"{player.reverse_dns.hostname}")
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
-                if "Intermediate Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_intermediate_ports(player.ports)}")
+                if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f"{format_player_gui_middle_ports(player.ports)}")
                 if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3995,7 +3995,7 @@ class SessionTableModel(QAbstractTableModel):
                 key=lambda row: float(row[0][column]),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name == "Intermediate Ports":
+        elif sorted_column_name == "Middle Ports":
             # Sort by the number of ports in the list (length)
             combined.sort(
                 key=lambda row: len(row[0][column]),
@@ -4722,7 +4722,7 @@ class SessionTableView(QTableView):
             Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or ""}
             In UserIP database: {(player.userip_detection is not None and f"{player.userip and player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')}") or "No"}
             Last Port: {player.ports.last}
-            Intermediate Port{pluralize(len(player.ports.intermediate))}: {', '.join(map(str, player.ports.intermediate))}
+            Middle Port{pluralize(len(player.ports.middle))}: {', '.join(map(str, player.ports.middle))}
             First Port: {player.ports.first}
 
             ########## IP Lookup Details ##########
