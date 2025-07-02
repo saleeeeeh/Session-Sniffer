@@ -53,7 +53,7 @@ from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADA
 from modules.constants.standard import SETTINGS_PATH
 from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
 from modules.constants.external import LOCAL_TZ
-from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list
+from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list, validate_and_strip_balanced_outer_parens
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
 from modules.networking.unsafe_https import s
@@ -530,30 +530,16 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        updated_setting_value = setting_value.strip().strip("\"'")
-
-                        # Continuously remove outer parentheses until none remain
-                        while updated_setting_value.startswith("(") and updated_setting_value.endswith(")"):
-                            updated_setting_value = updated_setting_value[1:-1]
-
-                        if setting_value != updated_setting_value:
+                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
                             need_rewrite_settings = True
-
-                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = updated_setting_value
                 elif setting_name == "CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER":
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        updated_setting_value = setting_value.strip().strip("\"'")
-
-                        # Continuously remove outer parentheses until none remain
-                        while updated_setting_value.startswith("(") and updated_setting_value.endswith(")"):
-                            updated_setting_value = updated_setting_value[1:-1]
-
-                        if setting_value != updated_setting_value:
+                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
                             need_rewrite_settings = True
-
-                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = updated_setting_value
                 elif setting_name == "GUI_SESSIONS_LOGGING":
                     try:
                         Settings.GUI_SESSIONS_LOGGING, need_rewrite_current_setting = custom_str_to_bool(setting_value)

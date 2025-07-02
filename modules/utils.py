@@ -32,6 +32,20 @@ class NoMatchFoundError(Exception):
         super().__init__(self.message)
 
 
+class ParenthesisMismatchError(Exception):
+    def __init__(self, expr: str, unmatched_opening: list[int], unmatched_closing: list[int]):
+        """Initialize the exception with unmatched parentheses positions."""
+        message = "\n".join(
+            f"Unmatched {type_} parentheses at position{pluralize(len(positions))}: {positions}"
+            for type_, positions in (
+                ("opening", unmatched_opening),
+                ("closing", unmatched_closing),
+            ) if positions
+        )
+        message += f"\nExpression: {expr!r}"
+        super().__init__(message)
+
+
 T = TypeVar("T")
 
 
@@ -290,3 +304,54 @@ def custom_str_to_nonetype(string: str):
 
     is_string_literal_none = string == "None"
     return None, is_string_literal_none
+
+
+def validate_and_strip_balanced_outer_parens(expr: str):
+    """Validate and strip balanced outer parentheses from a string.
+
+    This function checks for balanced parentheses in the input string and removes
+    the outermost parentheses if they are balanced.<br>
+    If the parentheses are not  balanced, it raises a `ParenthesisMismatchError`
+    with the positions of the unmatched parentheses.
+    """
+
+    def strip_n_times(s: str, *, times: int):
+        """Strip outer parentheses from a string n times."""
+        for _ in range(times):
+            s = s.removeprefix("(").removesuffix(")")
+        return s
+
+    expr = expr.strip()
+    if not expr:
+        return expr
+
+    unmatched_opening = []
+    unmatched_closing = []
+    strip_outer_depth = 0
+
+    for idx, char in enumerate(expr):
+        if char == "(":
+            unmatched_opening.append(idx)
+        elif char == ")":
+            if unmatched_opening:
+                opening_index = unmatched_opening.pop()
+
+                before_opening = expr[:opening_index]
+                remaining_expr = expr[idx + 1:]
+
+                if (
+                    all(c == "(" for c in before_opening)
+                    and all(c == ")" for c in remaining_expr)
+                ):
+                    strip_outer_depth += 1
+
+            else:
+                unmatched_closing.append(idx)
+
+    if unmatched_opening or unmatched_closing:
+        raise ParenthesisMismatchError(expr, unmatched_opening, unmatched_closing)
+
+    if strip_outer_depth:
+        expr = strip_n_times(expr, times=strip_outer_depth)
+
+    return expr
