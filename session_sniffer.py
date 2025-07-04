@@ -4535,6 +4535,8 @@ class SessionTableView(QTableView):
                 raise TypeError(f'Expected "str", got "{type(column_name).__name__}"')
 
             if column_name == "IP Address":
+                from modules.constants.local import SCRIPTS_PATH
+
                 # Get the IP address from the selected cell
                 ip = selected_model.data(selected_indexes[0])
                 if not isinstance(ip, str):
@@ -4563,16 +4565,22 @@ class SessionTableView(QTableView):
                 )
                 add_action(
                     ping_menu,
-                    "Spoofed (check-host.net API)",
-                    tooltip="Checks if selected IP address responds to pings from 'check-host.net'.\n\nNOTE: This only works if Python is installed on your system.",
-                    handler=lambda: self.ping_spoofed(ip),
-                )
-                add_action(
-                    ping_menu,
                     "TCP Port (paping.exe)",
                     tooltip="Checks if selected IP address responds to TCP pings on a given port.",
                     handler=lambda: self.tcp_port_ping(ip),
                 )
+
+                scripts_menu = add_menu(context_menu, "User Scripts ")
+                for script in SCRIPTS_PATH.rglob("*"):
+                    if script.suffix not in {".bat", ".cmd", ".exe", ".py"}:
+                        continue
+
+                    add_action(
+                        scripts_menu,
+                        script.name,
+                        tooltip="",
+                        handler=lambda _, s=script: self.exec_user_script(s, ip),
+                    )
 
                 userip_menu = add_menu(context_menu, "UserIP  ")
 
@@ -4797,6 +4805,21 @@ class SessionTableView(QTableView):
             return
 
         run_paping(ip, port)
+
+    def exec_user_script(self, script: Path, ip: str):
+        from modules.constants.standard import CMD_EXE
+
+        if script.suffix in {".bat", ".cmd", ".exe"}:
+            subprocess.Popen(
+                [CMD_EXE, "/C", str(script.parent / script.name), ip],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+        elif script.suffix == ".py":
+            subprocess.Popen(
+                [CMD_EXE, "/C", "py", str(script.parent / script.name), ip],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+            )
+        return
 
     # TODO(BUZZARDGTA): Add a "Rename" UserIP method
     #def userip_manager__rename(self, ip_addresses: list[str]):
