@@ -9,8 +9,8 @@ OUI_URL = "https://standards-oui.ieee.org/oui/oui.txt"
 GITHUB_RELEASE_API__GEOLITE2__URL = "https://api.github.com/repos/P3TERX/GeoLite.mmdb/releases/latest"
 GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL = "https://api.github.com/repos/PrxyHunter/GeoLite2/releases/latest"
 
-TSHARK_RECOMMENDED_FULL_VERSION = "TShark (Wireshark) 4.2.11 (v4.2.11-0-g53ee01efc521)."
-TSHARK_RECOMMENDED_VERSION_NUMBER = "4.2.11"
+TSHARK_RECOMMENDED_FULL_VERSION = "TShark (Wireshark) 4.2.12 (v4.2.12-0-g07769b946e98)."
+TSHARK_RECOMMENDED_VERSION_NUMBER = "4.2.12"
 # TODO(BUZZARDGTA): NPCAP_RECOMMENDED_VERSION_NUMBER = "1.78"
 USER_SHELL_FOLDERS__REG_KEY = R"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
 
