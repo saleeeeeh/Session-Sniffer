@@ -4763,15 +4763,6 @@ class SessionTableView(QTableView):
             creationflags=subprocess.CREATE_NEW_CONSOLE,
         )
 
-    def ping_spoofed(self, ip: str):
-        """Runs a continuous ping to a specified IP address in a new terminal window."""
-        from modules.constants.standard import CMD_EXE
-        from modules.constants.local import SCRIPTS_PATH
-
-        subprocess.Popen(
-            [CMD_EXE, "/K", "py", SCRIPTS_PATH / "spoofed_ping.py", ip],
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
 
     def tcp_port_ping(self, ip: str):
         """Runs paping to check TCP connectivity to a host on a user-specified port indefinitely."""
