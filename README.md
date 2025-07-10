@@ -98,6 +98,5 @@ Need help? You can reach out via:
 - [Discord Server](https://discord.gg/hMZ7MsPX7G)
 
 Or privately:
-- **Email**: BUZZARDGTA@protonmail.com
 - **Discord**: waitingforharukatoaddme
 - **Telegram**: [@waitingforharukatoaddme](https://t.me/waitingforharukatoaddme)
