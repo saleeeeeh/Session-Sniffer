@@ -2,14 +2,27 @@
 
 This module contains a variety of helper functions and custom exceptions used across the project.
 """
-
-# Standard Python Libraries
 import contextlib
+import subprocess
+import sys
+import winreg
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, TypeVar
 
-# External/Third-party Python Libraries
+import psutil
+import win32com.client
 from packaging.version import Version
+
+# pylint: disable=import-error,no-name-in-module
+from win32com.shell import (  # type: ignore[import-error]  # Seems like we can also use `win32comext.shell`
+    shell,  # type: ignore[import-error]
+    shellcon,  # type: ignore[import-error]
+)
+
+# pylint: enable=import-error,no-name-in-module
+from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
+from modules.constants.standard import CMD_EXE
 
 
 class InvalidFileError(Exception):
@@ -50,8 +63,6 @@ T = TypeVar("T")
 
 
 def is_pyinstaller_compiled():
-    import sys
-
     return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
 
 
@@ -75,8 +86,6 @@ def validate_file(file_path: Path):
 
 
 def format_project_version(version: Version):
-    from datetime import datetime, UTC
-
     if version.local:
         date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=UTC).strftime("%Y/%m/%d (%H:%M)")
         return f"v{version.public} - {date_time}"
@@ -99,15 +108,9 @@ def get_documents_folder(*, use_alternative_method: bool = False):
     """
     if use_alternative_method:
         # Alternative method using SHGetKnownFolderPath from WinAPI
-        from win32com.shell import shell, shellcon  # pylint: disable=import-error,no-name-in-module  # type: ignore[import-error]  # Seems like we can also use `win32comext.shell`
-
-        # Get the Documents folder path
         documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)
     else:
         # Default method using Windows registry
-        import winreg
-        from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
-
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
             documents_path, _ = winreg.QueryValueEx(key, "Personal")
 
@@ -119,8 +122,6 @@ def get_documents_folder(*, use_alternative_method: bool = False):
 
 def resource_path(relative_path: Path):
     """Get absolute path to resource, works for dev and for PyInstaller."""
-    import sys
-
     base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
     if not isinstance(base_path, Path):
         base_path = Path(base_path)
@@ -164,8 +165,6 @@ def concat_lists_no_duplicates(*lists: list[T]):
 
 
 def get_pid_by_path(filepath: Path):
-    import psutil
-
     for process in psutil.process_iter(["pid", "exe"]):
         if process.info["exe"] == str(filepath.absolute()):
             return process.pid
@@ -216,8 +215,6 @@ def terminate_process_tree(pid: int | None = None):
 
     Defaults to the current process if no PID is specified.
     """
-    import psutil
-
     pid = pid or psutil.Process().pid
 
     try:
@@ -355,3 +352,40 @@ def validate_and_strip_balanced_outer_parens(expr: str):
         expr = strip_n_times(expr, times=strip_outer_depth)
 
     return expr
+
+
+def resolve_lnk(shortcut_path: Path):
+    """Resolves a Windows shortcut (.lnk) to its target path."""
+    shortcut = win32com.client.Dispatch("WScript.Shell").CreateShortcut(str(shortcut_path))
+    return Path(shortcut.Targetpath)
+
+
+def run_cmd_script(script: Path, args: list[str] | None = None):
+    """Executes a script with the given arguments in a new CMD terminal window."""
+    # Build the base command
+    full_command = [str(CMD_EXE), "/K"]
+
+    # Add the script to the command
+    if script.suffix.casefold() == ".py":
+        full_command.append("py")
+    full_command.append(str(script))
+
+    # Add the rest of the arguments
+    if args is not None:
+        full_command.extend(args)
+
+    # pylint: disable=consider-using-with
+    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+
+def run_cmd_command(command: str, args: list[str] | None = None):
+    """Executes a command with the given arguments in a new CMD terminal window."""
+    # Build the base command
+    full_command = [str(CMD_EXE), "/K", command]
+
+    # Add the rest of the arguments
+    if args is not None:
+        full_command.extend(args)
+
+    # pylint: disable=consider-using-with
+    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)

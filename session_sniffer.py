@@ -53,7 +53,7 @@ from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADA
 from modules.constants.standard import SETTINGS_PATH
 from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
 from modules.constants.external import LOCAL_TZ
-from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list, validate_and_strip_balanced_outer_parens
+from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list, validate_and_strip_balanced_outer_parens, run_cmd_script, run_cmd_command
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
 from modules.networking.unsafe_https import s
@@ -4571,15 +4571,21 @@ class SessionTableView(QTableView):
                 )
 
                 scripts_menu = add_menu(context_menu, "User Scripts ")
-                for script in SCRIPTS_PATH.rglob("*"):
-                    if script.suffix not in {".bat", ".cmd", ".exe", ".py"}:
+                for script in SCRIPTS_PATH.glob("*"):
+                    if (
+                        not script.is_file()
+                        or script.name.startswith(("_", "."))
+                        or script.suffix.casefold() not in {".bat", ".cmd", ".exe", ".py", ".lnk"}
+                    ):
                         continue
+
+                    script_resolved = script.resolve()
 
                     add_action(
                         scripts_menu,
-                        script.name,
+                        script_resolved.resolve().name,
                         tooltip="",
-                        handler=lambda _, s=script: self.exec_user_script(s, ip),
+                        handler=lambda _, s=script_resolved: run_cmd_script(s, [ip]),
                     )
 
                 userip_menu = add_menu(context_menu, "UserIP  ")
@@ -4756,27 +4762,16 @@ class SessionTableView(QTableView):
 
     def ping(self, ip: str):
         """Runs a continuous ping to a specified IP address in a new terminal window."""
-        from modules.constants.standard import CMD_EXE
-
-        subprocess.Popen(
-            [CMD_EXE, "/K", "ping", ip, "-t"],
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
-
+        run_cmd_command("ping", [ip, "-t"])
 
     def tcp_port_ping(self, ip: str):
         """Runs paping to check TCP connectivity to a host on a user-specified port indefinitely."""
 
         def run_paping(host: str, port: int):
             """Runs paping in a new terminal window to check TCP connectivity continuously."""
-            from modules.constants.standard import CMD_EXE
             from modules.constants.local import BIN_PATH
 
-            # Start the subprocess and keep it running
-            subprocess.Popen(
-                [CMD_EXE, "/K", BIN_PATH / "paping.exe", host, "-p", str(port)],
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
+            run_cmd_script(BIN_PATH / "paping.exe", [host, "-p", str(port)])
 
         from modules.constants.standalone import MIN_PORT, MAX_PORT
 
@@ -4796,29 +4791,6 @@ class SessionTableView(QTableView):
             return
 
         run_paping(ip, port)
-
-    def exec_user_script(self, script: Path, ip: str):
-        from modules.constants.standard import CMD_EXE
-
-        if script.suffix in {".bat", ".cmd", ".exe"}:
-            subprocess.Popen(
-                [CMD_EXE, "/C", str(script.parent / script.name), ip],
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-        elif script.suffix == ".py":
-            subprocess.Popen(
-                [CMD_EXE, "/C", "py", str(script.parent / script.name), ip],
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-        return
-
-    # TODO(BUZZARDGTA): Add a "Rename" UserIP method
-    #def userip_manager__rename(self, ip_addresses: list[str]):
-    #    # Prompt the user for the new username
-    #    new_username, ok = QInputDialog.getText(self, "Input New Username", F"Please enter the new username to associate with the selected IP{pluralize(len(ip_addresses))}:")
-    #
-    #    if ok and new_username:
-    #        ...
 
     def userip_manager__add(self, ip_addresses: list[str], selected_database: Path):
         from modules.constants.standard import USERIP_DATABASES_PATH
