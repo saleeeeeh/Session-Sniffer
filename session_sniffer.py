@@ -668,7 +668,7 @@ class ARPEntry:
     manufacturer: str | None = None
 
 
-@dataclass(slots=True, kw_only=True)
+@dataclass(kw_only=True, slots=True)
 class Interface:
     index:        int
     ip_enabled:   bool | None    = None
@@ -901,82 +901,95 @@ class ThirdPartyServers(enum.Enum):
         return [ip_range for server in cls for ip_range in server.value]
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class PlayerReverseDNS:
-    is_initialized = False
+    is_initialized: bool = False
 
     hostname: Literal["..."] | str = "..."
 
 
+@dataclass(kw_only=True, slots=True)
 class PlayerPPS:
-    def __init__(self):
-        self._initialize()
+    is_first_calculation: bool = True
+    last_update_time: float = field(default_factory=time.monotonic)
+    counter: int = 0
+    rate: int = 0
 
-    def _initialize(self):
+    def reset(self):
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = 0
 
-    def reset(self):
-        self._initialize()
 
-
+@dataclass(kw_only=True, slots=True)
 class PlayerPPM:
-    def __init__(self):
-        self._initialize()
+    is_first_calculation: bool = True
+    last_update_time: float = field(default_factory=time.monotonic)
+    counter: int = 0
+    rate: int = 0
 
-    def _initialize(self):
+    def reset(self):
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = 0
 
-    def reset(self):
-        self._initialize()
 
-
+@dataclass(kw_only=True, slots=True)
 class PlayerPorts:
-    def __init__(self, port: int):
-        self._initialize(port)
+    all: list[int]
+    first: int
+    middle: list[int]
+    last: int
 
-    def _initialize(self, port: int):
-        self.list = [port]
-        self.first = port
-        self.middle: list[int] = []
-        self.last = port
+    @classmethod
+    def from_packet_port(cls, port: int) -> "PlayerPorts":
+        return cls(
+            all=[port],
+            first=port,
+            middle=[port],
+            last=port,
+        )
 
     def reset(self, port: int):
-        self._initialize(port)
+        self.all.clear()
+        self.all.append(port)
+
+        self.first = port
+        self.last = port
+
+        self.middle.clear()
 
 
+@dataclass(kw_only=True, slots=True)
 class PlayerDateTime:
-    def __init__(self, packet_datetime: datetime):
-        self._initialize(packet_datetime)
+    first_seen: datetime
+    last_rejoin: datetime
+    last_seen: datetime
 
-    def _initialize(self, packet_datetime: datetime):
-        self.first_seen = packet_datetime
-        self.last_rejoin = packet_datetime
-        self.last_seen = packet_datetime
-        self.left: datetime | None = None
+    @classmethod
+    def from_packet_datetime(cls, packet_datetime: datetime) -> "PlayerDateTime":
+        return cls(
+            first_seen=packet_datetime,
+            last_rejoin=packet_datetime,
+            last_seen=packet_datetime,
+        )
 
-    def reset(self, packet_datetime: datetime):
-        self._initialize(packet_datetime)
 
-
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class PlayerGeoLite2:
-    is_initialized = False
+    is_initialized: bool = False
 
-    country:      Literal["..."] | str = "..."
-    country_code: Literal["..."] | str = "..."
-    city:         Literal["..."] | str = "..."
-    asn:          Literal["..."] | str = "..."
+    country:      Literal["N/A", "..."] | str = "..."
+    country_code: Literal["N/A", "..."] | str = "..."
+    city:         Literal["N/A", "..."] | str = "..."
+    asn:          Literal["N/A", "..."] | str = "..."
 
 
-@dataclass
-class PlayerIPAPI:
-    is_initialized = False
+@dataclass(kw_only=True, slots=True)
+class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
+    is_initialized: bool = False
 
     continent:      Literal["N/A", "..."] | str         = "..."
     continent_code: Literal["N/A", "..."] | str         = "..."
@@ -1001,22 +1014,21 @@ class PlayerIPAPI:
     hosting:        Literal["N/A", "..."] | bool        = "..."
 
 
+@dataclass(kw_only=True, slots=True)
 class PlayerCountryFlag:
-    def __init__(self, pixmap: QPixmap, icon: QIcon):
-        self.pixmap = pixmap
-        self.icon = icon
+    pixmap: QPixmap
+    icon: QIcon
 
 
+@dataclass(kw_only=True, slots=True)
 class PlayerIPLookup:
-    def __init__(self):
-        self.country_flag: PlayerCountryFlag | None = None
-        self.geolite2 = PlayerGeoLite2()
-        self.ipapi = PlayerIPAPI()
+    geolite2: PlayerGeoLite2 = field(default_factory=PlayerGeoLite2)
+    ipapi: PlayerIPAPI = field(default_factory=PlayerIPAPI)
 
 
-@dataclass
-class PlayerPing:
-    is_initialized = False
+@dataclass(kw_only=True, slots=True)
+class PlayerPing:  # pylint: disable=too-many-instance-attributes
+    is_initialized: bool = False
 
     is_pinging:          Literal["..."] | bool         = "..."
     ping_times:          Literal["..."] | list[float]  = "..."
@@ -1030,7 +1042,7 @@ class PlayerPing:
     rtt_mdev:            Literal["..."] | float | None = "..."
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class PlayerUserIPDetection:
     time: str
     date_time: str
@@ -1039,17 +1051,15 @@ class PlayerUserIPDetection:
     type: Literal["Static IP"] = "Static IP"
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class PlayerModMenus:
     usernames: list[str] = field(default_factory=list)
 
 
-class Player:
-    def __init__(self, ip: str, port: int, packet_datetime: datetime):
-        self.is_player_just_registered = True
-        self._initialize(ip, port, packet_datetime)
+class Player:  # pylint: disable=too-many-instance-attributes
+    def __init__(self, *, ip: str, port: int, packet_datetime: datetime):
+        self.left_event = threading.Event()
 
-    def _initialize(self, ip: str, port: int, packet_datetime: datetime):
         self.ip = ip
         self.rejoins = 0
         self.packets = 1
@@ -1059,20 +1069,47 @@ class Player:
         self.reverse_dns = PlayerReverseDNS()
         self.pps = PlayerPPS()
         self.ppm = PlayerPPM()
-        self.ports = PlayerPorts(port)
-        self.datetime = PlayerDateTime(packet_datetime)
+        self.ports = PlayerPorts.from_packet_port(port)
+        self.datetime = PlayerDateTime.from_packet_datetime(packet_datetime)
         self.iplookup = PlayerIPLookup()
         self.ping = PlayerPing()
+
+        self.country_flag: PlayerCountryFlag | None = None
         self.userip: UserIP | None = None
         self.userip_detection: PlayerUserIPDetection | None = None
         self.mod_menus: PlayerModMenus | None = None
 
-    def reset(self, port: int, packet_datetime: datetime):
+    def mark_as_seen(self, *, port: int, packet_datetime: datetime):
+        self.datetime.last_seen = packet_datetime
+        self.total_packets += 1
+        self.packets += 1
+        self.pps.counter += 1
+        self.ppm.counter += 1
+
+        if port not in self.ports.all:
+            self.ports.all.append(port)
+        self.ports.last = port
+
+    def mark_as_rejoined(self, *, port: int, packet_datetime: datetime):
+        self.left_event.clear()
+        self.datetime.last_rejoin = packet_datetime
         self.packets = 1
+        self.rejoins += 1
+        self.total_packets += 1
+        self.pps.counter += 1
+        self.ppm.counter += 1
+
+        if Settings.GUI_RESET_PORTS_ON_REJOINS:
+            self.ports.reset(port)
+
+    def mark_as_left(self):
+        self.left_event.set()
         self.pps.reset()
         self.ppm.reset()
-        self.ports.reset(port)
-        self.datetime.reset(packet_datetime)
+
+        if self.userip_detection and self.userip_detection.as_processed_task:
+            self.userip_detection.as_processed_task = False
+            threading.Thread(target=process_userip_task, args=(self, "disconnected"), daemon=True).start()
 
 
 class PlayersRegistry:
@@ -2179,7 +2216,7 @@ def process_userip_task(
             if duration_or_mode == "Manual":
                 return
             if duration_or_mode == "Auto":
-                while not player.datetime.left:
+                while not player.left_event.is_set():
                     gui_closed__event.wait(0.1)
                 process.resume()
                 return
@@ -2223,7 +2260,7 @@ def process_userip_task(
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
         if connection_type == "connected":
-            while not player.datetime.left and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
+            while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
                 if player.userip.usernames and player.iplookup.geolite2.is_initialized:
                     break
                 gui_closed__event.wait(0.1)
@@ -2236,14 +2273,14 @@ def process_userip_task(
             with _userip_logging_file_write_lock:
                 write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
-                    f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.list)))} | "
+                    f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.all)))} | "
                     f"Time:{player.userip_detection.date_time} | Country:{player.iplookup.geolite2.country} | "
                     f"Detection Type: {player.userip_detection.type} | "
                     f"Database:{relative_database_path}"
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
-                while not player.datetime.left and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
+                while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
                     if player.iplookup.ipapi.is_initialized:
                         break
                     gui_closed__event.wait(0.1)
@@ -2255,7 +2292,7 @@ def process_userip_task(
                     #### UserIP detected at {player.userip_detection.time} ####
                     User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
                     IP: {player.ip}
-                    Port{pluralize(len(player.ports.list))}: {', '.join(map(str, reversed(player.ports.list)))}
+                    Port{pluralize(len(player.ports.all))}: {', '.join(map(str, reversed(player.ports.all)))}
                     Country Code: {player.iplookup.geolite2.country_code}
                     Detection Type: {player.userip_detection.type}
                     Database: {relative_database_path}
@@ -2532,12 +2569,27 @@ def capture_core():
 
             global_pps_counter += 1
 
-            if (player := PlayersRegistry.get_player_by_ip(target_ip)) is None:
+            player = PlayersRegistry.get_player_by_ip(target_ip)
+            if player is None:
                 player = PlayersRegistry.add_connected_player(
-                    Player(target_ip, target_port, packet_datetime),
+                    Player(
+                        ip=target_ip,
+                        port=target_port,
+                        packet_datetime=packet_datetime,
+                    ),
+                )
+            elif player.left_event.is_set():
+                player.mark_as_rejoined(
+                    port=target_port,
+                    packet_datetime=packet_datetime,
+                )
+            else:
+                player.mark_as_seen(
+                    port=target_port,
+                    packet_datetime=packet_datetime,
                 )
 
-            if target_ip in UserIPDatabases.ips_set and (
+            if player.ip in UserIPDatabases.ips_set and (
                 not player.userip_detection
                 or not player.userip_detection.as_processed_task
             ):
@@ -2546,33 +2598,6 @@ def capture_core():
                     date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S"),
                 )
                 threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
-
-            if player.is_player_just_registered:
-                player.is_player_just_registered = False
-                return
-
-            # No matter what:
-            player.datetime.last_seen = packet_datetime
-            player.total_packets += 1
-            player.pps.counter += 1
-            player.ppm.counter += 1
-
-            if player.datetime.left:  # player left, rejoined now.
-                player.datetime.left = None
-                player.datetime.last_rejoin = packet_datetime
-                player.rejoins += 1
-                player.packets = 1
-
-                if Settings.GUI_RESET_PORTS_ON_REJOINS:
-                    player.ports.reset(target_port)
-                    return
-            else:
-                player.packets += 1
-
-            # player connected, has not been reset
-            if target_port not in player.ports.list:
-                player.ports.list.append(target_port)
-            player.ports.last = target_port
 
         while not gui_closed__event.is_set():
             try:
@@ -3100,18 +3125,18 @@ def rendering_core():
             def format_player_logging_datetime(datetime_object: datetime):
                 return datetime_object.strftime("%m/%d/%Y %H:%M:%S.%f")[:-3]
 
-            def format_player_logging_usernames(player_usernames: list[str]):
-                return ", ".join(player_usernames) if player_usernames else ""
+            def format_player_logging_usernames(player: Player):
+                return ", ".join(player.usernames) if player.usernames else ""
 
             def format_player_logging_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
                     return f"{player_ip} 👑"
                 return player_ip
 
-            def format_player_logging_middle_ports(player_ports: PlayerPorts):
-                player_ports.middle = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
-                if player_ports.middle:
-                    return ", ".join(map(str, player_ports.middle))
+            def format_player_logging_middle_ports(player: Player):
+                player.ports.middle = [port for port in reversed(player.ports.all) if port not in {player.ports.first, player.ports.last}]
+                if player.ports.middle:
+                    return ", ".join(map(str, player.ports.middle))
                 return ""
 
             def add_sort_arrow_char_to_sorted_logging_table_field(field_names: list[str], sorted_field: str, sort_order: Qt.SortOrder):
@@ -3132,7 +3157,7 @@ def rendering_core():
             logging_connected_players_table.align = "l"
             for player in session_connected:
                 row_texts = []
-                row_texts.append(f"{format_player_logging_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_logging_usernames(player)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{player.rejoins}")
@@ -3143,7 +3168,7 @@ def rendering_core():
                 row_texts.append(f"{format_player_logging_ip(player.ip)}")
                 row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_middle_ports(player.ports)}")
+                row_texts.append(f"{format_player_logging_middle_ports(player)}")
                 row_texts.append(f"{player.ports.first}")
                 row_texts.append(f"{player.iplookup.ipapi.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
                 row_texts.append(f"{player.iplookup.geolite2.country:<{session_connected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
@@ -3175,7 +3200,7 @@ def rendering_core():
             logging_disconnected_players_table.align = "l"
             for player in session_disconnected:
                 row_texts = []
-                row_texts.append(f"{format_player_logging_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_logging_usernames(player)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{format_player_logging_datetime(player.datetime.last_seen)}")
@@ -3185,7 +3210,7 @@ def rendering_core():
                 row_texts.append(f"{player.ip}")
                 row_texts.append(f"{player.reverse_dns.hostname}")
                 row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_middle_ports(player.ports)}")
+                row_texts.append(f"{format_player_logging_middle_ports(player)}")
                 row_texts.append(f"{player.ports.first}")
                 row_texts.append(f"{player.iplookup.ipapi.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
                 row_texts.append(f"{player.iplookup.geolite2.country:<{session_disconnected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
@@ -3263,18 +3288,18 @@ def rendering_core():
 
                 return formatted_datetime
 
-            def format_player_gui_usernames(player_usernames: list[str]):
-                return ", ".join(player_usernames) if player_usernames else ""
+            def format_player_gui_usernames(player: Player):
+                return ", ".join(player.usernames) if player.usernames else ""
 
             def format_player_gui_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
                     return f"{player_ip} 👑"
                 return player_ip
 
-            def format_player_gui_middle_ports(player_ports: PlayerPorts):
-                player_ports.middle = [port for port in reversed(player_ports.list) if port not in {player_ports.first, player_ports.last}]
-                if player_ports.middle:
-                    return ", ".join(map(str, player_ports.middle))
+            def format_player_gui_middle_ports(player: Player):
+                player.ports.middle = [port for port in reversed(player.ports.all) if port not in {player.ports.first, player.ports.last}]
+                if player.ports.middle:
+                    return ", ".join(map(str, player.ports.middle))
                 return ""
 
             def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
@@ -3311,7 +3336,7 @@ def rendering_core():
                 ]
 
                 row_texts = []
-                row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_gui_usernames(player)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{player.rejoins}")
@@ -3329,7 +3354,7 @@ def rendering_core():
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_middle_ports(player.ports)}")
+                    row_texts.append(f"{format_player_gui_middle_ports(player)}")
                 if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3396,7 +3421,7 @@ def rendering_core():
                 row_colors = [CellColor(foreground=row_fg_color, background=row_bg_color) for _ in range(GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS)]
 
                 row_texts = []
-                row_texts.append(f"{format_player_gui_usernames(player.usernames)}")
+                row_texts.append(f"{format_player_gui_usernames(player)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
                 row_texts.append(f"{format_player_gui_datetime(player.datetime.last_seen)}")
@@ -3409,7 +3434,7 @@ def rendering_core():
                 if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.last}")
                 if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_middle_ports(player.ports)}")
+                    row_texts.append(f"{format_player_gui_middle_ports(player)}")
                 if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
                     row_texts.append(f"{player.ports.first}")
                 if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
@@ -3674,7 +3699,7 @@ def rendering_core():
                     player.userip.usernames if player.userip else [],
                 )
 
-                if player.iplookup.country_flag is None:
+                if player.country_flag is None:
                     country_code = (
                         player.iplookup.geolite2.country_code
                         if player.iplookup.geolite2.country_code != "..."
@@ -3687,19 +3712,16 @@ def rendering_core():
                         if flag_path.exists():
                             pixmap = QPixmap()  # Create a new QPixmap
                             pixmap.loadFromData(flag_path.read_bytes())  # Load the data into the QPixmap
-                            player.iplookup.country_flag = PlayerCountryFlag(
+                            player.country_flag = PlayerCountryFlag(
                                 pixmap=pixmap,  # Assign the pixmap to the object
                                 icon=QIcon(pixmap),  # Create QIcon from QPixmap
                             )
 
                 if (
-                    not player.datetime.left
+                    not player.left_event.is_set()
                     and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
                 ):
-                    player.datetime.left = player.datetime.last_seen
-                    if player.userip_detection and player.userip_detection.as_processed_task:
-                        player.userip_detection.as_processed_task = False
-                        threading.Thread(target=process_userip_task, args=(player, "disconnected"), daemon=True).start()
+                    player.mark_as_left()
 
                 if not player.iplookup.geolite2.is_initialized:
                     player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
@@ -3708,7 +3730,7 @@ def rendering_core():
 
                     player.iplookup.geolite2.is_initialized = True
 
-                if player.datetime.left:
+                if player.left_event.is_set():
                     session_disconnected.append(player)
 
                     if Settings.GUI_SESSIONS_LOGGING:
@@ -3736,10 +3758,10 @@ def rendering_core():
                         player.ppm.is_first_calculation = False
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
-                if SessionHost.player and SessionHost.player.datetime.left:
+                if SessionHost.player and SessionHost.player.left_event.is_set():
                     SessionHost.player = None
                 # TODO(BUZZARDGTA): We should also potentially needs to check that not more then 1s passed before each disconnected
-                if SessionHost.players_pending_for_disconnection and all(player.datetime.left for player in SessionHost.players_pending_for_disconnection):
+                if SessionHost.players_pending_for_disconnection and all(player.left_event.is_set() for player in SessionHost.players_pending_for_disconnection):
                     SessionHost.player = None
                     SessionHost.search_player = True
                     SessionHost.players_pending_for_disconnection.clear()
@@ -3838,8 +3860,8 @@ class SessionTableModel(QAbstractTableModel):
                 if not isinstance(player, Player):
                     raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
 
-                if player.iplookup.country_flag is not None:
-                    return player.iplookup.country_flag.icon
+                if player.country_flag is not None:
+                    return player.country_flag.icon
 
         if role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
@@ -4213,7 +4235,7 @@ class SessionTableView(QTableView):
                     ip = ip.removesuffix(" 👑")
 
                     player = PlayersRegistry.get_player_by_ip(ip)
-                    if player is not None and player.iplookup.country_flag is not None:
+                    if player is not None and player.country_flag is not None:
                         self.show_flag_tooltip(event, index, player)
 
         return super().eventFilter(obj, event)
