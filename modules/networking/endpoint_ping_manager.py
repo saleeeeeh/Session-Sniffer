@@ -171,51 +171,48 @@ def fetch_and_parse_ping(ip: str):
 
     Limits to 10 concurrent requests per ip but prioritizes trying other available endpoints before waiting.
     """
-    for _ in range(len(endpoints_info)):  # Try all available endpoints
+    for endpoint_info in get_sorted_endpoints():
         time.sleep(0.1)
 
-        for endpoint_info in get_sorted_endpoints():
-            time.sleep(0.1)
+        if ip in endpoint_info.failed_ips and endpoint_info.failed_ips[ip] >= MAX_RETRIES_PER_IP:
+            continue  # Skip this endpoint for this ip
 
-            if ip in endpoint_info.failed_ips and endpoint_info.failed_ips[ip] >= MAX_RETRIES_PER_IP:
-                continue  # Skip this endpoint for this ip
+        if time.monotonic() < endpoint_info.cooldown_until:
+            continue  # Skip if still in cooldown
 
-            if time.monotonic() < endpoint_info.cooldown_until:
-                continue  # Skip if still in cooldown
+        semaphore = get_host_semaphore(endpoint_info.url)
 
-            semaphore = get_host_semaphore(endpoint_info.url)
+        if not semaphore.acquire(blocking=False):
+            continue  # Skip this endpoint host if already at the 10-request limit
 
-            if not semaphore.acquire(blocking=False):
-                continue  # Skip this endpoint host if already at the 10-request limit
+        request_start_time = time.monotonic()
 
-            request_start_time = time.monotonic()
+        try:
+            response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
+            response.raise_for_status()
+            if not isinstance(response.content, bytes):
+                raise TypeError(f'Expected "bytes", got "{type(response.content).__name__}"')
 
-            try:
-                response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
-                response.raise_for_status()
-                if not isinstance(response.content, bytes):
-                    raise TypeError(f'Expected "bytes", got "{type(response.content).__name__}"')
+            unescaped_response_text = response.content.decode("utf-8").replace("\\/", "/")
 
-                unescaped_response_text = response.content.decode("utf-8").replace("\\/", "/")
+            ping_result = parse_ping_response(unescaped_response_text)
+            if ping_result.is_invalid(unescaped_response_text):
+                raise InvalidPingResultError(ip, unescaped_response_text, ping_result)
 
-                ping_result = parse_ping_response(unescaped_response_text)
-                if ping_result.is_invalid(unescaped_response_text):
-                    raise InvalidPingResultError(ip, unescaped_response_text, ping_result)
+        except exceptions.RequestException as e:
+            cooldown = DEFAULT_RETRY_COOLDOWN
+            if e.response is not None and (retry_after := e.response.headers.get("Retry-After")):
+                cooldown = float(retry_after)
 
-            except exceptions.RequestException as e:
-                cooldown = DEFAULT_RETRY_COOLDOWN
-                if e.response is not None and (retry_after := e.response.headers.get("Retry-After")):
-                    cooldown = float(retry_after)
+            with _endpoints_lock:
+                endpoint_info.update_failure(time.monotonic() - request_start_time, cooldown, ip)
 
-                with _endpoints_lock:
-                    endpoint_info.update_failure(time.monotonic() - request_start_time, cooldown, ip)
+        else:
+            with _endpoints_lock:
+                endpoint_info.update_success(time.monotonic() - request_start_time, ip)
+            return ping_result
 
-            else:
-                with _endpoints_lock:
-                    endpoint_info.update_success(time.monotonic() - request_start_time, ip)
-                return ping_result
-
-            finally:
-                semaphore.release()  # Release slot after request
+        finally:
+            semaphore.release()  # Release slot after request
 
     raise AllEndpointsExhaustedError
