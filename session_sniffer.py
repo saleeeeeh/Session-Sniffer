@@ -4717,6 +4717,9 @@ class SessionTableView(QTableView):
             if not isinstance(cell_text, str):
                 raise TypeError(f'Expected "str", got "{type(cell_text).__name__}"')
 
+            if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address":
+                cell_text = cell_text.removesuffix(" 👑")
+
             selected_texts.append(cell_text)
 
         # Return if no text was selected
