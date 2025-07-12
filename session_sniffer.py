@@ -1086,9 +1086,20 @@ class Player:  # pylint: disable=too-many-instance-attributes
         self.pps.counter += 1
         self.ppm.counter += 1
 
-        if port not in self.ports.all:
-            self.ports.all.append(port)
-        self.ports.last = port
+        if port != self.ports.last:
+            if port not in self.ports.all:
+                self.ports.all.append(port)
+
+            if port in self.ports.middle:
+                self.ports.middle.remove(port)
+
+            if (
+                self.ports.last != self.ports.first
+                and self.ports.last not in self.ports.middle
+            ):
+                self.ports.middle.append(self.ports.last)
+
+            self.ports.last = port
 
     def mark_as_rejoined(self, *, port: int, packet_datetime: datetime):
         self.left_event.clear()
@@ -3134,9 +3145,8 @@ def rendering_core():
                 return player_ip
 
             def format_player_logging_middle_ports(player: Player):
-                player.ports.middle = [port for port in reversed(player.ports.all) if port not in {player.ports.first, player.ports.last}]
                 if player.ports.middle:
-                    return ", ".join(map(str, player.ports.middle))
+                    return ", ".join(map(str, reversed(player.ports.middle)))
                 return ""
 
             def add_sort_arrow_char_to_sorted_logging_table_field(field_names: list[str], sorted_field: str, sort_order: Qt.SortOrder):
@@ -3297,9 +3307,8 @@ def rendering_core():
                 return player_ip
 
             def format_player_gui_middle_ports(player: Player):
-                player.ports.middle = [port for port in reversed(player.ports.all) if port not in {player.ports.first, player.ports.last}]
                 if player.ports.middle:
-                    return ", ".join(map(str, player.ports.middle))
+                    return ", ".join(map(str, reversed(player.ports.middle)))
                 return ""
 
             def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
