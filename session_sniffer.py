@@ -199,7 +199,13 @@ class UnsupportedSortColumnError(Exception):
     """Raised when an unsupported column name is used for sorting."""
     def __init__(self, column_name: str):
         super().__init__(f"Sorting by column '{column_name}' is not supported.")
-        self.column_name = column_name
+
+
+class PlayerNotFoundInRegistryError(Exception):
+    """Raised when a player with the specified IP address is not found in the players registry."""
+
+    def __init__(self, ip: str):
+        super().__init__(f'Player with IP "{ip}" not found in the players registry.')
 
 
 class ScriptControl:
@@ -944,7 +950,7 @@ class PlayerPorts:
     last: int
 
     @classmethod
-    def from_packet_port(cls, port: int) -> "PlayerPorts":
+    def from_packet_port(cls, port: int):
         return cls(
             all=[port],
             first=port,
@@ -967,7 +973,7 @@ class PlayerDateTime:
     last_seen: datetime
 
     @classmethod
-    def from_packet_datetime(cls, packet_datetime: datetime) -> "PlayerDateTime":
+    def from_packet_datetime(cls, packet_datetime: datetime):
         return cls(
             first_seen=packet_datetime,
             last_rejoin=packet_datetime,
@@ -1100,10 +1106,10 @@ class Player:  # pylint: disable=too-many-instance-attributes
         self.left_event.clear()
         self.datetime.last_rejoin = packet_datetime
         self.packets = 1
+        self.pps.counter = 1
+        self.ppm.counter = 1
         self.rejoins += 1
         self.total_packets += 1
-        self.pps.counter += 1
-        self.ppm.counter += 1
 
         if Settings.GUI_RESET_PORTS_ON_REJOINS:
             self.ports.reset(port)
@@ -1112,6 +1118,8 @@ class Player:  # pylint: disable=too-many-instance-attributes
         self.left_event.set()
         self.pps.reset()
         self.ppm.reset()
+
+        PlayersRegistry.move_player_to_disconnected(self)
 
         if self.userip_detection and self.userip_detection.as_processed_task:
             self.userip_detection.as_processed_task = False
@@ -1153,6 +1161,38 @@ class PlayersRegistry:
             return player
 
     @classmethod
+    def move_player_to_connected(cls, player: Player):
+        """Move a player from the disconnected registry to the connected registry.
+
+        Args:
+            player (Player): The player object to move.
+
+        Raises:
+            PlayerNotFoundError: If the player is not found in the disconnected registry.
+        """
+        with cls._registry_lock:
+            if player.ip not in cls._disconnected_players_registry:
+                raise PlayerNotFoundInRegistryError(player.ip)
+
+            cls._connected_players_registry[player.ip] = cls._disconnected_players_registry.pop(player.ip)
+
+    @classmethod
+    def move_player_to_disconnected(cls, player: Player):
+        """Move a player from the connected registry to the disconnected registry.
+
+        Args:
+            player (Player): The player object to move.
+
+        Raises:
+            PlayerNotFoundError: If the player is not found in the connected registry.
+        """
+        with cls._registry_lock:
+            if player.ip not in cls._connected_players_registry:
+                raise PlayerNotFoundInRegistryError(player.ip)
+
+            cls._disconnected_players_registry[player.ip] = cls._connected_players_registry.pop(player.ip)
+
+    @classmethod
     def get_player_by_ip(cls, ip: str, /):
         """Get a player by their IP address.
 
@@ -1166,29 +1206,34 @@ class PlayersRegistry:
             return cls._connected_players_registry.get(ip) or cls._disconnected_players_registry.get(ip)
 
     @classmethod
-    def iterate_all_players(cls):
-        """Iterate over all players in the registry.
+    def get_default_sorted_players(
+        cls,
+        *,
+        include_connected: bool = True,
+        include_disconnected: bool = True,
+    ):
+        """Return a snapshot of players sorted by default criteria.
 
-        This method yields players from both connected and disconnected registries.<br>
-        The connected players are sorted by `Last Rejoin`, while the disconnected players are sorted by `Last Seen`.
-
-        Yields:
-            Player: Each player object from the registry.
+        Connected players are sorted by last rejoin (ascending),
+        disconnected players by last seen (descending).
         """
         with cls._registry_lock:
-            # Iterate over connected players first
-            yield from sorted(
-                cls._connected_players_registry.values(),
-                key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
-                reverse=False,
-            )
+            players: list[Player] = []
 
-            # Then iterate over disconnected players
-            yield from sorted(
-                cls._disconnected_players_registry.values(),
-                key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
-                reverse=True,
-            )
+            if include_connected:
+                players.extend(sorted(
+                    cls._connected_players_registry.values(),
+                    key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
+                ))
+
+            if include_disconnected:
+                players.extend(sorted(
+                    cls._disconnected_players_registry.values(),
+                    key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
+                    reverse=True,
+                ))
+
+            return players
 
 
 class SessionHost:
@@ -2355,7 +2400,7 @@ def iplookup_core():
 
             ips_to_lookup: list[str] = []
 
-            for player in PlayersRegistry.iterate_all_players():
+            for player in PlayersRegistry.get_default_sorted_players():
                 if player.iplookup.ipapi.is_initialized:
                     continue
 
@@ -2443,7 +2488,7 @@ def hostname_core():
                 if ScriptControl.has_crashed():
                     return
 
-                for player in PlayersRegistry.iterate_all_players():
+                for player in PlayersRegistry.get_default_sorted_players():
                     if player.reverse_dns.is_initialized or player.ip in pending_ips:
                         continue
 
@@ -2486,7 +2531,7 @@ def pinger_core():
                 if ScriptControl.has_crashed():
                     return
 
-                for player in PlayersRegistry.iterate_all_players():
+                for player in PlayersRegistry.get_default_sorted_players():
                     if player.ping.is_initialized or player.ip in pending_ips:
                         continue
 
@@ -2589,6 +2634,7 @@ def capture_core():
                     port=target_port,
                     packet_datetime=packet_datetime,
                 )
+                PlayersRegistry.move_player_to_connected(player)
             else:
                 player.mark_as_seen(
                     port=target_port,
@@ -3684,7 +3730,7 @@ def rendering_core():
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
 
-            for player in PlayersRegistry.iterate_all_players():
+            for player in PlayersRegistry.get_default_sorted_players():
                 if player.userip and player.ip not in UserIPDatabases.ips_set:
                     player.userip = None
                     player.userip_detection = None
