@@ -41,7 +41,7 @@ from rich.console import Console
 from rich.traceback import Traceback
 from packaging.version import Version
 # pylint: disable=no-name-in-module
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer, QObject, QEvent
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractItemModel, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer, QObject, QEvent
 from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout, QToolTip
 from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction, QPixmap, QIcon, QHoverEvent
 # pylint: enable=no-name-in-module
@@ -3854,7 +3854,7 @@ class SessionTableModel(QAbstractTableModel):
             return None  # Return None for invalid index
 
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
-            if self.get_column_index("Country") == col_idx:
+            if self.get_column_index_by_name("Country") == col_idx:
                 ip = self._data[row_idx][self.IP_COLUMN_INDEX]
                 if not isinstance(ip, str):
                     raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
@@ -3882,14 +3882,9 @@ class SessionTableModel(QAbstractTableModel):
                 return QBrush(self._compiled_colors[row_idx][col_idx].background)
 
         if role == Qt.ItemDataRole.ToolTipRole:
-            # Ensure the view is attached
-            if self._view is None:
-                return None
-
-            # Get the column resize mode
-            horizontal_header = self._view.horizontalHeader()
-            if not isinstance(horizontal_header, QHeaderView):
-                raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
+            # Return the tooltip text for the cell
+            view = self.get_view()
+            horizontal_header = view.horizontalHeader()
             resize_mode = horizontal_header.sectionResizeMode(index.column())
 
             # Return None if the column resize mode isn't set to Stretch, as it shouldn't be truncated
@@ -3898,9 +3893,9 @@ class SessionTableModel(QAbstractTableModel):
 
             cell_text = self._data[row_idx][col_idx]
 
-            font_metrics = self._view.fontMetrics()
+            font_metrics = view.fontMetrics()
             text_width = font_metrics.horizontalAdvance(cell_text)
-            column_width = self._view.columnWidth(index.column())
+            column_width = view.columnWidth(index.column())
 
             TEXT_TRUNCATION_MARGIN = 8
             if text_width > column_width - TEXT_TRUNCATION_MARGIN:
@@ -4044,7 +4039,12 @@ class SessionTableModel(QAbstractTableModel):
     def set_view(self, view: "SessionTableView"):
         self._view = view
 
-    def get_column_index(self, column_name: str):
+    def get_view(self):
+        if self._view is None:
+            raise TypeError(f'Expected "SessionTableView", got "{type(self._view).__name__}"')
+        return self._view
+
+    def get_column_index_by_name(self, column_name: str, /):
         """Get the table index of a specified column.
 
         Args:
@@ -4055,7 +4055,7 @@ class SessionTableModel(QAbstractTableModel):
         """
         return self._headers.index(column_name)
 
-    def get_row_index_by_ip(self, ip: str):
+    def get_row_index_by_ip(self, ip: str, /):
         """Find the row index for the given IP address.
 
         Args:
@@ -4074,13 +4074,8 @@ class SessionTableModel(QAbstractTableModel):
 
         Ensures sorting reflects the current state of the header.
         """
-        if not isinstance(self._view, SessionTableView):
-            raise TypeError(f'Expected "SessionTableView", got "{type(self._view).__name__}"')
-
         # Retrieve the current sort column and order
-        horizontal_header = self._view.horizontalHeader()
-        if not isinstance(horizontal_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
+        horizontal_header = self.get_view().horizontalHeader()
         sort_column = horizontal_header.sortIndicatorSection()
         sort_order = horizontal_header.sortIndicatorOrder()
 
@@ -4119,12 +4114,8 @@ class SessionTableModel(QAbstractTableModel):
             row_index: The index of the row to delete.
         """
         if 0 <= row_index < self.rowCount():
-            if not isinstance(self._view, SessionTableView):
-                raise TypeError(f'Expected "SessionTableView", got "{type(self._view).__name__}"')
-
-            selection_model = self._view.selectionModel()
-            if not isinstance(selection_model, QItemSelectionModel):
-                raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+            view = self.get_view()
+            selection_model = view.selectionModel()
 
             # Adjust selection for the deleted row
             for index in selection_model.selection().indexes():
@@ -4174,9 +4165,8 @@ class SessionTableModel(QAbstractTableModel):
                 self.endResetModel()
 
             # Ensure the view resizes properly after a row is removed
-            # if self._view:
-            #     self._view.resizeRowsToContents()
-            #     self._view.viewport().update()
+            #view.resizeRowsToContents()
+            #view.viewport().update()
 
     def refresh_view(self):
         """Notifies the view to refresh and reflect all changes made to the model."""
@@ -4188,24 +4178,19 @@ class SessionTableView(QTableView):
     def __init__(self, model: SessionTableModel, sort_column: int, sort_order: Qt.SortOrder):
         super().__init__()
         self.setModel(model)
-        self._is_dragging = False  # Track if the mouse is being dragged with Ctrl key
+        self._drag_selecting: bool = False  # Track if the mouse is being dragged with Ctrl key
+        self._previous_cell: QModelIndex | None = None  # Track the previously selected cell
         self._previous_sort_section_index: int | None = None
 
         self.setMouseTracking(True)  # Track mouse without clicks
         viewport = self.viewport()
-        if not isinstance(viewport, QWidget):
-            raise TypeError(f'Expected "QWidget", got "{type(viewport).__name__}"')
         viewport.installEventFilter(self)  # Install event filter
         # Configure table view settings
         vertical_header = self.verticalHeader()
-        if not isinstance(vertical_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(vertical_header).__name__}"')
         vertical_header.setVisible(False)  # Hide row index
         self.setAlternatingRowColors(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         horizontal_header = self.horizontalHeader()
-        if not isinstance(horizontal_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
         horizontal_header.setSectionsClickable(True)
         horizontal_header.sectionClicked.connect(self.on_section_clicked)
         horizontal_header.setSectionsMovable(True)
@@ -4223,16 +4208,54 @@ class SessionTableView(QTableView):
         self.customContextMenuRequested.connect(self.show_context_menu)
 
     # pylint: disable=invalid-name
-    def eventFilter(self, obj: QObject, event: QEvent):  # noqa: N802
-        if isinstance(obj, QWidget) and isinstance(event, QHoverEvent):
+    def setModel(self, model: QAbstractItemModel | None):  # noqa: N802
+        """Override the setModel method to ensure the model is of type SessionTableModel."""
+        if not isinstance(model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
+        super().setModel(model)
+
+    def model(self):
+        """Override the model method to ensure it returns a SessionTableModel."""
+        model = super().model()
+        if not isinstance(model, SessionTableModel):
+            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
+        return model
+
+    def selectionModel(self):  # noqa: N802
+        """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
+        selection_model = super().selectionModel()
+        if not isinstance(selection_model, QItemSelectionModel):
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+        return selection_model
+
+    def viewport(self):
+        """Override the viewport method to ensure it returns a QWidget."""
+        viewport = super().viewport()
+        if not isinstance(viewport, QWidget):
+            raise TypeError(f'Expected "QWidget", got "{type(viewport).__name__}"')
+        return viewport
+
+    def verticalHeader(self):  # noqa: N802
+        """Override the verticalHeader method to ensure it returns a QHeaderView."""
+        header = super().verticalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+        return header
+
+    def horizontalHeader(self):  # noqa: N802
+        """Override the horizontalHeader method to ensure it returns a QHeaderView."""
+        header = super().horizontalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+        return header
+
+    def eventFilter(self, object: QObject | None, event: QEvent | None):  # pylint: disable=redefined-builtin  # noqa: A002, N802
+        if isinstance(object, QWidget) and isinstance(event, QHoverEvent):
             index = self.indexAt(event.position().toPoint())  # Get hovered cell
             if index.isValid():
-                col_idx = index.column()
                 model = self.model()
-                if not isinstance(model, SessionTableModel):
-                    raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
 
-                if model.get_column_index("Country") == col_idx:
+                if model.get_column_index_by_name("Country") == index.column():
                     ip = model.data(model.index(index.row(), model.IP_COLUMN_INDEX))
                     if not isinstance(ip, str):
                         raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
@@ -4242,102 +4265,91 @@ class SessionTableView(QTableView):
                     if player is not None and player.country_flag is not None:
                         self.show_flag_tooltip(event, index, player)
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(object, event)
 
-    def keyPressEvent(self, event: QKeyEvent):  # noqa: N802
+    def keyPressEvent(self, e: QKeyEvent | None):  # noqa: N802
         """Handle key press events to capture Ctrl+A for selecting all and Ctrl+C for copying selected data to the clipboard.
 
         Fall back to default behavior for other key presses.
         """
-        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:  # Check for Ctrl+C key combination and copy selection
-            if event.key() == Qt.Key.Key_A:
-                self.select_all_cells()
-            elif event.key() == Qt.Key.Key_C:
-                selected_model = self.model()
-                if not isinstance(selected_model, SessionTableModel):
-                    raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
-
-                selection_model = self.selectionModel()
-                if not isinstance(selection_model, QItemSelectionModel):
-                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
-
-                selected_indexes = selection_model.selectedIndexes()
-
-                self.copy_selected_cells(selected_model, selected_indexes)
-            return
+        if isinstance(e, QKeyEvent):  # noqa: SIM102
+            if e.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                if e.key() == Qt.Key.Key_A:
+                    self.select_all_cells()
+                elif e.key() == Qt.Key.Key_C:
+                    self.copy_selected_cells(self.model(), self.selectionModel().selectedIndexes())
+                return
 
         # Fall back to default behavior
-        super().keyPressEvent(event)
+        super().keyPressEvent(e)
 
-    def mousePressEvent(self, event: QMouseEvent):  # noqa: N802
+    def mousePressEvent(self, e: QMouseEvent | None):  # noqa: N802
         """Handle mouse press events for selecting multiple items with Ctrl or single items otherwise.
 
         Fall back to default behavior for non-cell areas.
         """
-        index = self.indexAt(event.pos())  # Determine the index of the clicked item
-        if index.isValid():
-            selection_model = self.selectionModel()
-            if not isinstance(selection_model, QItemSelectionModel):
-                raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
-
-            selection_flag = None
-
-            if event.button() == Qt.MouseButton.RightButton:
-                if not selection_model.isSelected(index):
-                    selection_model.select(index, QItemSelectionModel.SelectionFlag.ClearAndSelect)
-                    return
-
-            elif event.button() == Qt.MouseButton.LeftButton:
-                # Determine selection flag based on modifier keys
-                if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                    # Toggle selection while keeping other selections
-                    selection_flag = (
-                        QItemSelectionModel.SelectionFlag.Deselect
-                        if selection_model.isSelected(index)
-                        else QItemSelectionModel.SelectionFlag.Select
-                    )
-                    self._is_dragging = True  # Start tracking dragging
-                elif event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                    was_selection_index_selected = selection_model.isSelected(index)
-
-                    # Clear existing selections
-                    selection_model.clearSelection()
-
-                    # Select or Deselect the clicked cell
-                    selection_flag = (
-                        QItemSelectionModel.SelectionFlag.Deselect
-                        if was_selection_index_selected
-                        else QItemSelectionModel.SelectionFlag.Select
-                    )
-
-            if selection_flag is not None:
-                # Apply the determined selection flag
-                selection_model.select(index, selection_flag)
-                return
-
-        # Fall back to default behavior
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent):  # noqa: N802
-        """Handle mouse move events for selecting multiple items while holding the Ctrl key."""
-        if self._is_dragging and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            index = self.indexAt(event.pos())  # Get the index under the cursor
+        if isinstance(e, QMouseEvent):
+            index = self.indexAt(e.pos())  # Determine the index of the clicked item
             if index.isValid():
                 selection_model = self.selectionModel()
-                if not isinstance(selection_model, QItemSelectionModel):
-                    raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+                selection_flag = None
 
-                # Select the current cell
-                selection_model.select(index, QItemSelectionModel.SelectionFlag.Select)
-                return
+                if e.button() == Qt.MouseButton.LeftButton:
+                    if e.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                        selection_flag = (
+                            QItemSelectionModel.SelectionFlag.Deselect
+                            if selection_model.isSelected(index)
+                            else QItemSelectionModel.SelectionFlag.Select
+                        )
+                        self._drag_selecting = True
+                        self._previous_cell = index
+                    elif e.modifiers() == Qt.KeyboardModifier.NoModifier:
+                        was_selection_index_selected = selection_model.isSelected(index)
+                        selection_model.clearSelection()
+                        selection_flag = (
+                            QItemSelectionModel.SelectionFlag.Deselect
+                            if was_selection_index_selected
+                            else QItemSelectionModel.SelectionFlag.Select
+                        )
 
-        super().mouseMoveEvent(event)
+                elif e.button() == Qt.MouseButton.RightButton:  # noqa: SIM102
+                    if not selection_model.isSelected(index):
+                        selection_flag = QItemSelectionModel.SelectionFlag.ClearAndSelect
 
-    def mouseReleaseEvent(self, event: QMouseEvent):  # noqa: N802
+                if selection_flag is not None:
+                    selection_model.select(index, selection_flag)
+
+        # Fall back to default behavior
+        super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e: QMouseEvent | None):  # noqa: N802
+        """Handle mouse movement during Ctrl + Left-Click drag to toggle the selection of multiple cells."""
+        if isinstance(e, QMouseEvent):
+            index = self.indexAt(e.pos())  # Get the index under the cursor
+            if index.isValid():
+                selection_model = self.selectionModel()
+
+                if e.buttons() == Qt.MouseButton.LeftButton:  # noqa: SIM102
+                    if e.modifiers() == Qt.KeyboardModifier.ControlModifier:  # noqa: SIM102
+                        if self._drag_selecting and self._previous_cell != index:
+                            self._previous_cell = index
+
+                            selection_model.select(index, (
+                                QItemSelectionModel.SelectionFlag.Deselect
+                                if selection_model.isSelected(index)
+                                else QItemSelectionModel.SelectionFlag.Select
+                            ))
+
+        super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e: QMouseEvent | None):  # noqa: N802
         """Reset dragging state when the mouse button is released."""
-        self._is_dragging = False
+        if isinstance(e, QMouseEvent):  # noqa: SIM102
+            if e.button() == Qt.MouseButton.LeftButton:
+                self._drag_selecting = False
+                self._previous_cell = None
 
-        super().mouseReleaseEvent(event)
+        super().mouseReleaseEvent(e)
     # pylint: enable=invalid-name
 
     # Custom Methods:
@@ -4345,12 +4357,7 @@ class SessionTableView(QTableView):
     def adjust_table_column_widths(self):
         """Adjust the column widths of a QTableView to fit content."""
         model = self.model()
-        if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
-
         horizontal_header = self.horizontalHeader()
-        if not isinstance(horizontal_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
 
         for column in range(model.columnCount()):
             # Get the header label for the column
@@ -4374,12 +4381,7 @@ class SessionTableView(QTableView):
     def get_sorted_column(self):
         """Get the currently sorted column and its order for this table view."""
         model = self.model()
-        if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
-
         horizontal_header = self.horizontalHeader()
-        if horizontal_header is None:
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
 
         # Get the index of the currently sorted column
         sorted_column_index = horizontal_header.sortIndicatorSection()
@@ -4389,7 +4391,7 @@ class SessionTableView(QTableView):
 
         # Get the name of the sorted column from the model
         sorted_column_name = model.headerData(sorted_column_index, Qt.Orientation.Horizontal)
-        if not isinstance(sorted_column_name, str):
+        if sorted_column_name is None:
             raise TypeError(f'Expected "str", got "{type(sorted_column_name).__name__}"')
 
         return sorted_column_name, sort_order
@@ -4402,18 +4404,10 @@ class SessionTableView(QTableView):
 
     def on_section_clicked(self, section_index: int):
         model = self.model()
-        if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
-
         horizontal_header = self.horizontalHeader()
-        if not isinstance(horizontal_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
+        selection_model = self.selectionModel()
 
         # Clear selections when a header section is clicked
-        selection_model = self.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
-
         selection_model.clearSelection()
 
         # If it's the first click or sorting is being toggled
@@ -4483,13 +4477,7 @@ class SessionTableView(QTableView):
             return  # Do nothing if the click is outside valid cells
 
         selected_model = self.model()
-        if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
-
         selection_model = self.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
-
         selected_indexes = selection_model.selectedIndexes()
 
         # Create the main context menu
@@ -4954,12 +4942,7 @@ class SessionTableView(QTableView):
             select: If True, select all cells; if False, deselect them.
         """
         selected_model = self.model()
-        if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
-
         selection_model = self.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         # Get the top-left and bottom-right QModelIndex for the entire table
         top_left = selected_model.createIndex(0, 0)  # Top-left item (first row, first column)
@@ -4990,12 +4973,7 @@ class SessionTableView(QTableView):
             select: If True, select the row; if False, unselect it.
         """
         selected_model = self.model()
-        if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
-
         selection_model = self.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         top_index = selected_model.createIndex(row, 0)  # First column of the specified row
         bottom_index = selected_model.createIndex(row, selected_model.columnCount() - 1)  # Last column of the specified row
@@ -5023,12 +5001,7 @@ class SessionTableView(QTableView):
             select: If True, select the column; if False, unselect it.
         """
         selected_model = self.model()
-        if not isinstance(selected_model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(selected_model).__name__}"')
-
         selection_model = self.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
 
         top_index = selected_model.createIndex(0, column)  # First row of the specified column
         bottom_index = selected_model.createIndex(selected_model.rowCount() - 1, column)  # Last row of the specified column

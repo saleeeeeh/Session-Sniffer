@@ -37,6 +37,33 @@ class InterfaceSelectionData(NamedTuple):
     is_arp:          bool                 = False
 
 
+class SafeQTableWidget(QTableWidget):
+    """A subclass of QTableWidget that ensures the selection model is of the correct type."""
+
+    # pylint: disable=invalid-name
+    def selectionModel(self):  # noqa: N802
+        """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
+        selection_model = super().selectionModel()
+        if not isinstance(selection_model, QItemSelectionModel):
+            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+        return selection_model
+
+    def verticalHeader(self):  # noqa: N802
+        """Override the verticalHeader method to ensure it returns a QHeaderView."""
+        header = super().verticalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+        return header
+
+    def horizontalHeader(self):  # noqa: N802
+        """Override the horizontalHeader method to ensure it returns a QHeaderView."""
+        header = super().horizontalHeader()
+        if not isinstance(header, QHeaderView):
+            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+        return header
+    # pylint: enable=invalid-name
+
+
 class InterfaceSelectionDialog(QDialog):
     def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
         super().__init__()
@@ -63,8 +90,7 @@ class InterfaceSelectionDialog(QDialog):
         layout.addWidget(header_label)
 
         # Table widget for displaying interfaces
-        self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table = SafeQTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(
             ["Name", "Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"],
         )
@@ -76,8 +102,6 @@ class InterfaceSelectionDialog(QDialog):
         self.table.cellEntered.connect(self.show_tooltip_if_elided)
 
         horizontal_header = self.table.horizontalHeader()
-        if not isinstance(horizontal_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(horizontal_header).__name__}"')
         horizontal_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         horizontal_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         horizontal_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -88,8 +112,6 @@ class InterfaceSelectionDialog(QDialog):
         horizontal_header.setStretchLastSection(True)
 
         vertical_header = self.table.verticalHeader()
-        if not isinstance(vertical_header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(vertical_header).__name__}"')
         vertical_header.setVisible(False)
 
         # Populate the table with interface data
@@ -153,8 +175,6 @@ class InterfaceSelectionDialog(QDialog):
 
         # Connect selection change signal to enable/disable Select button
         selection_model = self.table.selectionModel()
-        if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
         selection_model.selectionChanged.connect(self.update_select_button_state)
 
     # Custom Methods:
