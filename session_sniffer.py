@@ -948,18 +948,16 @@ class PlayerPorts:
         return cls(
             all=[port],
             first=port,
-            middle=[port],
+            middle=[],
             last=port,
         )
 
     def reset(self, port: int):
         self.all.clear()
         self.all.append(port)
-
         self.first = port
-        self.last = port
-
         self.middle.clear()
+        self.last = port
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1093,10 +1091,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
             if port in self.ports.middle:
                 self.ports.middle.remove(port)
 
-            if (
-                self.ports.last != self.ports.first
-                and self.ports.last not in self.ports.middle
-            ):
+            if self.ports.last not in self.ports.middle and self.ports.last != self.ports.first:
                 self.ports.middle.append(self.ports.last)
 
             self.ports.last = port
