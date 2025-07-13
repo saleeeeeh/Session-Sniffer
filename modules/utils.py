@@ -2,47 +2,72 @@
 
 This module contains a variety of helper functions and custom exceptions used across the project.
 """
-import contextlib
+import os
 import subprocess
 import sys
+import textwrap
 import winreg
+from collections.abc import Iterable
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, TypeVar
+from typing import Any, Literal
 
 import psutil
-import win32com.client
 from packaging.version import Version
-
-# pylint: disable=import-error,no-name-in-module
-from win32com.shell import (  # type: ignore[import-error]  # Seems like we can also use `win32comext.shell`
+from win32com.client import Dispatch
+from win32com.shell import (  # type: ignore[import-error]  # pylint: disable=import-error,no-name-in-module
     shell,  # type: ignore[import-error]
     shellcon,  # type: ignore[import-error]
 )
 
-# pylint: enable=import-error,no-name-in-module
-from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
-from modules.constants.standard import CMD_EXE
-
 
 class InvalidFileError(Exception):
-    """Custom exception to raise when a file is not valid."""
+    """Exception raised when a file is not valid."""
+
+    def __init__(self, file_path: Path):
+        """Initialize the exception with a default error message.
+
+        Args:
+            file_path (Path): The path to the invalid file.
+        """
+        super().__init__(f"Invalid file: {file_path.absolute()}")
 
 
 class InvalidBooleanValueError(Exception):
-    pass
+    """Exception raised when a value is not a valid boolean."""
+
+    def __init__(self):
+        """Initialize the exception with a default error message."""
+        super().__init__("Input is not a valid boolean value")
+
+
+class MismatchedBooleanValueError(Exception):
+    """Exception raised when the resolved value does not match the expected boolean value."""
+
+    def __init__(self):
+        """Initialize the exception with a default error message."""
+        super().__init__("Input does not match the specified boolean value")
 
 
 class InvalidNoneTypeValueError(Exception):
-    pass
+    """Exception raised when a string is not a valid NoneType value."""
+
+    def __init__(self):
+        """Initialize the exception with a default error message."""
+        super().__init__("Input is not a valid NoneType value")
 
 
 class NoMatchFoundError(Exception):
-    """Custom exception raised when no case-insensitive match is found."""
-    def __init__(self, input_value: str, message: str = "No matching value found in the provided list"):
-        self.input_value = input_value
-        self.message = f"{message}: '{input_value}'"
-        super().__init__(self.message)
+    """Exception raised when no case-insensitive match is found."""
+
+    def __init__(self, input_value: str):
+        """Initialize the exception with the input value and an optional custom message.
+
+        Args:
+            input_value (str): The value that did not match any item in the list.
+        """
+        super().__init__(f"No matching value found in the provided list: '{input_value}'")
 
 
 class ParenthesisMismatchError(Exception):
@@ -59,38 +84,81 @@ class ParenthesisMismatchError(Exception):
         super().__init__(message)
 
 
-T = TypeVar("T")
+def format_attribute_error(cls: type, name: str):
+    """Format an attribute error message.
+
+    Args:
+        cls (type): The class of the object.
+        name (str): The name of the missing attribute.
+
+    Returns:
+        str: The formatted error message.
+    """
+    return f"'{cls.__name__}' object has no attribute '{name}'"
+
+
+def format_type_error(
+    obj: object,
+    expected_types: type[Any] | tuple[type[Any], ...],
+    suffix: str = "",
+):
+    """Generate a formatted error message for a type mismatch.
+
+    Args:
+        obj (object): The object whose type is being checked.
+        expected_types (type[Any] | tuple[type[Any], ...]): The expected type(s) for the object.
+        suffix (str): An optional suffix to append to the error message.
+
+    Returns:
+        str: The formatted error message. (e.g., for deeper debugging purposes)
+    """
+    # Determine the actual type of the object
+    actual_type = type(obj).__name__
+
+    # Handle expected types, which could be a single type or a tuple of types
+    if isinstance(expected_types, tuple):
+        expected_types_names = " | ".join(t.__name__ for t in expected_types)
+        expected_type_count = len(expected_types)
+    else:
+        expected_types_names = expected_types.__name__
+        expected_type_count = 1
+
+    # Format the error message
+    return f"Expected type{pluralize(expected_type_count)} {expected_types_names}, got {actual_type} instead.{suffix}"
+
+
+def format_file_not_found_error(file_path: Path):
+    """Format the file not found error message.
+
+    Args:
+        file_path (Path): The path to the file that was not found.
+    """
+    return f"File not found: {file_path.absolute()}"
 
 
 def is_pyinstaller_compiled():
+    """Check if the script is running as a PyInstaller compiled executable."""
     return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
 
 
-def set_window_title(title: str):
-    print(f"\033]0;{title}\007", end="")
+def get_working_directory_to_script_location():
+    """Get the working directory to the script or executable location."""
+    if is_pyinstaller_compiled():
+        return Path(sys.executable).parent
+    return Path(__file__).resolve().parent.parent
 
 
-def clear_screen():
-    print("\033c", end="")
+def set_working_directory_to_script_location():
+    """Set the current working directory to the script or executable location."""
+    os.chdir(get_working_directory_to_script_location())
 
 
-def pluralize(variable: int):
-    return "s" if variable > 1 else ""
-
-
-def validate_file(file_path: Path):
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path.absolute()}")
-    if not file_path.is_file():
-        raise InvalidFileError(f"Invalid file: {file_path.absolute()}")
-
-
-def format_project_version(version: Version):
-    if version.local:
-        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=UTC).strftime("%Y/%m/%d (%H:%M)")
-        return f"v{version.public} - {date_time}"
-
-    return f"v{version.public}"
+def resource_path(relative_path: Path):
+    """Get absolute path to resource, works for dev and for PyInstaller."""
+    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
+    if not isinstance(base_path, Path):
+        base_path = Path(base_path)
+    return base_path / relative_path
 
 
 def get_documents_folder(*, use_alternative_method: bool = False):
@@ -111,68 +179,77 @@ def get_documents_folder(*, use_alternative_method: bool = False):
         documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)
     else:
         # Default method using Windows registry
+        from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
+
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
             documents_path, _ = winreg.QueryValueEx(key, "Personal")
 
     if not isinstance(documents_path, str):
-        raise TypeError(f'Expected "str", got "{type(documents_path).__name__}"')
+        raise TypeError(format_type_error(documents_path, str))
 
     return Path(documents_path)
 
 
-def resource_path(relative_path: Path):
-    """Get absolute path to resource, works for dev and for PyInstaller."""
-    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
-    if not isinstance(base_path, Path):
-        base_path = Path(base_path)
-    return base_path / relative_path
+def set_window_title(title: str):
+    print(f"\033]0;{title}\007", end="")
 
 
-def take(n: int, input_list: list[T]):
-    """Return first n items from the given input list."""
-    return input_list[:n]
+def clear_screen():
+    print("\033c", end="")
 
 
-def remove_duplicates_from_list(lst: list[T]):
-    """Remove duplicates from a single list while preserving order."""
-    seen = set()
-    unique_list = []
-
-    for item in lst:
-        if item not in seen:
-            seen.add(item)
-            unique_list.append(item)
-
-    return unique_list
+def pluralize(count: int, singular: str = "", plural: str = "s"):
+    return singular if count == 1 else plural
 
 
-def concat_lists_no_duplicates(*lists: list[T]):
-    """Concatenate multiple lists while removing duplicates and preserving order.
+def validate_file(file_path: Path):
+    """Validate if the given file path exists and is a file.
 
-    Args:
-        *lists: One or more lists to concatenate.
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        InvalidFileError: If the path is not a file.
+
+    Returns:
+        Path: The validated file path.
     """
+    if not file_path.exists():
+        raise FileNotFoundError(format_file_not_found_error(file_path))
+    if not file_path.is_file():
+        raise InvalidFileError(file_path)
+
+    return file_path
+
+
+def format_project_version(version: Version):
+    """Format the project version for display."""
+    if version.local:
+        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=UTC).strftime("%Y/%m/%d (%H:%M)")
+        return f"v{version.public} - {date_time}"
+
+    return f"v{version.public}"
+
+
+def take[T](n: int, iterable: Iterable[T]) -> list[T]:
+    """Return the first n items from the given iterable."""
+    return list(iterable)[:n]
+
+
+def dedup_preserve_order[T](*iterables: Iterable[T]) -> list[T]:
+    """Concatenate one or more iterables while removing duplicates and preserving order."""
     seen = set()
-    unique_list: list[T] = []
+    unique = []
 
-    for lst in lists:
-        for item in lst:
+    for iterable in iterables:
+        for item in iterable:
             if item not in seen:
-                unique_list.append(item)
                 seen.add(item)
+                unique.append(item)
 
-    return unique_list
-
-
-def get_pid_by_path(filepath: Path):
-    for process in psutil.process_iter(["pid", "exe"]):
-        if process.info["exe"] == str(filepath.absolute()):
-            return process.pid
-    return None
+    return unique
 
 
 def is_file_need_newline_ending(file: Path):
-    if file.stat().st_size == 0:
+    if not file.exists() or file.stat().st_size == 0:
         return False
 
     return not file.read_bytes().endswith(b"\n")
@@ -194,12 +271,8 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
         return
 
     # If appending to a file, ensure a leading newline is added if the file exists, otherwise creates it.
-    if mode == "a":
-        if file.is_file():
-            if is_file_need_newline_ending(file):
-                content.insert(0, "")
-        else:
-            file.touch()
+    if mode == "a" and is_file_need_newline_ending(file):
+        content.insert(0, "")
 
     # Ensure the last line ends with a newline character
     if not content[-1].endswith("\n"):
@@ -210,31 +283,74 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
         f.writelines(content)
 
 
+def get_pid_by_path(filepath: Path, /):
+    """Get the process ID (PID) of a running process by its executable path."""
+    for process in psutil.process_iter(["pid", "exe"]):
+        if process.info["exe"] == str(filepath.absolute()):
+            return process.pid
+    return None
+
+
 def terminate_process_tree(pid: int | None = None):
     """Terminates the process with the given PID and all its child processes.
 
     Defaults to the current process if no PID is specified.
     """
-    pid = pid or psutil.Process().pid
-
     try:
         parent = psutil.Process(pid)
-        children = parent.children(recursive=True)
-        for child in children:
-            with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
-                child.terminate()
-        psutil.wait_procs(children, timeout=5)
-        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
-            parent.terminate()
-        parent.wait(5)
     except psutil.NoSuchProcess:
-        pass
+        return  # Process already terminated
+
+    try:
+        children = parent.children(recursive=True)
+    except psutil.NoSuchProcess:
+        return
+
+    for child in children:
+        with suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+            child.terminate()
+
+    with suppress(psutil.NoSuchProcess):
+        psutil.wait_procs(children, timeout=3)
+
+    with suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+        parent.terminate()
+
+    with suppress(psutil.NoSuchProcess):
+        parent.wait(3)
 
 
-def check_case_insensitive_and_exact_match(input_value: str, custom_values_list: list[str]):
-    """Check if the input value matches any string in the list case-insensitively, and whether it also matches exactly (case-sensitive).
+def format_triple_quoted_text(
+    text: str,
+    /,
+    *,
+    add_leading_newline: bool = False,
+    add_trailing_newline: bool = False,
+):
+    """Format a triple-quoted string by removing leading whitespace and optionally adding newlines.
 
-    It also returns the correctly capitalized version of the matched value from the list if a case-insensitive match is found.
+    Args:
+        text (str): The text to format.
+        add_leading_newline (bool): Whether to add a leading newline. Defaults to False.
+        add_trailing_newline (bool): Whether to add a trailing newline. Defaults to False.
+
+    Returns:
+        str: The formatted text.
+    """
+    formatted_text = textwrap.dedent(text).strip()
+
+    if add_leading_newline:
+        formatted_text = "\n" + formatted_text
+    if add_trailing_newline:
+        formatted_text += "\n"
+
+    return formatted_text
+
+
+def check_case_insensitive_and_exact_match(input_value: str, custom_values_tuple: tuple[str, ...]):
+    """Check if the input value matches any string in the tuple case-insensitively, and whether it also matches exactly (case-sensitive).
+
+    It also returns the correctly capitalized version of the matched value from the tuple if a case-insensitive match is found.
     If no match is found, raises a NoMatchFoundError.
 
     Returns a tuple of three values:
@@ -245,7 +361,7 @@ def check_case_insensitive_and_exact_match(input_value: str, custom_values_list:
     normalized_match = None
 
     lowered_input_value = input_value.lower()
-    for value in custom_values_list:
+    for value in custom_values_tuple:
         if value.lower() == lowered_input_value:
             normalized_match = value
             if normalized_match == input_value:
@@ -256,10 +372,12 @@ def check_case_insensitive_and_exact_match(input_value: str, custom_values_list:
     raise NoMatchFoundError(input_value)
 
 
-def custom_str_to_bool(string: str, only_match_against: bool | None = None):
+def custom_str_to_bool(string: str, *, only_match_against: bool | None = None):
     """Return the boolean value represented by the string, regardless of case.
 
-    Raise an "InvalidBooleanValueError" if the string does not match a boolean value.
+    Raise:
+        InvalidBooleanValueError: if the string does not match a boolean value.
+        MismatchedBooleanValueError: If the resolved value does not match the expected boolean value.
 
     Args:
         string: The boolean string to be checked.
@@ -276,13 +394,13 @@ def custom_str_to_bool(string: str, only_match_against: bool | None = None):
         resolved_value = False
 
     if resolved_value is None:
-        raise InvalidBooleanValueError("Input is not a valid boolean value")
+        raise InvalidBooleanValueError
 
     if (
         only_match_against is not None
         and only_match_against is not resolved_value
     ):
-        raise InvalidBooleanValueError("Input does not match the specified boolean value")
+        raise MismatchedBooleanValueError
 
     if string != str(resolved_value):
         need_rewrite_current_setting = True
@@ -291,16 +409,22 @@ def custom_str_to_bool(string: str, only_match_against: bool | None = None):
 
 
 def custom_str_to_nonetype(string: str):
-    """Return the NoneType value represented by the string for lowercase or any case variation; otherwise, it raises an "InvalidNoneTypeValueError".
+    """Return the NoneType value represented by the string for lowercase or any case variation.
+
+    Raise:
+        InvalidNoneTypeValueError: If the string is not a valid NoneType value.
 
     Args:
         string: The NoneType string to be checked.
+
+    Returns:
+        tuple: A tuple containing the resolved NoneType value and a boolean indicating if the string was exactly matching "None".
     """
     if not string.lower() == "none":
-        raise InvalidNoneTypeValueError("Input is not a valid NoneType value")
+        raise InvalidNoneTypeValueError
 
-    is_string_literal_none = string == "None"
-    return None, is_string_literal_none
+    need_rewrite_current_setting = string != "None"
+    return None, need_rewrite_current_setting
 
 
 def validate_and_strip_balanced_outer_parens(expr: str):
@@ -356,14 +480,21 @@ def validate_and_strip_balanced_outer_parens(expr: str):
 
 def resolve_lnk(shortcut_path: Path):
     """Resolves a Windows shortcut (.lnk) to its target path."""
-    shortcut = win32com.client.Dispatch("WScript.Shell").CreateShortcut(str(shortcut_path))
+    winshell = Dispatch("WScript.Shell")
+    shortcut = winshell.CreateShortcut(str(shortcut_path))
     return Path(shortcut.Targetpath)
 
 
 def run_cmd_script(script: Path, args: list[str] | None = None):
     """Executes a script with the given arguments in a new CMD terminal window."""
+    from modules.constants.standard import CMD_EXE
+
     # Build the base command
     full_command = [str(CMD_EXE), "/K"]
+
+    # Check if the script is a Windows shortcut
+    if script.suffix.casefold() == ".lnk":
+        script = resolve_lnk(script)
 
     # Add the script to the command
     if script.suffix.casefold() == ".py":
@@ -374,12 +505,13 @@ def run_cmd_script(script: Path, args: list[str] | None = None):
     if args is not None:
         full_command.extend(args)
 
-    # pylint: disable=consider-using-with
-    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)  # pylint: disable=consider-using-with
 
 
 def run_cmd_command(command: str, args: list[str] | None = None):
     """Executes a command with the given arguments in a new CMD terminal window."""
+    from modules.constants.standard import CMD_EXE
+
     # Build the base command
     full_command = [str(CMD_EXE), "/K", command]
 
@@ -387,5 +519,4 @@ def run_cmd_command(command: str, args: list[str] | None = None):
     if args is not None:
         full_command.extend(args)
 
-    # pylint: disable=consider-using-with
-    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)  # pylint: disable=consider-using-with

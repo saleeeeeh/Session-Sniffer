@@ -3,16 +3,18 @@
 It connects to Discord using a provided client ID, updates the presence state with a message, and provides
 functionality to update or close the presence. It uses threading to run the update process asynchronously.
 """
-
-# Standard Python Libraries
 import time
 from queue import SimpleQueue
 from threading import Event, Thread
 
-# External/Third-party Python Libraries
 import sentinel
-from pypresence import Presence, DiscordNotFound, PipeClosed, ResponseTimeout, exceptions
-
+from pypresence import (
+    DiscordNotFound,
+    PipeClosed,
+    Presence,
+    ResponseTimeout,
+    exceptions,
+)
 
 QueueType = SimpleQueue[str | object]
 
@@ -29,7 +31,11 @@ class DiscordRPC:
 
         self.connection_status = Event()
 
-        self._thread = Thread(target=_run, args=(self._rpc, self._queue, self.connection_status))
+        self._thread = Thread(
+            target=_run,
+            name="DiscordRPCThread",
+            args=(self._rpc, self._queue, self.connection_status),
+        )
         self._thread.start()
 
         self.last_update_time: float | None = None

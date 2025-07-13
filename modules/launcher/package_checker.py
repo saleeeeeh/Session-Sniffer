@@ -1,9 +1,6 @@
 """This module checks the validity of packages for the launcher."""
-
-# Standard Python Libraries
 import importlib.metadata
 
-# External/Third-party Python Libraries
 from packaging.requirements import Requirement
 
 

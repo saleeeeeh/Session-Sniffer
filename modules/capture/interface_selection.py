@@ -3,26 +3,25 @@
 It displays a list of interfaces with relevant details and allows users to select an interface
 for further network sniffing operations.
 """
+from typing import Literal, NamedTuple
 
-# Standard Python Libraries
-from typing import NamedTuple, Literal
-
-# External/Third-party Python Libraries
 # pylint: disable=no-name-in-module
-from PyQt6.QtCore import Qt, QItemSelectionModel
+from PyQt6.QtCore import QItemSelectionModel, Qt
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QVBoxLayout,
-    QLabel,
-    QHeaderView,
-    QPushButton,
-    QHBoxLayout,
     QToolTip,
+    QVBoxLayout,
 )
-from PyQt6.QtGui import QCursor
+
 # pylint: enable = no-name-in-module
+from modules.utils import format_type_error
 
 
 class InterfaceSelectionData(NamedTuple):
@@ -45,21 +44,21 @@ class SafeQTableWidget(QTableWidget):
         """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
         selection_model = super().selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+            raise TypeError(format_type_error(selection_model, QItemSelectionModel))
         return selection_model
 
     def verticalHeader(self):  # noqa: N802
         """Override the verticalHeader method to ensure it returns a QHeaderView."""
         header = super().verticalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+            raise TypeError(format_type_error(header, QHeaderView))
         return header
 
     def horizontalHeader(self):  # noqa: N802
         """Override the horizontalHeader method to ensure it returns a QHeaderView."""
         header = super().horizontalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+            raise TypeError(format_type_error(header, QHeaderView))
         return header
     # pylint: enable=invalid-name
 

@@ -1,11 +1,7 @@
 """Module for defining networking utility functions, including MAC address and IPv4 address operations."""
+from ipaddress import AddressValueError, IPv4Address
 
-# Standard Python Libraries
-from ipaddress import IPv4Address, AddressValueError
-
-# Local Python Libraries (Included with Project)
 from modules.constants.standard import RE_MAC_ADDRESS_PATTERN
-
 
 IPV4_LAST_OCTET_VALUE = 255
 

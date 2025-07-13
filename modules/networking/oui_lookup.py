@@ -2,16 +2,12 @@
 
 Includes functions to fetch, parse, and search the database.
 """
-
-# Standard Python Libraries
 from requests.exceptions import RequestException
 
-# Local Python Libraries (Included with Project)
 from modules.constants.standalone import OUI_URL
-from modules.constants.standard import RE_OUI_MAC_ADDRESS_PATTERN, RE_OUI_ENTRY_PATTERN
+from modules.constants.standard import RE_OUI_ENTRY_PATTERN, RE_OUI_MAC_ADDRESS_PATTERN
 from modules.networking.unsafe_https import s
-from modules.networking.utils import is_mac_address, get_mac_oui
-
+from modules.networking.utils import get_mac_oui, is_mac_address
 
 OuiDatabaseType = dict[str, list[dict[str, str]]]
 

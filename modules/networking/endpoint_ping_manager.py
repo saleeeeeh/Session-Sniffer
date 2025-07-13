@@ -2,20 +2,21 @@
 
 It is used to determine whether each player's IP is responsive to pings.
 """
-
-# Standard Python Libraries
 import time
-from typing import NamedTuple
-from threading import Lock, Semaphore
-from urllib.parse import urlparse
 from dataclasses import dataclass, field
+from threading import Lock, Semaphore
+from typing import NamedTuple
+from urllib.parse import urlparse
 
-# External/Third-party Python Libraries
 from requests import exceptions
 
-# Local Python Libraries (Included with Project)
+from modules.constants.standard import (
+    RE_BYTES_PATTERN,
+    RE_PACKET_STATS_PATTERN,
+    RE_RTT_STATS_PATTERN,
+)
 from modules.networking.unsafe_https import s
-from modules.constants.standard import RE_BYTES_PATTERN, RE_PACKET_STATS_PATTERN, RE_RTT_STATS_PATTERN
+from modules.utils import format_type_error
 
 
 class InvalidPingResultError(Exception):
@@ -191,7 +192,7 @@ def fetch_and_parse_ping(ip: str):
             response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
             response.raise_for_status()
             if not isinstance(response.content, bytes):
-                raise TypeError(f'Expected "bytes", got "{type(response.content).__name__}"')
+                raise TypeError(format_type_error(response.content, bytes))
 
             unescaped_response_text = response.content.decode("utf-8").replace("\\/", "/")
 

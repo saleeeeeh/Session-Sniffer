@@ -1,9 +1,8 @@
-# Standard Python Libraries  # noqa: D100, INP001
-import json
+# noqa: D100, INP001
 import argparse
+import json
 from pathlib import Path
 
-# External/Third-party Python Libraries
 from packaging.version import Version
 
 

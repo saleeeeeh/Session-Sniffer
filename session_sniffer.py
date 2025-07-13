@@ -1,75 +1,139 @@
-# ------------------------------------------------------  # noqa: D100
-# 🐍 Standard Python Libraries (Included by Default) 🐍
-# ------------------------------------------------------
-import os
-import sys
 import ast
-import json
-import time
 import enum
-import signal
-import shutil
-import logging
 import hashlib
-import textwrap
-import tempfile
-import winsound
+import json
+import logging
+import os
+import shutil
+import signal
 import subprocess
+import sys
+import tempfile
+import time
 import webbrowser
-from pathlib import Path
-from operator import attrgetter
+import winsound
 from collections.abc import Callable
-from types import FrameType, TracebackType
-from threading import Event, Lock, RLock, Thread
-from typing import Literal, NamedTuple, ClassVar, Any
-from datetime import datetime, timedelta
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from operator import attrgetter
+from pathlib import Path
+from threading import Event, Lock, RLock, Thread
+from types import FrameType, TracebackType
+from typing import Any, ClassVar, Literal, NamedTuple
 
-# --------------------------------------------
-# 📦 External/Third-party Python Libraries 📦
-# --------------------------------------------
-import psutil
 import colorama
-import requests
-import qdarkstyle
-import geoip2.errors
 import geoip2.database
-from prettytable import PrettyTable, TableStyle
+import geoip2.errors
+import psutil
+import qdarkstyle
+import requests
 from colorama import Fore
-from rich.text import Text
-from rich.console import Console
-from rich.traceback import Traceback
 from packaging.version import Version
-# pylint: disable=no-name-in-module
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QAbstractItemModel, QAbstractTableModel, QItemSelectionModel, QItemSelection, QPoint, QModelIndex, QPropertyAnimation, QEasingCurve, QTimer, QObject, QEvent
-from PyQt6.QtWidgets import QApplication, QTableView, QVBoxLayout, QWidget, QSizePolicy, QLabel, QFrame, QHeaderView, QMenu, QInputDialog, QMainWindow, QMessageBox, QDialog, QPushButton, QSpacerItem, QHBoxLayout, QToolTip
-from PyQt6.QtGui import QBrush, QColor, QFont, QCloseEvent, QKeyEvent, QClipboard, QMouseEvent, QAction, QPixmap, QIcon, QHoverEvent
-# pylint: enable=no-name-in-module
+from prettytable import PrettyTable, TableStyle
 
-# -----------------------------------------------------
-# 📚 Local Python Libraries (Included with Project) 📚
-# -----------------------------------------------------
-from modules.constants.standalone import TITLE, GITHUB_RELEASES_URL, NETWORK_ADAPTER_DISABLED, TSHARK_RECOMMENDED_FULL_VERSION, TSHARK_RECOMMENDED_VERSION_NUMBER
-from modules.constants.standard import SETTINGS_PATH
-from modules.constants.local import PYPROJECT_DATA, VERSION, BIN_PATH, SETUP_PATH
+# pylint: disable=no-name-in-module
+from PyQt6.QtCore import (
+    QAbstractItemModel,
+    QAbstractTableModel,
+    QEasingCurve,
+    QEvent,
+    QItemSelection,
+    QItemSelectionModel,
+    QModelIndex,
+    QObject,
+    QPoint,
+    QPropertyAnimation,
+    Qt,
+    QThread,
+    QTimer,
+    pyqtSignal,
+)
+from PyQt6.QtGui import (
+    QAction,
+    QBrush,
+    QClipboard,
+    QCloseEvent,
+    QColor,
+    QFont,
+    QHoverEvent,
+    QIcon,
+    QKeyEvent,
+    QMouseEvent,
+    QPixmap,
+)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QSpacerItem,
+    QTableView,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
+
+# pylint: enable=no-name-in-module
+from rich.console import Console
+from rich.text import Text
+from rich.traceback import Traceback
+
+from modules.capture.interface_selection import (
+    InterfaceSelectionData,
+    show_interface_selection_dialog,
+)
+from modules.capture.tshark_capture import (
+    Packet,
+    PacketCapture,
+    TSharkCrashExceptionError,
+)
+from modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
+from modules.capture.utils.npcap_checker import ensure_npcap_installed
 from modules.constants.external import LOCAL_TZ
-from modules.utils import is_pyinstaller_compiled, clear_screen, set_window_title, pluralize, validate_file, remove_duplicates_from_list, validate_and_strip_balanced_outer_parens, run_cmd_script, run_cmd_command
+from modules.constants.local import PYPROJECT_DATA, TSHARK_PATH, VERSION
+from modules.constants.standalone import (
+    GITHUB_RELEASES_URL,
+    NETWORK_ADAPTER_DISABLED,
+    TITLE,
+)
+from modules.constants.standard import SETTINGS_PATH
+from modules.guis.utils import get_screen_size
+from modules.launcher.package_checker import (
+    check_packages_version,
+    get_dependencies_from_pyproject,
+    get_dependencies_from_requirements,
+)
 from modules.msgbox import MsgBox
 from modules.networking.oui_lookup import MacLookup
 from modules.networking.unsafe_https import s
-from modules.networking.utils import is_valid_non_special_ipv4, is_ipv4_address, is_mac_address, format_mac_address
-from modules.capture.tshark_capture import PacketCapture, Packet, TSharkCrashExceptionError
-from modules.capture.utils.tshark_validator import TSharkNotFoundError, TSharkVersionNotFoundError, InvalidTSharkVersionError, validate_tshark_path
-from modules.capture.utils.check_tshark_filters import check_broadcast_multicast_support
-from modules.capture.utils.npcap_checker import is_npcap_installed
-from modules.capture.interface_selection import InterfaceSelectionData, show_interface_selection_dialog
-from modules.launcher.package_checker import check_packages_version, get_dependencies_from_pyproject, get_dependencies_from_requirements
-from modules.guis.utils import get_screen_size
-
-if sys.version_info < (3, 12):
-    print("\nTo use this script, your Python version must be 3.12 or higher.")
-    input("\nPress {ANY KEY} to exit...")
-    sys.exit(0)
+from modules.networking.utils import (
+    format_mac_address,
+    is_ipv4_address,
+    is_mac_address,
+    is_valid_non_special_ipv4,
+)
+from modules.utils import (
+    clear_screen,
+    dedup_preserve_order,
+    format_attribute_error,
+    format_triple_quoted_text,
+    format_type_error,
+    is_pyinstaller_compiled,
+    pluralize,
+    run_cmd_command,
+    run_cmd_script,
+    set_window_title,
+    validate_and_strip_balanced_outer_parens,
+    validate_file,
+)
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -328,7 +392,7 @@ class DefaultSettings:
 
 
 class Settings(DefaultSettings):
-    gui_fields_mapping = {
+    gui_fields_mapping: ClassVar = {
         "Usernames": "usernames",
         "First Seen": "datetime.first_seen",
         "Last Rejoin": "datetime.last_rejoin",
@@ -365,10 +429,10 @@ class Settings(DefaultSettings):
         "Hosting": "iplookup.ipapi.hosting",
         "Pinging": "ping.is_pinging",
     }
-    gui_forced_fields           = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address"]
-    gui_hideable_fields         = [                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_connected_fields    = ["Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
-    gui_all_disconnected_fields = ["Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging"]
+    gui_forced_fields          : ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address")
+    gui_hideable_fields        : ClassVar = (                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    gui_all_connected_fields   : ClassVar = ("Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    gui_all_disconnected_fields: ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
 
     @classmethod
     def iterate_over_settings(cls):
@@ -399,16 +463,16 @@ class Settings(DefaultSettings):
     @staticmethod
     def reconstruct_settings():
         print('\nCorrect reconstruction of "Settings.ini" ...')
-        text = textwrap.dedent(f"""
+        text = format_triple_quoted_text(f"""
             ;;-----------------------------------------------------------------------------
             ;; {TITLE} Configuration Settings
             ;;-----------------------------------------------------------------------------
-            ;; Lines starting with \";\" or \"#\" symbols are commented lines.
+            ;; Lines starting with ";" or "#" symbols are commented lines.
             ;;
             ;; For detailed explanations of each setting, please refer to the following documentation:
-            ;; https://github.com/BUZZARDGTA/Session-Sniffer/?tab=readme-ov-file#editing-settings
+            ;; https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#script-settings-configuration
             ;;-----------------------------------------------------------------------------
-        """.removeprefix("\n"))
+        """, add_trailing_newline=True)
         for setting_name, setting_value in Settings.iterate_over_settings():
             text += f"{setting_name}={setting_value}\n"
         SETTINGS_PATH.write_text(text, encoding="utf-8")
@@ -438,10 +502,10 @@ class Settings(DefaultSettings):
 
             setting_name = match.group("key")
             if not isinstance(setting_name, str):
-                raise TypeError(f'Expected "str" object, got "{type(setting_name).__name__}"')
+                raise TypeError(format_type_error(setting_name, str))
             setting_value = match.group("value")
             if not isinstance(setting_value, str):
-                raise TypeError(f'Expected "str" object, got "{type(setting_value).__name__}"')
+                raise TypeError(format_type_error(setting_value, str))
 
             corrected_setting_name = setting_name.strip()
             if corrected_setting_name == "":
@@ -468,7 +532,14 @@ class Settings(DefaultSettings):
     @staticmethod
     def load_from_settings_file(settings_path: Path):
         from modules.networking.utils import is_mac_address
-        from modules.utils import InvalidBooleanValueError, InvalidNoneTypeValueError, NoMatchFoundError, custom_str_to_bool, custom_str_to_nonetype, check_case_insensitive_and_exact_match
+        from modules.utils import (
+            InvalidBooleanValueError,
+            InvalidNoneTypeValueError,
+            NoMatchFoundError,
+            check_case_insensitive_and_exact_match,
+            custom_str_to_bool,
+            custom_str_to_nonetype,
+        )
 
         matched_settings_count = 0
 
@@ -529,7 +600,7 @@ class Settings(DefaultSettings):
                         Settings.CAPTURE_PROGRAM_PRESET, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ["GTA5", "Minecraft"])
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ("GTA5", "Minecraft"))
                             Settings.CAPTURE_PROGRAM_PRESET = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
@@ -640,7 +711,7 @@ class Settings(DefaultSettings):
                         Settings.UPDATER_CHANNEL, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ["Stable", "RC"])
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ("Stable", "RC"))
                             Settings.UPDATER_CHANNEL = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
@@ -653,30 +724,36 @@ class Settings(DefaultSettings):
             if matched_settings_count != Settings.get_settings_length():
                 need_rewrite_settings = True
 
-        if need_rewrite_settings:
-            Settings.reconstruct_settings()
+        if (
+            Settings.GUI_DATE_FIELDS_SHOW_DATE is False
+            and Settings.GUI_DATE_FIELDS_SHOW_TIME is False
+            and Settings.GUI_DATE_FIELDS_SHOW_ELAPSED is False
+        ):
+            need_rewrite_settings = True
 
-        if Settings.GUI_DATE_FIELDS_SHOW_DATE is False and Settings.GUI_DATE_FIELDS_SHOW_TIME is False and Settings.GUI_DATE_FIELDS_SHOW_ELAPSED is False:
-            msgbox_title = TITLE
-            msgbox_message = textwrap.dedent("""
-                ERROR in your custom \"Settings.ini\" file:
+            MsgBox.show(
+                title=TITLE,
+                text=format_triple_quoted_text("""
+                    ERROR in your custom "Settings.ini" file:
 
-                At least one of these settings must be set to \"True\" value:
-                <GUI_DATE_FIELDS_SHOW_DATE>
-                <GUI_DATE_FIELDS_SHOW_TIME>
-                <GUI_DATE_FIELDS_SHOW_ELAPSED>
+                    At least one of these settings must be set to "True" value:
+                    <GUI_DATE_FIELDS_SHOW_DATE>
+                    <GUI_DATE_FIELDS_SHOW_TIME>
+                    <GUI_DATE_FIELDS_SHOW_ELAPSED>
 
-                Would you like to apply their default values and continue?
-            """.removeprefix("\n").removesuffix("\n"))
-            msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-            errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+                    Default values will be applied to fix this issue.
+                """),
+                style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+            )
 
-            if errorlevel != MsgBox.ReturnValues.IDYES:
-                terminate_script("EXIT")
-
-            for setting_name in ("GUI_DATE_FIELDS_SHOW_DATE", "GUI_DATE_FIELDS_SHOW_TIME", "GUI_DATE_FIELDS_SHOW_ELAPSED"):
+            for setting_name in (
+                "GUI_DATE_FIELDS_SHOW_DATE",
+                "GUI_DATE_FIELDS_SHOW_TIME",
+                "GUI_DATE_FIELDS_SHOW_ELAPSED",
+            ):
                 setattr(Settings, setting_name, getattr(DefaultSettings, setting_name))
 
+        if need_rewrite_settings:
             Settings.reconstruct_settings()
 
 
@@ -1136,7 +1213,11 @@ class Player:  # pylint: disable=too-many-instance-attributes
 
         if self.userip_detection and self.userip_detection.as_processed_task:
             self.userip_detection.as_processed_task = False
-            Thread(target=process_userip_task, args=(self, "disconnected"), daemon=True).start()
+            Thread(
+                target=process_userip_task,
+                name=f"ProcessUserIPTask-{self.ip}-disconnected",
+                args=(self, "disconnected"), daemon=True,
+            ).start()
 
 
 class PlayersRegistry:
@@ -1272,10 +1353,10 @@ class SessionHost:
 
     @staticmethod
     def get_host_player(session_connected: list[Player]):
-        from modules.utils import take
         from modules.constants.standalone import MINIMUM_PACKETS_FOR_SESSION_HOST
+        from modules.utils import take
 
-        connected_players: list[Player] = take(2, sorted(session_connected, key=attrgetter("datetime.last_rejoin")))
+        connected_players = take(2, sorted(session_connected, key=attrgetter("datetime.last_rejoin")))
 
         potential_session_host_player = None
 
@@ -1334,7 +1415,8 @@ class UserIPDatabases:
     notified_ip_conflicts: ClassVar[set[str]] = set()
 
     @staticmethod
-    def _notify_conflict(
+    def _notify_ip_conflict(  # pylint: disable=too-many-arguments
+        *,
         initial_userip_database: Path,
         initial_userip_usernames: list[str],
         initial_userip_ip: str,
@@ -1344,26 +1426,32 @@ class UserIPDatabases:
     ):
         from modules.constants.standard import USERIP_DATABASES_PATH
 
-        msgbox_title = TITLE
-        msgbox_message = textwrap.indent(textwrap.dedent(f"""
-            ERROR:
-                UserIP databases IP conflict
+        Thread(
+            target=MsgBox.show,
+            name=f"UserIPConflictError-{initial_userip_ip}",
+            kwargs={
+                "title": TITLE,
+                "text": format_triple_quoted_text(f"""
+                    ERROR:
+                        UserIP databases IP conflict
 
-            INFOS:
-                The same IP cannot be assigned to multiple
-                databases.
-                Users assigned to this IP will be ignored until
-                the conflict is resolved.
+                    INFOS:
+                        The same IP cannot be assigned to multiple
+                        databases.
+                        Users assigned to this IP will be ignored until
+                        the conflict is resolved.
 
-            DEBUG:
-                \"{initial_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}\":
-                {', '.join(initial_userip_usernames)}={initial_userip_ip}
+                    DEBUG:
+                        "{initial_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}":
+                        {', '.join(initial_userip_usernames)}={initial_userip_ip}
 
-                \"{conflicting_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}\":
-                {conflicting_userip_username}={conflicting_userip_ip}
-        """.removeprefix("\n").removesuffix("\n")), "    ")
-        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-        Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                        "{conflicting_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}":
+                        {conflicting_userip_username}={conflicting_userip_ip}
+                """),
+                "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+            },
+            daemon=True,
+        ).start()
 
     @classmethod
     def populate(cls, database_entries: list[tuple[Path, UserIPSettings, dict[str, list[str]]]]):
@@ -1448,30 +1536,40 @@ def check_for_updates():
             try:
                 response = s.get(GITHUB_VERSIONS_URL)
                 response.raise_for_status()
-            except requests.exceptions.RequestException:
-                msgbox_title = TITLE
-                msgbox_message = textwrap.dedent(f"""
-                    ERROR:
-                    Failed to check for updates.
+            except requests.exceptions.RequestException as e:
+                choice = MsgBox.show(
+                    title=TITLE,
+                    text=format_triple_quoted_text(f"""
+                        ERROR:
+                            Failed to check for updates.
 
-                    Do you want to open the \"{TITLE}\" project download page ?
-                    You can then download and run the latest version from there.
-                """.removeprefix("\n").removesuffix("\n"))
-                msgbox_style = MsgBox.Style.MB_ABORTRETRYIGNORE | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
+                            DEBUG:
+                                Exception: {type(e).__name__}
+                                HTTP Code: {f"{e.response.status_code} - {e.response.reason}" if isinstance(e, requests.exceptions.RequestException) and e.response else "No response"}
 
-                if errorlevel == MsgBox.ReturnValues.IDABORT:
+                        Please check your internet connection and ensure you have access to:
+                        {GITHUB_VERSIONS_URL}
+
+                        Abort:
+                            Exit and open the "{TITLE}" GitHub page to
+                            download the latest version.
+                        Retry:
+                            Try checking for updates again.
+                        Ignore:
+                            Continue using the current version (not recommended).
+                    """),
+                    style=MsgBox.Style.MB_ABORTRETRYIGNORE | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                )
+
+                if choice == MsgBox.ReturnValues.IDABORT:
                     webbrowser.open(GITHUB_RELEASES_URL)
                     sys.exit(0)
-                elif errorlevel == MsgBox.ReturnValues.IDRETRY:
-                    continue
-                elif errorlevel == MsgBox.ReturnValues.IDIGNORE:
-                    webbrowser.open(GITHUB_RELEASES_URL)
+                elif choice == MsgBox.ReturnValues.IDIGNORE:
                     return None
             else:
                 versions_json: dict[str, str] = response.json()
                 if not isinstance(versions_json, dict):
-                    raise TypeError(f'Expected "dict" object, got "{type(versions_json).__name__}"')
+                    raise TypeError(format_type_error(versions_json, dict))
 
                 return versions_json
 
@@ -1494,18 +1592,16 @@ def check_for_updates():
         update_channel = "pre-release" if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else "stable release"
         latest_version = latest_rc_version if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else latest_stable_version
 
-        msgbox_title = TITLE
-        msgbox_message = textwrap.dedent(f"""
-            New {update_channel} version found. Do you want to update?
+        if MsgBox.show(
+            title=TITLE,
+            text=format_triple_quoted_text(f"""
+                New {update_channel} version found. Do you want to update?
 
-            Current version: {format_project_version(current_version)}
-            Latest version: {format_project_version(latest_version)}
-        """.removeprefix("\n").removesuffix("\n"))
-
-        msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONQUESTION | MsgBox.Style.MB_SETFOREGROUND
-        errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-
-        if errorlevel == MsgBox.ReturnValues.IDYES:
+                Current version: {format_project_version(current_version)}
+                Latest version: {format_project_version(latest_version)}
+            """),
+            style=MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONQUESTION | MsgBox.Style.MB_SETFOREGROUND,
+        ) == MsgBox.ReturnValues.IDYES:
             webbrowser.open(GITHUB_RELEASES_URL)
             sys.exit(0)
 
@@ -1513,10 +1609,10 @@ def check_for_updates():
 def populate_network_interfaces_info():
     """Populate the AllInterfaces collection with network interface details."""
     from modules.networking.wmi_utils import (
-        iterate_project_network_adapter_details,
         iterate_project_legacy_network_adapter_details,
-        iterate_project_network_ip_details,
         iterate_project_legacy_network_ip_details,
+        iterate_project_network_adapter_details,
+        iterate_project_network_ip_details,
         iterate_project_network_neighbor_details,
     )
 
@@ -1527,7 +1623,7 @@ def populate_network_interfaces_info():
 
         formatted_mac_address = format_mac_address(mac_address)
         if not is_mac_address(formatted_mac_address):
-            stdout_crash_text = textwrap.dedent(f"""
+            stdout_crash_text = format_triple_quoted_text(f"""
                 ERROR:
                     Developer didn't expect this scenario to be possible.
 
@@ -1537,7 +1633,7 @@ def populate_network_interfaces_info():
                 DEBUG:
                     mac_address={mac_address}
                     formatted_mac_address={formatted_mac_address}
-            """.removeprefix("\n").removesuffix("\n"))
+            """)
             terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
         return formatted_mac_address
@@ -1548,7 +1644,7 @@ def populate_network_interfaces_info():
             return None
 
         if not is_ipv4_address(ip_address):
-            stdout_crash_text = textwrap.dedent(f"""
+            stdout_crash_text = format_triple_quoted_text(f"""
                 ERROR:
                     Developer didn't expect this scenario to be possible.
 
@@ -1557,7 +1653,7 @@ def populate_network_interfaces_info():
 
                 DEBUG:
                     ip_address={ip_address}
-            """.removeprefix("\n").removesuffix("\n"))
+            """)
             terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
 
         return ip_address
@@ -1620,9 +1716,9 @@ def populate_network_interfaces_info():
     def _populate_legacy_network_ip_details():
         """Populate AllInterfaces collection with legacy network IP address details."""
         for interface_index, description, mac_address, ip_address, ip_enabled in iterate_project_legacy_network_ip_details():
-            validated_ip_addresses: list[str] = [
+            validated_ip_addresses = [
                 validated_ip_address
-                for ip in remove_duplicates_from_list(
+                for ip in dedup_preserve_order(
                     [ip for ip in ip_address if is_ipv4_address(ip)]
                     if ip_address is not None else [],
                 )
@@ -1700,7 +1796,10 @@ def get_filtered_tshark_interfaces():
         - Device name (str)
         - Interface name (str)
     """
-    from modules.constants.standalone import EXCLUDED_CAPTURE_NETWORK_INTERFACES, INTERFACE_PARTS_LENGTH
+    from modules.constants.standalone import (
+        EXCLUDED_CAPTURE_NETWORK_INTERFACES,
+        INTERFACE_PARTS_LENGTH,
+    )
 
     def process_stdout(stdout_line: str):
         parts = stdout_line.strip().split(" ", maxsplit=INTERFACE_PARTS_LENGTH - 1)
@@ -1714,14 +1813,11 @@ def get_filtered_tshark_interfaces():
 
         return index, device_name, name
 
-    stdout = subprocess.check_output([tshark_path, "-D"], encoding="utf-8", text=True)
-
-    if not isinstance(stdout, str):
-        raise TypeError(f'Expected "str", got "{type(stdout).__name__}"')
+    tshark_output = subprocess.check_output([TSHARK_PATH, "-D"], encoding="utf-8", text=True)
 
     return [
         (index, device_name, name)
-        for index, device_name, name in map(process_stdout, stdout.splitlines())
+        for index, device_name, name in map(process_stdout, tshark_output.splitlines())
         if name not in EXCLUDED_CAPTURE_NETWORK_INTERFACES
     ]
 
@@ -1793,7 +1889,10 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
 
 def update_and_initialize_geolite2_readers():
     def update_geolite2_databases():
-        from modules.constants.standalone import GITHUB_RELEASE_API__GEOLITE2__URL, ERROR_USER_MAPPED_FILE  # TODO(BUZZARDGTA): Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
+        from modules.constants.standalone import (  # TODO(BUZZARDGTA): Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
+            ERROR_USER_MAPPED_FILE,
+            GITHUB_RELEASE_API__GEOLITE2__URL,
+        )
         from modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / "version.json"
@@ -1835,7 +1934,7 @@ def update_and_initialize_geolite2_readers():
 
         release_data = response.json()
         if not isinstance(release_data, dict):
-            raise TypeError(f'Expected "dict" object, got "{type(release_data).__name__}"')
+            raise TypeError(format_type_error(release_data, dict))
 
         for asset in release_data["assets"]:
             asset_name = asset["name"]
@@ -1864,7 +1963,7 @@ def update_and_initialize_geolite2_readers():
                         }
 
                     if not isinstance(response.content, bytes):
-                        raise TypeError(f'Expected "bytes" object, got "{type(response.content).__name__}"')
+                        raise TypeError(format_type_error(response.content, bytes))
 
                     GEOLITE2_DATABASES_FOLDER_PATH.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
                     destination_file_path = GEOLITE2_DATABASES_FOLDER_PATH / database_name
@@ -1892,20 +1991,25 @@ def update_and_initialize_geolite2_readers():
                 failed_fetching_flag_list.append(database_name)
 
         if failed_fetching_flag_list:
-            msgbox_title = TITLE
-            msgbox_message = textwrap.indent(textwrap.dedent(f"""
-                ERROR:
-                    Failed fetching MaxMind \"{'", "'.join(failed_fetching_flag_list)}" database{pluralize(len(failed_fetching_flag_list))}.
+            Thread(
+                target=MsgBox.show,
+                name="GeoLite2DownloadError",
+                kwargs={
+                    "title": TITLE,
+                    "text": format_triple_quoted_text(f"""
+                        ERROR:
+                            Failed fetching MaxMind GeoLite2 "{'", "'.join(failed_fetching_flag_list)}" database{pluralize(len(failed_fetching_flag_list))}.
 
-                INFOS:
-                    These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
+                        DEBUG:
+                            GITHUB_RELEASE_API__GEOLITE2__URL={GITHUB_RELEASE_API__GEOLITE2__URL}
+                            failed_fetching_flag_list={failed_fetching_flag_list}
 
-                DEBUG:
-                    GITHUB_RELEASE_API__GEOLITE2__URL={GITHUB_RELEASE_API__GEOLITE2__URL}
-                    failed_fetching_flag_list={failed_fetching_flag_list}
-            """.removeprefix("\n").removesuffix("\n")), "    ")
-            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                        These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
+                    """),
+                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+                },
+                daemon=True,
+            ).start()
 
         # Create the data dictionary, where each name maps to its version info
         data = {
@@ -2025,84 +2129,12 @@ check_for_updates()
 clear_screen()
 set_window_title(f'Checking that "Npcap" driver is installed on your system - {TITLE}')
 print('\nChecking that "Npcap" driver is installed on your system ...\n')
-
-while not is_npcap_installed():
-    webbrowser.open("https://nmap.org/npcap/")
-    msgbox_title = TITLE
-    msgbox_message = textwrap.dedent("""
-        ERROR:
-        Could not detect \"Npcap\" driver installed on your system.
-
-        Opening the \"Npcap\" setup installer for you.
-    """.removeprefix("\n").removesuffix("\n"))
-    msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-    MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-
-    subprocess.run([SETUP_PATH / "npcap-1.78.exe"], shell=True, check=True)
+ensure_npcap_installed()
 
 clear_screen()
 set_window_title(f'Applying your custom settings from "Settings.ini" - {TITLE}')
 print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
-
-clear_screen()
-set_window_title(f'Verifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match - {TITLE}')
-print(f'\nVerifying "Tshark (Wireshark) v{TSHARK_RECOMMENDED_VERSION_NUMBER}" in script directories and version match ...\n')
-
-while True:
-    try:
-        tshark_path, tshark_version = validate_tshark_path(BIN_PATH / "WiresharkPortable64/App/Wireshark/tshark.exe")
-        break
-    except TSharkNotFoundError:
-        webbrowser.open(GITHUB_RELEASES_URL)
-
-        msgbox_title = TITLE
-        msgbox_message = textwrap.dedent(f"""
-            ERROR:
-            \"TShark\" could not be found within the script directories.
-
-            Opening {TITLE} download page for you.
-            Please download and reinstall it, then restart the application.
-        """.removeprefix("\n").removesuffix("\n"))
-        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-        MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-        sys.exit(0)
-    except TSharkVersionNotFoundError:
-        webbrowser.open(GITHUB_RELEASES_URL)
-
-        msgbox_title = TITLE
-        msgbox_message = textwrap.dedent(f"""
-            ERROR:
-            Could not determine the version of \"TShark (Wireshark)\".
-
-            Opening {TITLE} download page for you.
-            Please download and reinstall it, then restart the application.
-        """).strip()
-        msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-        MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-        sys.exit(0)
-    except InvalidTSharkVersionError as unsupported_tshark:
-        webbrowser.open(GITHUB_RELEASES_URL)
-
-        msgbox_title = TITLE
-        msgbox_message = textwrap.dedent(f"""
-            ERROR:
-            Detected an unsupported \"Tshark (Wireshark)\" version installed on your system.
-
-            Detected version: {unsupported_tshark.version}
-            Recommended version: {TSHARK_RECOMMENDED_FULL_VERSION}
-
-            Opening {TITLE} download page for you.
-            Please download and reinstall it, then restart the application.
-        """.removeprefix("\n").removesuffix("\n"))
-        msgbox_style = MsgBox.Style.MB_ABORTRETRYIGNORE | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-        errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
-        if errorlevel == MsgBox.ReturnValues.IDABORT:
-            sys.exit(0)
-        elif errorlevel == MsgBox.ReturnValues.IDIGNORE:
-            tshark_path = unsupported_tshark.path
-            tshark_version = unsupported_tshark.version
-            break
 
 clear_screen()
 set_window_title(f"Initializing and updating MaxMind's GeoLite2 Country, City and ASN databases - {TITLE}")
@@ -2158,7 +2190,7 @@ for interface in tshark_interfaces:
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
 if not isinstance(selected_interface.name, str):
-    raise TypeError(f'Expected "str" object, got "{type(selected_interface.name).__name__}"')
+    raise TypeError(format_type_error(selected_interface.name, str))
 
 clear_screen()
 set_window_title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
@@ -2192,7 +2224,7 @@ excluded_protocols: list[str] = []
 if Settings.CAPTURE_IP_ADDRESS:
     capture_filter.append(f"((src host {Settings.CAPTURE_IP_ADDRESS} and (not (dst net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))) or (dst host {Settings.CAPTURE_IP_ADDRESS} and (not (src net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))))")
 
-broadcast_support, multicast_support = check_broadcast_multicast_support(tshark_path, Settings.CAPTURE_INTERFACE_NAME)
+broadcast_support, multicast_support = check_broadcast_multicast_support(TSHARK_PATH, Settings.CAPTURE_INTERFACE_NAME)
 if broadcast_support and multicast_support:
     capture_filter.append("not (broadcast or multicast)")
     vpn_mode_enabled = False
@@ -2245,10 +2277,9 @@ DISPLAY_FILTER = " and ".join(display_filter) if display_filter else None
 
 capture = PacketCapture(
     interface=Settings.CAPTURE_INTERFACE_NAME,
+    tshark_path=TSHARK_PATH,
     capture_filter=CAPTURE_FILTER,
     display_filter=DISPLAY_FILTER,
-    tshark_path=tshark_path,
-    tshark_version=tshark_version,
 )
 
 gui_closed__event = Event()
@@ -2260,19 +2291,23 @@ def process_userip_task(
     connection_type: Literal["connected", "disconnected"],
 ):
     with ThreadsExceptionHandler():
-        from modules.constants.standard import USERIP_LOGGING_PATH, SHUTDOWN_EXE
-        from modules.constants.local import TTS_PATH
-        from modules.utils import get_pid_by_path, terminate_process_tree, write_lines_to_file
+        from modules.constants.local import TTS_FOLDER_PATH
+        from modules.constants.standard import SHUTDOWN_EXE, USERIP_LOGGING_PATH
+        from modules.utils import (
+            get_pid_by_path,
+            terminate_process_tree,
+            write_lines_to_file,
+        )
 
         if player.userip_detection is None:
-            raise TypeError(f'Expected "UserIPDetection" object, got "{type(player.userip_detection).__name__}"')
+            raise TypeError(format_type_error(player.userip_detection, PlayerUserIPDetection))
 
         timeout = 10
         start_time = time.monotonic()
 
         while not isinstance(player.userip, UserIP):
             if time.monotonic() - start_time > timeout:
-                raise TypeError(f'Expected "UserIP" object, got "{type(player.userip).__name__}"')
+                raise TypeError(format_type_error(player.userip, UserIP))
             time.sleep(0.01)  # Sleep to prevent high CPU usage
 
         def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal["Auto", "Manual"]):
@@ -2307,6 +2342,7 @@ def process_userip_task(
                 if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
                     Thread(
                         target=suspend_process_for_duration_or_mode,
+                        name=f"UserIPSuspendProcess-{player.ip}",
                         args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE),
                         daemon=True,
                     ).start()
@@ -2332,9 +2368,9 @@ def process_userip_task(
                 voice_name = None
 
             if not isinstance(voice_name, str):
-                raise TypeError(f'Expected "str" object, got "{type(voice_name).__name__}"')
+                raise TypeError(format_type_error(voice_name, str))
 
-            tts_file_path = TTS_PATH / f"{voice_name} ({connection_type}).wav"
+            tts_file_path = TTS_FOLDER_PATH / f"{voice_name} ({connection_type}).wav"
             validate_file(tts_file_path)
 
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
@@ -2368,30 +2404,36 @@ def process_userip_task(
                 else:
                     return
 
-                msgbox_title = TITLE
-                msgbox_message = textwrap.indent(textwrap.dedent(f"""
-                    #### UserIP detected at {player.userip_detection.time} ####
-                    User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
-                    IP: {player.ip}
-                    Port{pluralize(len(player.ports.all))}: {', '.join(map(str, reversed(player.ports.all)))}
-                    Country Code: {player.iplookup.geolite2.country_code}
-                    Detection Type: {player.userip_detection.type}
-                    Database: {relative_database_path}
-                    ############# IP Lookup ##############
-                    Continent: {player.iplookup.ipapi.continent}
-                    Country: {player.iplookup.geolite2.country}
-                    Region: {player.iplookup.ipapi.region}
-                    City: {player.iplookup.geolite2.city}
-                    Organization: {player.iplookup.ipapi.org}
-                    ISP: {player.iplookup.ipapi.isp}
-                    ASN / ISP: {player.iplookup.geolite2.asn}
-                    ASN: {player.iplookup.ipapi.as_name}
-                    Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
-                    Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
-                    Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
-                """.removeprefix("\n").removesuffix("\n")), "    ")
-                msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-                Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                Thread(
+                    target=MsgBox.show,
+                    name=f"UserIPMsgBox-{player.ip}",
+                    kwargs={
+                        "title": TITLE,
+                        "text": format_triple_quoted_text(f"""
+                            #### UserIP detected at {player.userip_detection.time} ####
+                            User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
+                            IP: {player.ip}
+                            Port{pluralize(len(player.ports.all))}: {', '.join(map(str, reversed(player.ports.all)))}
+                            Country Code: {player.iplookup.geolite2.country_code}
+                            Detection Type: {player.userip_detection.type}
+                            Database: {relative_database_path}
+                            ############# IP Lookup ##############
+                            Continent: {player.iplookup.ipapi.continent}
+                            Country: {player.iplookup.geolite2.country}
+                            Region: {player.iplookup.ipapi.region}
+                            City: {player.iplookup.geolite2.city}
+                            Organization: {player.iplookup.ipapi.org}
+                            ISP: {player.iplookup.ipapi.isp}
+                            ASN / ISP: {player.iplookup.geolite2.asn}
+                            ASN: {player.iplookup.ipapi.as_name}
+                            Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
+                            Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
+                            Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
+                        """),
+                        "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+                    },
+                    daemon=True,
+                ).start()
 
 
 def iplookup_core():
@@ -2442,8 +2484,7 @@ def iplookup_core():
             result = iplookup.get(json_key, "N/A")
 
             if result != "N/A" and not isinstance(result, expected_types):
-                expected_names = " or ".join(t.__name__ for t in expected_types)
-                raise TypeError(f'Expected "{expected_names}" for "{json_key}", got "{type(result).__name__}" ({player_ip})')
+                raise TypeError(format_type_error(result, expected_types, f' in field "{json_key}" ({player_ip})'))
 
             return result
 
@@ -2485,15 +2526,15 @@ def iplookup_core():
 
             iplookup_results: list[dict[str, Any]] = response.json()
             if not isinstance(iplookup_results, list):
-                raise TypeError(f'Expected "list" object, got "{type(iplookup_results).__name__}"')
+                raise TypeError(format_type_error(iplookup_results, list))
 
             for iplookup in iplookup_results:
                 if not isinstance(iplookup, dict):
-                    raise TypeError(f'Expected "dict" object, got "{type(iplookup).__name__}"')
+                    raise TypeError(format_type_error(iplookup, dict))
 
                 player_ip = iplookup.get("query")
                 if not isinstance(player_ip, str):
-                    raise TypeError(f'Expected "str" object, got "{type(player_ip).__name__}"')
+                    raise TypeError(format_type_error(player_ip, str))
 
                 player = PlayersRegistry.require_player_by_ip(player_ip)
                 player.iplookup.ipapi.is_initialized = True
@@ -2505,7 +2546,8 @@ def iplookup_core():
 
 def hostname_core():
     with ThreadsExceptionHandler():
-        from concurrent.futures import ThreadPoolExecutor, Future
+        from concurrent.futures import Future, ThreadPoolExecutor
+
         from modules.networking.reverse_dns import lookup as reverse_dns_lookup
 
         with ThreadPoolExecutor(max_workers=32) as executor:
@@ -2536,7 +2578,7 @@ def hostname_core():
 
                     hostname: str = future.result()
                     if not isinstance(hostname, str):
-                        raise TypeError(f'Expected "str" object, got "{type(hostname).__name__}"')
+                        raise TypeError(format_type_error(hostname, str))
 
                     player = PlayersRegistry.require_player_by_ip(ip)
                     player.reverse_dns.is_initialized = True
@@ -2547,8 +2589,13 @@ def hostname_core():
 
 def pinger_core():
     with ThreadsExceptionHandler():
-        from concurrent.futures import ThreadPoolExecutor, Future
-        from modules.networking.endpoint_ping_manager import AllEndpointsExhaustedError, PingResult, fetch_and_parse_ping
+        from concurrent.futures import Future, ThreadPoolExecutor
+
+        from modules.networking.endpoint_ping_manager import (
+            AllEndpointsExhaustedError,
+            PingResult,
+            fetch_and_parse_ping,
+        )
 
         with ThreadPoolExecutor(max_workers=32) as executor:
             futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
@@ -2586,7 +2633,7 @@ def pinger_core():
                         continue
 
                     if not isinstance(ping_result, PingResult):
-                        raise TypeError(f'Expected "PingResult" object, got "{type(ping_result).__name__}"')
+                        raise TypeError(format_type_error(ping_result, PingResult))
 
                     player = PlayersRegistry.require_player_by_ip(ip)
                     player.ping.is_initialized = True
@@ -2612,7 +2659,7 @@ def capture_core():
 
             global tshark_restarted_times, global_pps_counter  # noqa: PLW0603
 
-            packet_datetime = packet.frame.datetime
+            packet_datetime = packet.frame.packet_datetime
 
             packet_latency = datetime.now(tz=LOCAL_TZ) - packet_datetime
             tshark_packets_latencies.append((packet_datetime, packet_latency))
@@ -2676,7 +2723,12 @@ def capture_core():
                     time=packet_datetime.strftime("%H:%M:%S"),
                     date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S"),
                 )
-                Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
+                Thread(
+                    target=process_userip_task,
+                    name=f"ProcessUserIPTask-{player.ip}-connected",
+                    args=(player, "connected"),
+                    daemon=True,
+                ).start()
 
         while not gui_closed__event.is_set():
             try:
@@ -2709,7 +2761,7 @@ class ThreadSafeMeta(type):
             try:
                 return super().__getattribute__(name)
             except AttributeError:
-                raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'") from None
+                raise AttributeError(format_attribute_error(cls, name)) from None
 
     def __setattr__(cls, name: str, value: object):
         """Set an attribute on the class in a thread-safe manner."""
@@ -2770,8 +2822,18 @@ def rendering_core():
                 return line.strip()
 
             from modules.constants.standalone import USERIP_INI_SETTINGS
-            from modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN, RE_USERIP_INI_PARSER_PATTERN
-            from modules.utils import InvalidBooleanValueError, InvalidNoneTypeValueError, NoMatchFoundError, custom_str_to_bool, custom_str_to_nonetype, check_case_insensitive_and_exact_match
+            from modules.constants.standard import (
+                RE_SETTINGS_INI_PARSER_PATTERN,
+                RE_USERIP_INI_PARSER_PATTERN,
+            )
+            from modules.utils import (
+                InvalidBooleanValueError,
+                InvalidNoneTypeValueError,
+                NoMatchFoundError,
+                check_case_insensitive_and_exact_match,
+                custom_str_to_bool,
+                custom_str_to_nonetype,
+            )
 
             validate_file(ini_path)
 
@@ -2813,14 +2875,14 @@ def rendering_core():
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
                     if not isinstance(setting, str):
-                        raise TypeError(f'Expected "str" object, got "{type(setting).__name__}"')
+                        raise TypeError(format_type_error(setting, str))
                     value = match.group("value")
                     if value is None:
                         if corrected_ini_data_lines:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
                     if not isinstance(value, str):
-                        raise TypeError(f'Expected "str" object, got "{type(value).__name__}"')
+                        raise TypeError(format_type_error(value, str))
 
                     setting = setting.strip()
                     if not setting:
@@ -2867,7 +2929,7 @@ def rendering_core():
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value, only_match_against=False)
                         except InvalidBooleanValueError:
                             try:
-                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ["Male", "Female"])
+                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Male", "Female"))
                                 settings[setting] = normalized_match
                                 if not case_sensitive_match:
                                     need_rewrite_current_setting = True
@@ -2878,7 +2940,7 @@ def rendering_core():
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value, only_match_against=False)
                         except InvalidBooleanValueError:
                             try:
-                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC"])
+                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC"))
                                 settings[setting] = normalized_match
                                 if not case_sensitive_match:
                                     need_rewrite_current_setting = True
@@ -2894,7 +2956,7 @@ def rendering_core():
                             settings[setting] = Path(stripped_value)
                     elif setting == "PROTECTION_SUSPEND_PROCESS_MODE":
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ["Auto", "Manual"])
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Auto", "Manual"))
                             settings[setting] = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
@@ -2915,24 +2977,30 @@ def rendering_core():
                     if is_setting_corrupted:
                         if ini_path not in UserIPDatabases.notified_settings_corrupted:
                             UserIPDatabases.notified_settings_corrupted.add(ini_path)
-                            msgbox_title = TITLE
-                            msgbox_message = textwrap.indent(textwrap.dedent(f"""
-                                ERROR:
-                                    Corrupted UserIP Database File (Settings)
+                            Thread(
+                                target=MsgBox.show,
+                                name=f"UserIPConfigFileError-{ini_path.name}",
+                                kwargs={
+                                    "title": TITLE,
+                                    "text": format_triple_quoted_text(f"""
+                                        ERROR:
+                                            Corrupted UserIP Database File (Settings)
 
-                                INFOS:
-                                    UserIP database file:
-                                    \"{ini_path}\"
-                                    has an invalid settings value:
+                                        INFOS:
+                                            UserIP database file:
+                                            "{ini_path}"
+                                            has an invalid settings value:
 
-                                    {setting}={value}
+                                            {setting}={value}
 
-                                    For more information on formatting, please refer to the
-                                    documentation:
-                                    https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
-                            """.removeprefix("\n").removesuffix("\n")), "    ")
-                            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                                        For more information on formatting, please refer to the
+                                        documentation:
+                                        https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
+                                    """),
+                                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                                },
+                                daemon=True,
+                            ).start()
                         return None, None
 
                     if need_rewrite_current_setting:
@@ -2946,12 +3014,12 @@ def rendering_core():
                     if username is None:
                         continue
                     if not isinstance(username, str):
-                        raise TypeError(f'Expected "str" object, got "{type(username).__name__}"')
+                        raise TypeError(format_type_error(username, str))
                     ip = match.group("ip")
                     if ip is None:
                         continue
                     if not isinstance(ip, str):
-                        raise TypeError(f'Expected "str" object, got "{type(ip).__name__}"')
+                        raise TypeError(format_type_error(ip, str))
 
                     username = username.strip()
                     if not username:
@@ -2963,20 +3031,30 @@ def rendering_core():
                     if not is_ipv4_address(ip):
                         unresolved_ip_invalid.add(f"{ini_path}={username}={ip}")
                         if f"{ini_path}={username}={ip}" not in UserIPDatabases.notified_ip_invalid:
-                            msgbox_title = TITLE
-                            msgbox_message = textwrap.indent(textwrap.dedent(f"""
-                                ERROR:
-                                    UserIP databases invalid IP address
+                            Thread(
+                                target=MsgBox.show,
+                                name=f"UserIPInvalidEntryError-{ini_path.name}_{username}={ip}",
+                                kwargs={
+                                    "title": TITLE,
+                                    "text": format_triple_quoted_text(f"""
+                                        ERROR:
+                                            UserIP database invalid IP address
 
-                                INFOS:
-                                    The IP address from an entry is invalid (not an IP address).
+                                        INFOS:
+                                            The IP address from this database entry is invalid.
 
-                                DEBUG:
-                                    \"{ini_path}\":
-                                    {username}={ip}
-                            """.removeprefix("\n").removesuffix("\n")), "    ")
-                            msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-                            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                                        DEBUG:
+                                            {ini_path}
+                                            {username}={ip}
+
+                                        For more information on formatting, please refer to the
+                                        documentation:
+                                        https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
+                                    """),
+                                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                                },
+                                daemon=True,
+                            ).start()
                             UserIPDatabases.notified_ip_invalid.add(f"{ini_path}={username}={ip}")
                         continue
 
@@ -2992,23 +3070,29 @@ def rendering_core():
             if number_of_settings_missing > 0:
                 if ini_path not in UserIPDatabases.notified_settings_corrupted:
                     UserIPDatabases.notified_settings_corrupted.add(ini_path)
-                    msgbox_title = TITLE
-                    msgbox_message = textwrap.indent(textwrap.dedent(f"""
-                        ERROR:
-                            Missing setting{pluralize(number_of_settings_missing)} in UserIP Database File
+                    Thread(
+                        target=MsgBox.show,
+                        name=f"UserIPConfigFileError-{ini_path.name}",
+                        kwargs={
+                            "title": TITLE,
+                            "text": format_triple_quoted_text(f"""
+                                ERROR:
+                                    Missing setting{pluralize(number_of_settings_missing)} in UserIP Database File
 
-                        INFOS:
-                            {number_of_settings_missing} missing setting{pluralize(number_of_settings_missing)} in UserIP database file:
-                            \"{ini_path}\"
+                                INFOS:
+                                    {number_of_settings_missing} missing setting{pluralize(number_of_settings_missing)} in UserIP database file:
+                                    "{ini_path}"
 
-                            {"\n                ".join(f"<{setting.upper()}>" for setting in list_of_missing_settings)}
+                                    {"\n                ".join(f"<{setting.upper()}>" for setting in list_of_missing_settings)}
 
-                            For more information on formatting, please refer to the
-                            documentation:
-                            https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
-                    """.removeprefix("\n").removesuffix("\n")), "    ")
-                    msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                    Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                                For more information on formatting, please refer to the
+                                documentation:
+                                https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
+                            """),
+                            "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                        },
+                        daemon=True,
+                    ).start()
                 return None, None
 
             if ini_path in UserIPDatabases.notified_settings_corrupted:
@@ -3041,17 +3125,17 @@ def rendering_core():
         def update_userip_databases():
             from modules.constants.standard import USERIP_DATABASES_PATH
 
-            DEFAULT_USERIP_FILE_HEADER = textwrap.dedent(f"""
+            DEFAULT_USERIP_FILE_HEADER = format_triple_quoted_text(f"""
                 ;;-----------------------------------------------------------------------------
                 ;; {TITLE} User IP default database file
                 ;;-----------------------------------------------------------------------------
-                ;; Lines starting with \";\" or \"#\" symbols are commented lines.
+                ;; Lines starting with ";" or "#" symbols are commented lines.
                 ;;
                 ;; For detailed explanations of each setting, please refer to the following documentation:
-                ;; https://github.com/BUZZARDGTA/Session-Sniffer/?tab=readme-ov-file#editing-settings
+                ;; https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
                 ;;-----------------------------------------------------------------------------
                 [Settings]
-            """.removeprefix("\n").removesuffix("\n"))
+            """)
 
             DEFAULT_USERIP_FILES_SETTINGS = {
                 USERIP_DATABASES_PATH / "Blacklist.ini": """
@@ -3111,14 +3195,14 @@ def rendering_core():
                 """,
             }
 
-            DEFAULT_USERIP_FILE_FOOTER = textwrap.dedent("""
+            DEFAULT_USERIP_FILE_FOOTER = format_triple_quoted_text("""
                 [UserIP]
                 # Add users below in this format: username=IP
                 # Examples:
                 # username1=192.168.1.1
                 # username2=127.0.0.1
                 # username3=255.255.255.255
-            """.removeprefix("\n"))
+            """, add_trailing_newline=True)
 
             USERIP_DATABASES_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -3382,7 +3466,7 @@ def rendering_core():
 
             def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
                 """Determine the color for player rates based on given thresholds."""
-                from modules.constants.standalone import RATE_ZERO, RATE_LOW, RATE_MAX
+                from modules.constants.standalone import RATE_LOW, RATE_MAX, RATE_ZERO
 
                 if not is_first_calculation:
                     if rate == RATE_ZERO:
@@ -3391,7 +3475,9 @@ def rendering_core():
                         return QColor("yellow")
                 return color
 
-            from modules.constants.external import HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
+            from modules.constants.external import (
+                HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR,
+            )
 
             row_texts: list[str] = []
             session_connected_table__processed_data: list[list[str]] = []
@@ -3579,12 +3665,10 @@ def rendering_core():
         def generate_gui_header_text(global_pps_last_update_time: float, global_pps_rate: int):
             global global_pps_counter  # noqa: PLW0603
 
-            from modules.constants.standalone import PPS_THRESHOLD_WARNING, PPS_THRESHOLD_CRITICAL
-
-            if capture.extracted_tshark_version == TSHARK_RECOMMENDED_VERSION_NUMBER:
-                tshark_version_color = '<span style="color: green;">'
-            else:
-                tshark_version_color = '<span style="color: yellow;">'
+            from modules.constants.standalone import (
+                PPS_THRESHOLD_CRITICAL,
+                PPS_THRESHOLD_WARNING,
+            )
 
             one_second_ago = datetime.now(tz=LOCAL_TZ) - timedelta(seconds=1)
 
@@ -3649,7 +3733,7 @@ def rendering_core():
                     The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
-                    Scanning with TShark {tshark_version_color}v{capture.extracted_tshark_version}</span> on Interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span> | Preset:<span style="color: yellow;">{Settings.CAPTURE_PROGRAM_PRESET}</span>
+                    Scanning on interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span> | Preset:<span style="color: yellow;">{Settings.CAPTURE_PROGRAM_PRESET}</span>
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Packets latency per sec:{latency_color}{avg_latency_rounded}</span>/<span style="color: green;">{Settings.CAPTURE_OVERFLOW_TIMER}</span> (tshark restart{pluralize(tshark_restarted_times)}:{color_tshark_restarted_time}{tshark_restarted_times}</span>) PPS:{pps_color}{global_pps_rate}</span>{rpc_message}
@@ -3668,9 +3752,16 @@ def rendering_core():
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
             return header, global_pps_last_update_time, global_pps_rate
 
-        from modules.constants.standard import TWO_TAKE_ONE__PLUGIN__LOG_PATH, STAND__PLUGIN__LOG_PATH, RE_MODMENU_LOGS_USER_PATTERN
-        from modules.constants.local import CHERAX__PLUGIN__LOG_PATH, IMAGES_PATH
-        from modules.utils import concat_lists_no_duplicates
+        from modules.constants.local import (
+            CHERAX__PLUGIN__LOG_PATH,
+            COUNTRY_FLAGS_FOLDER_PATH,
+        )
+        from modules.constants.standard import (
+            RE_MODMENU_LOGS_USER_PATTERN,
+            STAND__PLUGIN__LOG_PATH,
+            TWO_TAKE_ONE__PLUGIN__LOG_PATH,
+        )
+        from modules.utils import dedup_preserve_order
 
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
         (
@@ -3693,8 +3784,8 @@ def rendering_core():
         last_session_logging_processing_time = None
 
         if Settings.DISCORD_PRESENCE:
-            from modules.discord.rpc import DiscordRPC
             from modules.constants.standalone import DISCORD_APPLICATION_ID
+            from modules.discord.rpc import DiscordRPC
 
             discord_rpc_manager = DiscordRPC(client_id=DISCORD_APPLICATION_ID)
 
@@ -3772,7 +3863,7 @@ def rendering_core():
                         if username not in player.mod_menus.usernames:
                             player.mod_menus.usernames.append(username)
 
-                player.usernames = concat_lists_no_duplicates(
+                player.usernames = dedup_preserve_order(
                     player.mod_menus.usernames if player.mod_menus else [],
                     player.userip.usernames if player.userip else [],
                 )
@@ -3780,20 +3871,21 @@ def rendering_core():
                 if player.country_flag is None:
                     country_code = (
                         player.iplookup.geolite2.country_code
-                        if player.iplookup.geolite2.country_code != "..."
+                        if player.iplookup.geolite2.country_code not in ["...", "N/A"]
                         else player.iplookup.ipapi.country_code
-                        if player.iplookup.ipapi.country_code != "..."
+                        if player.iplookup.ipapi.country_code not in ["...", "N/A"]
                         else None
                     )
-                    if country_code:
-                        flag_path = IMAGES_PATH / f"country_flags/{country_code.upper()}.png"
-                        if flag_path.exists():
-                            pixmap = QPixmap()  # Create a new QPixmap
-                            pixmap.loadFromData(flag_path.read_bytes())  # Load the data into the QPixmap
-                            player.country_flag = PlayerCountryFlag(
-                                pixmap=pixmap,  # Assign the pixmap to the object
-                                icon=QIcon(pixmap),  # Create QIcon from QPixmap
-                            )
+                    if (
+                        country_code
+                        and (flag_path := COUNTRY_FLAGS_FOLDER_PATH / f"{country_code.upper()}.png").exists()
+                    ):
+                        pixmap = QPixmap()
+                        pixmap.loadFromData(flag_path.read_bytes())
+                        player.country_flag = PlayerCountryFlag(
+                            pixmap=pixmap,
+                            icon=QIcon(pixmap),
+                        )
 
                 if (
                     not player.left_event.is_set()
@@ -3880,19 +3972,19 @@ set_window_title(f"DEBUG CONSOLE - {TITLE}")
 tshark_restarted_times = 0
 global_pps_counter = 0
 
-rendering_core__thread = Thread(target=rendering_core, daemon=True)
+rendering_core__thread = Thread(target=rendering_core, name="rendering_core", daemon=True)
 rendering_core__thread.start()
 
-hostname_core__thread = Thread(target=hostname_core, daemon=True)
+hostname_core__thread = Thread(target=hostname_core, name="hostname_core", daemon=True)
 hostname_core__thread.start()
 
-iplookup_core__thread = Thread(target=iplookup_core, daemon=True)
+iplookup_core__thread = Thread(target=iplookup_core, name="iplookup_core", daemon=True)
 iplookup_core__thread.start()
 
-pinger_core__thread = Thread(target=pinger_core, daemon=True)
+pinger_core__thread = Thread(target=pinger_core, name="pinger_core", daemon=True)
 pinger_core__thread.start()
 
-capture_core__thread = Thread(target=capture_core, daemon=True)
+capture_core__thread = Thread(target=capture_core, name="capture_core", daemon=True)
 capture_core__thread.start()
 
 
@@ -3931,7 +4023,7 @@ class SessionTableModel(QAbstractTableModel):
             if self.get_column_index_by_name("Country") == col_idx:
                 ip = self._data[row_idx][self.IP_COLUMN_INDEX]
                 if not isinstance(ip, str):
-                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                    raise TypeError(format_type_error(ip, str))
                 ip = ip.removesuffix(" 👑")
 
                 player = PlayersRegistry.require_player_by_ip(ip)
@@ -4047,7 +4139,7 @@ class SessionTableModel(QAbstractTableModel):
                     "Last Seen": "last_seen",
                 }.get(self._headers[column])
                 if datetime_attribute is None:
-                    raise TypeError(f'Expected "str", got "{type(datetime_attribute).__name__}"')
+                    raise TypeError(format_type_error(datetime_attribute, str))
 
                 # Safely retrieve the attribute using `getattr`
                 return getattr(player.datetime, datetime_attribute)
@@ -4110,7 +4202,7 @@ class SessionTableModel(QAbstractTableModel):
 
     def get_view(self):
         if self._view is None:
-            raise TypeError(f'Expected "SessionTableView", got "{type(self._view).__name__}"')
+            raise TypeError(format_type_error(self._view, SessionTableView))
         return self._view
 
     def get_column_index_by_name(self, column_name: str, /):
@@ -4280,42 +4372,42 @@ class SessionTableView(QTableView):
     def setModel(self, model: QAbstractItemModel | None):  # noqa: N802
         """Override the setModel method to ensure the model is of type SessionTableModel."""
         if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
+            raise TypeError(format_type_error(model, SessionTableModel))
         super().setModel(model)
 
     def model(self):
         """Override the model method to ensure it returns a SessionTableModel."""
         model = super().model()
         if not isinstance(model, SessionTableModel):
-            raise TypeError(f'Expected "SessionTableModel", got "{type(model).__name__}"')
+            raise TypeError(format_type_error(model, SessionTableModel))
         return model
 
     def selectionModel(self):  # noqa: N802
         """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
         selection_model = super().selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
-            raise TypeError(f'Expected "QItemSelectionModel", got "{type(selection_model).__name__}"')
+            raise TypeError(format_type_error(selection_model, QItemSelectionModel))
         return selection_model
 
     def viewport(self):
         """Override the viewport method to ensure it returns a QWidget."""
         viewport = super().viewport()
         if not isinstance(viewport, QWidget):
-            raise TypeError(f'Expected "QWidget", got "{type(viewport).__name__}"')
+            raise TypeError(format_type_error(viewport, QWidget))
         return viewport
 
     def verticalHeader(self):  # noqa: N802
         """Override the verticalHeader method to ensure it returns a QHeaderView."""
         header = super().verticalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+            raise TypeError(format_type_error(header, QHeaderView))
         return header
 
     def horizontalHeader(self):  # noqa: N802
         """Override the horizontalHeader method to ensure it returns a QHeaderView."""
         header = super().horizontalHeader()
         if not isinstance(header, QHeaderView):
-            raise TypeError(f'Expected "QHeaderView", got "{type(header).__name__}"')
+            raise TypeError(format_type_error(header, QHeaderView))
         return header
 
     def eventFilter(self, object: QObject | None, event: QEvent | None):  # pylint: disable=redefined-builtin  # noqa: A002, N802
@@ -4328,7 +4420,7 @@ class SessionTableView(QTableView):
                     ip = model.data(model.index(index.row(), model.IP_COLUMN_INDEX))
                     if ip is not None:
                         if not isinstance(ip, str):
-                            raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                            raise TypeError(format_type_error(ip, str))
                         ip = ip.removesuffix(" 👑")
 
                         player = PlayersRegistry.require_player_by_ip(ip)
@@ -4462,7 +4554,7 @@ class SessionTableView(QTableView):
         # Get the name of the sorted column from the model
         sorted_column_name = model.headerData(sorted_column_index, Qt.Orientation.Horizontal)
         if sorted_column_name is None:
-            raise TypeError(f'Expected "str", got "{type(sorted_column_name).__name__}"')
+            raise TypeError(format_type_error(sorted_column_name, str))
 
         return sorted_column_name, sort_order
 
@@ -4504,7 +4596,10 @@ class SessionTableView(QTableView):
 
     def show_context_menu(self, pos: QPoint):
         """Show the context menu at the specified position with options to interact with the table's content."""
-        from modules.constants.standard import CUSTOM_CONTEXT_MENU_STYLESHEET, USERIP_DATABASES_PATH
+        from modules.constants.standard import (
+            CUSTOM_CONTEXT_MENU_STYLESHEET,
+            USERIP_DATABASES_PATH,
+        )
 
         def add_action(
             menu: QMenu,
@@ -4512,12 +4607,13 @@ class SessionTableView(QTableView):
             shortcut: str | None = None,
             tooltip: str | None = None,
             handler: Callable[..., None] | None = None,
+            *,
             enabled: bool | None = None,
         ):
             """Helper to create and configure a QAction."""
             action = menu.addAction(label)
             if not isinstance(action, QAction):
-                raise TypeError(f'Expected "QAction", got "{type(action).__name__}"')
+                raise TypeError(format_type_error(action, QAction))
 
             if shortcut:
                 action.setShortcut(shortcut)
@@ -4534,7 +4630,7 @@ class SessionTableView(QTableView):
             """Helper to create and configure a QMenu."""
             menu = parent_menu.addMenu(label)
             if not isinstance(menu, QMenu):
-                raise TypeError(f'Expected "QMenu", got "{type(menu).__name__}"')
+                raise TypeError(format_type_error(menu, QMenu))
 
             if tooltip:
                 menu.setToolTip(tooltip)
@@ -4616,17 +4712,17 @@ class SessionTableView(QTableView):
 
             column_name = selected_model.headerData(selected_column, Qt.Orientation.Horizontal)
             if not isinstance(column_name, str):
-                raise TypeError(f'Expected "str", got "{type(column_name).__name__}"')
+                raise TypeError(format_type_error(column_name, str))
 
             if column_name == "IP Address":
-                from modules.constants.local import SCRIPTS_PATH
+                from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
                 ip = selected_model.data(selected_indexes[0])
                 if ip is None:
                     return  # Added this return cuz some rare times it would raise.
                 if not isinstance(ip, str):
-                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                    raise TypeError(format_type_error(ip, str))
                 ip = ip.removesuffix(" 👑")
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
@@ -4654,7 +4750,7 @@ class SessionTableView(QTableView):
                 )
 
                 scripts_menu = add_menu(context_menu, "User Scripts ")
-                for script in SCRIPTS_PATH.glob("*"):
+                for script in SCRIPTS_FOLDER_PATH.glob("*"):
                     if (
                         not script.is_file()
                         or script.name.startswith(("_", "."))
@@ -4666,7 +4762,7 @@ class SessionTableView(QTableView):
 
                     add_action(
                         scripts_menu,
-                        script_resolved.resolve().name,
+                        script_resolved.name,
                         tooltip="",
                         handler=lambda _, s=script_resolved: run_cmd_script(s, [ip]),
                     )
@@ -4712,7 +4808,7 @@ class SessionTableView(QTableView):
                 if ip is None:
                     continue  # Added this continue cuz some rare times it would raise.
                 if not isinstance(ip, str):
-                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                    raise TypeError(format_type_error(ip, str))
                 ip = ip.removesuffix(" 👑")
                 all_ips.append(ip)
 
@@ -4754,7 +4850,7 @@ class SessionTableView(QTableView):
         # Access the system clipboard
         clipboard = QApplication.clipboard()
         if not isinstance(clipboard, QClipboard):
-            raise TypeError(f'Expected "QClipboard", got "{type(clipboard).__name__}"')
+            raise TypeError(format_type_error(clipboard, QClipboard))
 
         # Prepare a list to store text data from selected cells
         selected_texts: list[str] = []
@@ -4765,7 +4861,7 @@ class SessionTableView(QTableView):
             if cell_text is None:
                 continue  # Added this continue cuz some rare times it would raise.
             if not isinstance(cell_text, str):
-                raise TypeError(f'Expected "str", got "{type(cell_text).__name__}"')
+                raise TypeError(format_type_error(cell_text, str))
 
             if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address":
                 cell_text = cell_text.removesuffix(" 👑")
@@ -4787,7 +4883,7 @@ class SessionTableView(QTableView):
 
         player = PlayersRegistry.require_player_by_ip(ip)
 
-        msgbox_message = textwrap.dedent(f"""
+        QMessageBox.information(self, TITLE, format_triple_quoted_text(f"""
             ############ Player Infos #############
             IP Address: {player.ip}
             Hostname: {player.reverse_dns.hostname}
@@ -4830,8 +4926,8 @@ class SessionTableView(QTableView):
             Round-Trip Time Average: {player.ping.rtt_avg}
             Round-Trip Time Maximum: {player.ping.rtt_max}
             Round-Trip Time Mean Deviation: {player.ping.rtt_mdev}
-        """).removeprefix("\n").removesuffix("\n")
-        QMessageBox.information(self, TITLE, msgbox_message)
+        """),
+        )
 
     def ping(self, ip: str):
         """Runs a continuous ping to a specified IP address in a new terminal window."""
@@ -4842,11 +4938,11 @@ class SessionTableView(QTableView):
 
         def run_paping(host: str, port: int):
             """Runs paping in a new terminal window to check TCP connectivity continuously."""
-            from modules.constants.local import BIN_PATH
+            from modules.constants.local import PAPING_PATH
 
-            run_cmd_script(BIN_PATH / "paping.exe", [host, "-p", str(port)])
+            run_cmd_script(PAPING_PATH, [host, "-p", str(port)])
 
-        from modules.constants.standalone import MIN_PORT, MAX_PORT
+        from modules.constants.standalone import MAX_PORT, MIN_PORT
 
         port_str, ok = QInputDialog.getText(self, "Input Port", "Enter the port number to check TCP connectivity:")
 
@@ -4882,7 +4978,10 @@ class SessionTableView(QTableView):
             QMessageBox.warning(self, TITLE, "ERROR:\nNo username was provided.")
 
     def userip_manager__move(self, ip_addresses: list[str], selected_database: Path):
-        from modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
+        from modules.constants.standard import (
+            RE_USERIP_INI_PARSER_PATTERN,
+            USERIP_DATABASES_PATH,
+        )
         from modules.utils import write_lines_to_file
 
         # Dictionary to store removed entries by database
@@ -4940,7 +5039,10 @@ class SessionTableView(QTableView):
             QMessageBox.information(self, TITLE, report)
 
     def userip_manager__del(self, ip_addresses: list[str]):
-        from modules.constants.standard import RE_USERIP_INI_PARSER_PATTERN, USERIP_DATABASES_PATH
+        from modules.constants.standard import (
+            RE_USERIP_INI_PARSER_PATTERN,
+            USERIP_DATABASES_PATH,
+        )
         from modules.utils import write_lines_to_file
 
         # Dictionary to store removed entries by database

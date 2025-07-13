@@ -6,8 +6,10 @@ It defines two main components:
 
 The MsgBox.show() method can be used to display a message box with custom buttons, and behavior.
 """
-import enum
 import ctypes
+import enum
+
+from modules.utils import format_type_error
 
 
 class MsgBox:
@@ -71,31 +73,22 @@ class MsgBox:
         IDYES       = 6   # The Yes       button was selected.
 
     @staticmethod
-    def show(title: str, message: str, style: Style):
-        msgbox_result = ctypes.windll.user32.MessageBoxW(0, message, title, style)
+    def show(title: str, text: str, style: Style):
+        """Display a message box with the specified title, text, and style.
+
+        Args:
+            title (str): The title of the message box.
+            text (str): The text to display in the message box.
+            style (Style): The style for the message box, defined by the Style class.
+
+        Returns:
+            int: The return value from the message box, indicating which button was pressed.
+
+        Raises:
+            TypeError: If the return value from the MessageBox is not an integer.
+        """
+        msgbox_result = ctypes.windll.user32.MessageBoxW(0, text, title, style)
         if not isinstance(msgbox_result, int):
-            raise TypeError(f'Expected "int" object, got "{type(msgbox_result).__name__}"')
+            raise TypeError(format_type_error(msgbox_result, int))
 
         return msgbox_result
-
-# TODO(BUZZARDGTA):
-# This will be useful for UserIPDatabases._notify_conflict(), once a conflic is resolved, automatically close it's msgbox.
-#@classmethod
-#def close_after_condition(cls, title: str, message: str, style: Style, condition_func: Callable):
-#    """Display a message box and automatically closes it when the provided condition function returns True.
-#
-#    Args:
-#        title (str): The title of the message box.
-#        message (str): The message to display in the message box.
-#        style (Style): The style for the message box.
-#        condition_func (Callable): A function that returns a boolean. The message box will close when this function returns True.
-#    """
-#    msg_thread = Thread(target=cls.show, args=(title, message, style))
-#    msg_thread.start()
-#
-#    while not condition_func():
-#        time.sleep(0.1)
-#
-#    ctypes.windll.user32.PostMessageW(0, 0x0010, 0, 0)  # Close the message box
-#
-#    msg_thread.join()

@@ -1,11 +1,9 @@
 """Module for defining constants that include only imports from standard Python libraries."""
-
-# Standard Python Libraries
 import os
 import re
 import textwrap
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from .external import LOCAL_TZ
 

@@ -2,21 +2,17 @@
 
 It continuously sends ping requests and displays results using Rich formatting.
 """  # noqa: INP001
-
-# Standard Python Libraries
-import sys
-import time
 import argparse
 import statistics
+import sys
+import time
 from enum import Enum
+from ipaddress import AddressValueError, IPv4Address
 from typing import Literal
-from ipaddress import IPv4Address, AddressValueError
 
-# External/Third-party Python Libraries
 import requests
-from rich.table import Table
 from rich import print as rprint
-
+from rich.table import Table
 
 PingCheckResults = dict[str, list[
     list[list[str | float]] | list[None | dict[Literal["message"], str]]

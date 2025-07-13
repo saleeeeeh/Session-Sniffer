@@ -2,19 +2,15 @@
 
 Disable certificate verification and allow insecure ciphers for compatibility with legacy systems.
 """
-
-# Standard Python Libraries
 import ssl
 from ssl import SSLContext
 
-# External/Third-party Python Libraries
-import urllib3
 import requests
+import urllib3
 from requests.adapters import HTTPAdapter
-from urllib3.poolmanager import PoolManager
 from urllib3.exceptions import InsecureRequestWarning
+from urllib3.poolmanager import PoolManager
 from urllib3.util import create_urllib3_context
-
 
 # Workaround unsecure request warnings
 urllib3.disable_warnings(InsecureRequestWarning)

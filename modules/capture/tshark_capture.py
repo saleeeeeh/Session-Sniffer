@@ -1,17 +1,76 @@
 """Module for packet capture using TShark, including packet processing and handling of TShark crashes."""
-
-# Standard Python Libraries
 import subprocess
-from pathlib import Path
-from typing import NamedTuple
 from collections.abc import Callable
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from pathlib import Path
 
-# Local Python Libraries (Included with Project)
+from pydantic.dataclasses import dataclass
+
 from modules.constants.external import LOCAL_TZ
+from modules.constants.standalone import MAX_PORT, MIN_PORT
 
 
-class PacketFields(NamedTuple):
+class TSharkProcessingError(ValueError):
+    """Base class for TShark packet parsing errors."""
+
+
+class UnexpectedFieldCountError(TSharkProcessingError):
+    """"Raised when the number of fields in TShark output is unexpected."""
+
+    def __init__(self, expected: int, actual: int, fields: tuple[str, ...]):
+        """Initialize the UnexpectedFieldCountError exception."""
+        super().__init__(
+            f"Unexpected number of fields in TShark output. "
+            f'Expected "{expected}", got "{actual}": "{fields}"',
+        )
+
+
+class MissingRequiredFieldsError(TSharkProcessingError):
+    """Raised when required fields are missing in TShark output."""
+
+    def __init__(self, fields: tuple[str, ...]):
+        """Initialize the MissingRequiredFieldsError exception."""
+        super().__init__(
+            f"One of the required first three fields is empty. Fields: {fields}",
+        )
+
+
+class InvalidPortFormatError(TSharkProcessingError):
+    """"Raised when source or destination ports are not digits."""
+
+    def __init__(self, port: str):
+        """Initialize the InvalidPortFormatError exception."""
+        super().__init__(f"Invalid port format: {port}. Port must be a number.")
+
+
+class InvalidPortNumberError(TSharkProcessingError):
+    """Raised when source or destination ports are not valid."""
+
+    def __init__(self, port: int):
+        """Initialize the InvalidPortNumberError exception."""
+        super().__init__(f"Invalid port number: {port}. Port must be a number between {MIN_PORT} and {MAX_PORT}.")
+
+
+class TSharkCrashExceptionError(Exception):
+    """Exception raised when TShark crashes.
+
+    Attributes:
+        returncode (int): The return code of the TShark process.
+        stderr_output (str): The standard error output from TShark.
+    """
+
+    def __init__(self, returncode: int, stderr_output: str):
+        """Initialize the exception with the return code and standard error output.
+
+        Args:
+            returncode (int): The return code of the TShark process.
+            stderr_output (str): The standard error output from TShark.
+        """
+        super().__init__(f"TShark crashed with return code {returncode}: {stderr_output}")
+
+
+@dataclass(frozen=True, slots=True)
+class PacketFields:
     frame_time: str
     src_ip: str
     dst_ip: str
@@ -19,72 +78,99 @@ class PacketFields(NamedTuple):
     dst_port: str
 
 
-class TSharkCrashExceptionError(Exception):
-    pass
-
-
+@dataclass(frozen=True, slots=True)
 class Frame:
-    def __init__(self, time_epoch: str):
-        self.datetime = converts_tshark_packet_timestamp_to_datetime_object(time_epoch)
+    packet_datetime: datetime
+
+    @classmethod
+    def from_epoch(cls, time_epoch: str):
+        return cls(packet_datetime=converts_tshark_packet_timestamp_to_datetime_object(time_epoch))
 
 
+@dataclass(frozen=True, slots=True)
 class IP:
-    def __init__(self, src: str, dst: str):
-        self.src = src
-        self.dst = dst
+    src: str
+    dst: str
 
 
+@dataclass(frozen=True, slots=True)
 class UDP:
-    def __init__(self, srcport: str, dstport: str):
-        self.srcport = int(srcport)
-        self.dstport = int(dstport)
+    srcport: int
+    dstport: int
 
 
+@dataclass(frozen=True, slots=True)
 class Packet:
-    def __init__(self, fields: PacketFields):
-        self.frame = Frame(fields.frame_time)
-        self.ip = IP(fields.src_ip, fields.dst_ip)
-        self.udp = UDP(fields.src_port, fields.dst_port)
+    frame: Frame
+    ip: IP
+    udp: UDP
+
+    @classmethod
+    def from_fields(cls, fields: PacketFields):
+        """"Create a Packet object from TShark output fields.
+
+        Args:
+            fields (PacketFields): A named tuple containing the packet fields.
+
+        Returns:
+            Packet: A Packet object containing the parsed fields.
+
+        Raises:
+            InvalidPortFormatError: If the source or destination ports are not digits.
+            InvalidPortNumberError: If the source or destination ports are not valid.
+        """
+        if not fields.src_port.isdecimal():
+            raise InvalidPortFormatError(fields.src_port)
+        src_port = int(fields.src_port)
+
+        if not fields.dst_port.isdecimal():
+            raise InvalidPortFormatError(fields.dst_port)
+        dst_port = int(fields.dst_port)
+
+        if not MIN_PORT <= src_port <= MAX_PORT:
+            raise InvalidPortNumberError(src_port)
+        if not MIN_PORT <= dst_port <= MAX_PORT:
+            raise InvalidPortNumberError(dst_port)
+
+        return cls(
+            Frame.from_epoch(fields.frame_time),
+            IP(fields.src_ip, fields.dst_ip),
+            UDP(src_port, dst_port),
+        )
 
 
 class PacketCapture:
     def __init__(
         self,
+        *,
         interface: str,
         tshark_path: Path,
-        tshark_version: str,
         capture_filter: str | None = None,
         display_filter: str | None = None,
     ):
-        from modules.constants.standard import RE_WIRESHARK_VERSION_PATTERN
+        """Initialize the PacketCapture class.
 
+        Args:
+            interface (str): The network interface to capture packets from.
+            tshark_path (Path): The path to the TShark executable.
+            capture_filter (str | None): Optional capture filter for TShark.
+            display_filter (str | None): Optional display filter for TShark.
+        """
         self.interface = interface
         self.tshark_path = tshark_path
-        self.tshark_version = tshark_version
         self.capture_filter = capture_filter
         self.display_filter = display_filter
 
         self._EXPECTED_PACKET_FIELDS = 5
 
-        # Extract Wireshark version
-        if not (match := RE_WIRESHARK_VERSION_PATTERN.search(tshark_version)):
-            raise ValueError("Could not extract Wireshark version")
-
-        extracted_version = match.group("version")
-        if not isinstance(extracted_version, str):
-            raise TypeError(f'Expected "str", got "{type(extracted_version).__name__}"')
-
-        self.extracted_tshark_version = extracted_version
-
-        # Build TShark command
-        self._tshark_command = [
+        self._tshark_cmd = (
             str(tshark_path),
             "-l", "-n", "-Q",
             "--log-level", "critical",
             "-B", "1",
             "-i", interface,
-            *(["-f", capture_filter] if capture_filter else []),
-            *(["-Y", display_filter] if display_filter else []),
+            *(("-f", capture_filter) if capture_filter else ()),
+            *(("-Y", display_filter) if display_filter else ()),
             "-T", "fields",
             "-E", "separator=|",
             "-e", "frame.time_epoch",
@@ -92,47 +178,60 @@ class PacketCapture:
             "-e", "ip.dst",
             "-e", "udp.srcport",
             "-e", "udp.dstport",
-        ]
+        )
         self._tshark_process: subprocess.Popen[str] | None = None
 
     def apply_on_packets(self, callback: Callable[[Packet], None]):
+        """Apply a callback function to each captured packet."""
         for packet in self._capture_packets():
             callback(packet)
 
     def _capture_packets(self):
-        def process_tshark_stdout(line: str):
-            fields = line.split("|", self._EXPECTED_PACKET_FIELDS - 1)
-            if len(fields) != self._EXPECTED_PACKET_FIELDS:
-                raise ValueError(
-                    "Unexpected number of fields in TShark output. "
-                    f'Expected "{self._EXPECTED_PACKET_FIELDS}", got "{len(fields)}": "{fields}"',
-                )
+        """Capture packets using TShark and process the output.
 
-            fields = [field.strip() for field in fields]  # Strip whitespace from each field
+        Yields:
+            Packet: A packet object containing the captured packet data.
+        """
+
+        def process_tshark_stdout(line: str):
+            """Process a line of TShark output and return a PacketFields object.
+
+            Args:
+                line (str): A line of TShark output.
+
+            Returns:
+                PacketFields: A named tuple containing the packet fields.
+
+            Raises:
+                UnexpectedFieldCountError: If the number of fields in the line is unexpected.
+                MissingRequiredFieldsError: If any of the required fields are missing.
+                InvalidPortFormatError: If the source or destination ports are not digits.
+                InvalidPortNumberError: If the source or destination ports are not valid.
+            """
+            # Split the line into fields and limit the split based on the expected number of fields
+            fields = tuple(field.strip() for field in line.split("|", self._EXPECTED_PACKET_FIELDS))
+            if len(fields) != self._EXPECTED_PACKET_FIELDS:
+                raise UnexpectedFieldCountError(self._EXPECTED_PACKET_FIELDS, len(fields), fields)
 
             # Ensure the first three fields are not empty
             if any(not field for field in fields[:3]):
-                raise ValueError(
-                    "One of the required first three fields is empty. Fields: " + str(fields),
-                )
+                raise MissingRequiredFieldsError(fields)
 
-            # TODO(BUZZARDGTA): In future development, it would be ideal to retain these packets instead of discarding them.
+            # TODO(BUZZARDGTA): It would be ideal to retain these packets instead of discarding them.
             # Displaying "None" in the Port field should be supported at some point.
             # Allow the last two fields (source and destination ports) to be empty.
             if "" in {fields[-2], fields[-1]}:
                 print(f"Source or destination port is missing. Packet ignored: [{line}]")
                 return None  # Skip processing if either of the last two fields is empty
 
-            if not (fields[-2].isdigit() and fields[-1].isdigit()):
-                raise ValueError("Source and destination ports must be digits.")
-
             return PacketFields(*fields)
 
         with subprocess.Popen(
-            self._tshark_command,
+            self._tshark_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
         ) as process:
             self._tshark_process = process
 
@@ -143,13 +242,13 @@ class PacketCapture:
                     if packet_fields is None:
                         continue
 
-                    yield Packet(packet_fields)
+                    yield Packet.from_fields(packet_fields)
 
             # After stdout is done, check if there were any errors in stderr
             if process.stderr:
                 stderr_output = process.stderr.read()
                 if process.returncode != 0:
-                    raise TSharkCrashExceptionError(f"TShark exited with error code {process.returncode}:\n{stderr_output.strip()}")
+                    raise TSharkCrashExceptionError(process.returncode, stderr_output)
 
 
 def converts_tshark_packet_timestamp_to_datetime_object(packet_frame_time_epoch: str):
