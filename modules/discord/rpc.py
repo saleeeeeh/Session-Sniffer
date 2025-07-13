@@ -6,8 +6,8 @@ functionality to update or close the presence. It uses threading to run the upda
 
 # Standard Python Libraries
 import time
-import threading
 from queue import SimpleQueue
+from threading import Event, Thread
 
 # External/Third-party Python Libraries
 import sentinel
@@ -27,9 +27,9 @@ class DiscordRPC:
         self._closed = False
         self._queue: QueueType = SimpleQueue()
 
-        self.connection_status = threading.Event()
+        self.connection_status = Event()
 
-        self._thread = threading.Thread(target=_run, args=(self._rpc, self._queue, self.connection_status))
+        self._thread = Thread(target=_run, args=(self._rpc, self._queue, self.connection_status))
         self._thread.start()
 
         self.last_update_time: float | None = None
@@ -58,7 +58,7 @@ class DiscordRPC:
         self._thread.join(timeout=3)
 
 
-def _run(rpc: Presence, queue: QueueType, connection_status: threading.Event):
+def _run(rpc: Presence, queue: QueueType, connection_status: Event):
     DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
     START_TIME_INT = int(time.time())
     DISCORD_RPC_BUTTONS = [

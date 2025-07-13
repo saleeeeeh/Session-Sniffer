@@ -90,7 +90,7 @@ class MsgBox:
 #        style (Style): The style for the message box.
 #        condition_func (Callable): A function that returns a boolean. The message box will close when this function returns True.
 #    """
-#    msg_thread = threading.Thread(target=cls.show, args=(title, message, style))
+#    msg_thread = Thread(target=cls.show, args=(title, message, style))
 #    msg_thread.start()
 #
 #    while not condition_func():

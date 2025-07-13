@@ -14,13 +14,13 @@ import hashlib
 import textwrap
 import tempfile
 import winsound
-import threading
 import subprocess
 import webbrowser
 from pathlib import Path
 from operator import attrgetter
 from collections.abc import Callable
 from types import FrameType, TracebackType
+from threading import Event, Lock, RLock, Thread
 from typing import Literal, NamedTuple, ClassVar, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
@@ -107,7 +107,7 @@ def terminate_script(
         for thread_name in ("capture_core__thread", "rendering_core__thread", "hostname_core__thread", "iplookup_core__thread", "pinger_core__thread"):
             if thread_name in globals():
                 thread = globals()[thread_name]
-                if isinstance(thread, threading.Thread) and thread.is_alive():
+                if isinstance(thread, Thread) and thread.is_alive():
                     return False
 
         # TODO(BUZZARDGTA): Gracefully exit the script even when the `cature` module is running.
@@ -209,7 +209,7 @@ class PlayerNotFoundInRegistryError(Exception):
 
 
 class ScriptControl:
-    _lock = threading.Lock()
+    _lock = Lock()
     _crashed = False
     _message = None
 
@@ -242,49 +242,62 @@ class ThreadsExceptionHandler:
     This class is designed to overcome the limitation where threads run independently from the main process, which continues execution without waiting for thread completion.
 
     Attributes:
-        raising_function (str): The name of the function where the exception was raised.
-        raising_exc_type (type): The type of the exception raised.
-        raising_exc_value (Exception): The value of the exception raised.
-        raising_exc_traceback (TracebackType): The traceback information for the raised exception.
+        raising_function (str | None): The name of the function where the exception was raised.
+        raising_exc_type (type[BaseException] | None): The type of the raised exception.
+        raising_exc_value (BaseException | None): The value of the raised exception.
+        raising_exc_traceback (TracebackType | None): The traceback information for the raised exception.
     """
-    raising_function = None
-    raising_exc_type = None
-    raising_exc_value = None
-    raising_exc_traceback = None
-
-    def __init__(self):
-        pass
+    raising_function:      ClassVar[str                 | None] = None
+    raising_exc_type:      ClassVar[type[BaseException] | None] = None
+    raising_exc_value:     ClassVar[BaseException       | None] = None
+    raising_exc_traceback: ClassVar[TracebackType       | None] = None
 
     def __enter__(self):
-        pass
+        """Enter the runtime context related to this object."""
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_traceback: TracebackType | None):
         """Exit method called upon exiting the 'with' block.
 
         Args:
-            exc_type: The type of the exception raised.
-            exc_value: The value of the exception raised.
-            exc_traceback: The traceback information of the exception raised.
+            exc_type (type[BaseException] | None): The type of the raised exception.
+            exc_value (BaseException | None): The value of the raised exception.
+            exc_traceback (TracebackType | None): The traceback information of the raised exception.
 
         Returns:
             bool: True to suppress the exception from propagating further.
         """
-        if exc_type:
-            ThreadsExceptionHandler.raising_exc_type = exc_type
-            ThreadsExceptionHandler.raising_exc_value = exc_value
-            ThreadsExceptionHandler.raising_exc_traceback = exc_traceback
+        # Return False to allow normal execution if no exception occurred
+        if exc_type is None or exc_value is None:
+            return False
 
+        # Handle exception details
+        ThreadsExceptionHandler.raising_exc_type = exc_type
+        ThreadsExceptionHandler.raising_exc_value = exc_value
+        ThreadsExceptionHandler.raising_exc_traceback = exc_traceback
+
+        # Extract the failed function name from the traceback safely
+        if exc_traceback is not None:
             tb = exc_traceback
             while tb.tb_next:
                 tb = tb.tb_next
-            # Set the failed function name
             ThreadsExceptionHandler.raising_function = tb.tb_frame.f_code.co_name
+        else:
+            ThreadsExceptionHandler.raising_function = "<unknown>"
 
-            exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
-            terminate_script("THREAD_RAISED", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues", exception_info=exception_info)
+        # Create the exception info and terminate the script
+        exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
+        terminate_script(
+            "THREAD_RAISED",
+            (
+                "An unexpected (uncaught) error occurred.\n\n"
+                "Please kindly report it to:\n"
+                "https://github.com/BUZZARDGTA/Session-Sniffer/issues"
+            ),
+            exception_info=exception_info,
+        )
 
-            return True  # Prevent exceptions from propagating
-        return False
+        # Suppress the exception from propagating
+        return True
 
 
 @dataclass
@@ -1062,7 +1075,7 @@ class PlayerModMenus:
 
 class Player:  # pylint: disable=too-many-instance-attributes
     def __init__(self, *, ip: str, port: int, packet_datetime: datetime):
-        self.left_event = threading.Event()
+        self.left_event = Event()
 
         self.ip = ip
         self.rejoins = 0
@@ -1123,7 +1136,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
 
         if self.userip_detection and self.userip_detection.as_processed_task:
             self.userip_detection.as_processed_task = False
-            threading.Thread(target=process_userip_task, args=(self, "disconnected"), daemon=True).start()
+            Thread(target=process_userip_task, args=(self, "disconnected"), daemon=True).start()
 
 
 class PlayersRegistry:
@@ -1131,12 +1144,10 @@ class PlayersRegistry:
 
     This class provides methods to add, retrieve, and iterate over players in the registry.
     """
-    from threading import Lock
-
     _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar[str] = "datetime.last_rejoin"
     _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar[str] = "datetime.last_seen"
 
-    _registry_lock: ClassVar[Lock] = Lock()
+    _registry_lock: ClassVar[RLock] = RLock()
     _connected_players_registry   : ClassVar[dict[str, Player]] = {}
     _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
 
@@ -1200,10 +1211,28 @@ class PlayersRegistry:
             ip (str): The IP address of the player.
 
         Returns:
-            The player object if found, otherwise None.
+            The player object if found, otherwise `None`.
         """
         with cls._registry_lock:
             return cls._connected_players_registry.get(ip) or cls._disconnected_players_registry.get(ip)
+
+    @classmethod
+    def require_player_by_ip(cls, ip: str, /):
+        """Get a player by IP, raise if not found.
+
+        Args:
+            ip (str): The IP address of the player.
+
+        Returns:
+            Player: The player object.
+
+        Raises:
+            PlayerNotFoundInRegistryError: If no player exists for the given IP.
+        """
+        player = cls.get_player_by_ip(ip)
+        if player is None:
+            raise PlayerNotFoundInRegistryError(ip)
+        return player
 
     @classmethod
     def get_default_sorted_players(
@@ -1296,7 +1325,7 @@ class UserIP(NamedTuple):
 
 
 class UserIPDatabases:
-    _update_userip_database_lock = threading.Lock()
+    _update_userip_database_lock = Lock()
 
     userip_databases: ClassVar[list[tuple[Path, UserIPSettings, dict[str, list[str]]]]] = []
     ips_set: ClassVar[set[str]] = set()
@@ -1334,7 +1363,7 @@ class UserIPDatabases:
                 {conflicting_userip_username}={conflicting_userip_ip}
         """.removeprefix("\n").removesuffix("\n")), "    ")
         msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-        threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+        Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
     @classmethod
     def populate(cls, database_entries: list[tuple[Path, UserIPSettings, dict[str, list[str]]]]):
@@ -1876,7 +1905,7 @@ def update_and_initialize_geolite2_readers():
                     failed_fetching_flag_list={failed_fetching_flag_list}
             """.removeprefix("\n").removesuffix("\n")), "    ")
             msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-            threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
         # Create the data dictionary, where each name maps to its version info
         data = {
@@ -2222,8 +2251,8 @@ capture = PacketCapture(
     tshark_version=tshark_version,
 )
 
-gui_closed__event = threading.Event()
-_userip_logging_file_write_lock: threading.Lock = threading.Lock()
+gui_closed__event = Event()
+_userip_logging_file_write_lock = Lock()
 
 
 def process_userip_task(
@@ -2235,7 +2264,7 @@ def process_userip_task(
         from modules.constants.local import TTS_PATH
         from modules.utils import get_pid_by_path, terminate_process_tree, write_lines_to_file
 
-        if not isinstance(player.userip_detection, PlayerUserIPDetection):
+        if player.userip_detection is None:
             raise TypeError(f'Expected "UserIPDetection" object, got "{type(player.userip_detection).__name__}"')
 
         timeout = 10
@@ -2276,7 +2305,7 @@ def process_userip_task(
         if connection_type == "connected" and player.userip.settings.PROTECTION:
             if player.userip.settings.PROTECTION == "Suspend_Process" and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
                 if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
-                    threading.Thread(
+                    Thread(
                         target=suspend_process_for_duration_or_mode,
                         args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE),
                         daemon=True,
@@ -2319,6 +2348,7 @@ def process_userip_task(
                 return
 
             from modules.constants.standard import USERIP_DATABASES_PATH
+
             relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")
 
             with _userip_logging_file_write_lock:
@@ -2361,7 +2391,7 @@ def process_userip_task(
                     Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
                 """.removeprefix("\n").removesuffix("\n")), "    ")
                 msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-                threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
 
 
 def iplookup_core():
@@ -2378,6 +2408,29 @@ def iplookup_core():
         #MAX_THROTTLE_TIME = 60
         MAX_BATCH_IP_API_IPS = 100
         FIELDS_TO_LOOKUP = "continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query"
+        FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[Any], ...]]] = {
+            "continent": ("continent", (str,)),
+            "continent_code": ("continentCode", (str,)),
+            "country": ("country", (str,)),
+            "country_code": ("countryCode", (str,)),
+            "region": ("regionName", (str,)),
+            "region_code": ("region", (str,)),
+            "city": ("city", (str,)),
+            "district": ("district", (str,)),
+            "zip_code": ("zip", (str,)),
+            "lat": ("lat", (float, int)),
+            "lon": ("lon", (float, int)),
+            "time_zone": ("timezone", (str,)),
+            "offset": ("offset", (int,)),
+            "currency": ("currency", (str,)),
+            "isp": ("isp", (str,)),
+            "org": ("org", (str,)),
+            "asn": ("as", (str,)),
+            "as_name": ("asname", (str,)),
+            "mobile": ("mobile", (bool,)),
+            "proxy": ("proxy", (bool,)),
+            "hosting": ("hosting", (bool,)),
+        }
 
         def validate_and_get_iplookup_field(
             player_ip: str,
@@ -2442,35 +2495,10 @@ def iplookup_core():
                 if not isinstance(player_ip, str):
                     raise TypeError(f'Expected "str" object, got "{type(player_ip).__name__}"')
 
-                if player := PlayersRegistry.get_player_by_ip(player_ip):
-                    player.iplookup.ipapi.is_initialized = True
-
-                    field_mappings: dict[str, tuple[str, tuple[type[Any], ...]]] = {
-                        "continent": ("continent", (str,)),
-                        "continent_code": ("continentCode", (str,)),
-                        "country": ("country", (str,)),
-                        "country_code": ("countryCode", (str,)),
-                        "region": ("regionName", (str,)),
-                        "region_code": ("region", (str,)),
-                        "city": ("city", (str,)),
-                        "district": ("district", (str,)),
-                        "zip_code": ("zip", (str,)),
-                        "lat": ("lat", (float, int)),
-                        "lon": ("lon", (float, int)),
-                        "time_zone": ("timezone", (str,)),
-                        "offset": ("offset", (int,)),
-                        "currency": ("currency", (str,)),
-                        "isp": ("isp", (str,)),
-                        "org": ("org", (str,)),
-                        "asn": ("as", (str,)),
-                        "as_name": ("asname", (str,)),
-                        "mobile": ("mobile", (bool,)),
-                        "proxy": ("proxy", (bool,)),
-                        "hosting": ("hosting", (bool,)),
-                    }
-
-                    for attr, (json_key, expected_types) in field_mappings.items():
-                        setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
+                player = PlayersRegistry.require_player_by_ip(player_ip)
+                player.iplookup.ipapi.is_initialized = True
+                for attr, (json_key, expected_types) in FIELD_MAPPINGS.items():
+                    setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
 
             throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
@@ -2510,10 +2538,9 @@ def hostname_core():
                     if not isinstance(hostname, str):
                         raise TypeError(f'Expected "str" object, got "{type(hostname).__name__}"')
 
-                    if player := PlayersRegistry.get_player_by_ip(ip):
-                        player.reverse_dns.is_initialized = True
-
-                        player.reverse_dns.hostname = hostname
+                    player = PlayersRegistry.require_player_by_ip(ip)
+                    player.reverse_dns.is_initialized = True
+                    player.reverse_dns.hostname = hostname
 
                 gui_closed__event.wait(0.1)
 
@@ -2561,19 +2588,19 @@ def pinger_core():
                     if not isinstance(ping_result, PingResult):
                         raise TypeError(f'Expected "PingResult" object, got "{type(ping_result).__name__}"')
 
-                    if player := PlayersRegistry.get_player_by_ip(ip):
-                        player.ping.is_initialized = True
-                        player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
+                    player = PlayersRegistry.require_player_by_ip(ip)
+                    player.ping.is_initialized = True
+                    player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
 
-                        player.ping.ping_times = ping_result.ping_times
-                        player.ping.packets_transmitted = ping_result.packets_transmitted
-                        player.ping.packets_received = ping_result.packets_received
-                        player.ping.packet_loss = ping_result.packet_loss
-                        player.ping.packet_errors = ping_result.packet_errors
-                        player.ping.rtt_min = ping_result.rtt_min
-                        player.ping.rtt_avg = ping_result.rtt_avg
-                        player.ping.rtt_max = ping_result.rtt_max
-                        player.ping.rtt_mdev = ping_result.rtt_mdev
+                    player.ping.ping_times = ping_result.ping_times
+                    player.ping.packets_transmitted = ping_result.packets_transmitted
+                    player.ping.packets_received = ping_result.packets_received
+                    player.ping.packet_loss = ping_result.packet_loss
+                    player.ping.packet_errors = ping_result.packet_errors
+                    player.ping.rtt_min = ping_result.rtt_min
+                    player.ping.rtt_avg = ping_result.rtt_avg
+                    player.ping.rtt_max = ping_result.rtt_max
+                    player.ping.rtt_mdev = ping_result.rtt_mdev
 
                 gui_closed__event.wait(0.1)
 
@@ -2649,7 +2676,7 @@ def capture_core():
                     time=packet_datetime.strftime("%H:%M:%S"),
                     date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S"),
                 )
-                threading.Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
+                Thread(target=process_userip_task, args=(player, "connected"), daemon=True).start()
 
         while not gui_closed__event.is_set():
             try:
@@ -2674,18 +2701,19 @@ class ThreadSafeMeta(type):
     """Metaclass that ensures thread-safe access to class attributes."""
 
     # Define a lock for the metaclass itself to be shared across all instances of classes using this metaclass.
-    _lock = threading.Lock()
+    _rlock: ClassVar[RLock] = RLock()
 
     def __getattr__(cls, name: str):
-        """Thread-safe getter for attributes."""
-        with cls._lock:
-            if hasattr(cls, name):
-                return getattr(cls, name)
-            raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'")
+        """Get an attribute from the class in a thread-safe manner."""
+        with cls._rlock:
+            try:
+                return super().__getattribute__(name)
+            except AttributeError:
+                raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'") from None
 
     def __setattr__(cls, name: str, value: object):
-        """Thread-safe setter for attributes."""
-        with cls._lock:
+        """Set an attribute on the class in a thread-safe manner."""
+        with cls._rlock:
             super().__setattr__(name, value)
 
 
@@ -2711,7 +2739,7 @@ class AbstractGUIRenderingData:
 
 
 class GUIrenderingData(AbstractGUIRenderingData, metaclass=ThreadSafeMeta):
-    gui_rendering_ready_event: threading.Event = threading.Event()
+    gui_rendering_ready_event: Event = Event()
 
 
 def rendering_core():
@@ -2904,7 +2932,7 @@ def rendering_core():
                                     https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                             """.removeprefix("\n").removesuffix("\n")), "    ")
                             msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                            threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                         return None, None
 
                     if need_rewrite_current_setting:
@@ -2948,7 +2976,7 @@ def rendering_core():
                                     {username}={ip}
                             """.removeprefix("\n").removesuffix("\n")), "    ")
                             msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL
-                            threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                            Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                             UserIPDatabases.notified_ip_invalid.add(f"{ini_path}={username}={ip}")
                         continue
 
@@ -2980,7 +3008,7 @@ def rendering_core():
                             https://github.com/BUZZARDGTA/Session-Sniffer?tab=readme-ov-file#userip_ini_databases_tutorial
                     """.removeprefix("\n").removesuffix("\n")), "    ")
                     msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-                    threading.Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
+                    Thread(target=MsgBox.show, args=(msgbox_title, msgbox_message, msgbox_style), daemon=True).start()
                 return None, None
 
             if ini_path in UserIPDatabases.notified_settings_corrupted:
@@ -3852,19 +3880,19 @@ set_window_title(f"DEBUG CONSOLE - {TITLE}")
 tshark_restarted_times = 0
 global_pps_counter = 0
 
-rendering_core__thread = threading.Thread(target=rendering_core, daemon=True)
+rendering_core__thread = Thread(target=rendering_core, daemon=True)
 rendering_core__thread.start()
 
-hostname_core__thread = threading.Thread(target=hostname_core, daemon=True)
+hostname_core__thread = Thread(target=hostname_core, daemon=True)
 hostname_core__thread.start()
 
-iplookup_core__thread = threading.Thread(target=iplookup_core, daemon=True)
+iplookup_core__thread = Thread(target=iplookup_core, daemon=True)
 iplookup_core__thread.start()
 
-pinger_core__thread = threading.Thread(target=pinger_core, daemon=True)
+pinger_core__thread = Thread(target=pinger_core, daemon=True)
 pinger_core__thread.start()
 
-capture_core__thread = threading.Thread(target=capture_core, daemon=True)
+capture_core__thread = Thread(target=capture_core, daemon=True)
 capture_core__thread.start()
 
 
@@ -3906,10 +3934,7 @@ class SessionTableModel(QAbstractTableModel):
                     raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
                 ip = ip.removesuffix(" 👑")
 
-                player = PlayersRegistry.get_player_by_ip(ip)
-                if not isinstance(player, Player):
-                    raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
-
+                player = PlayersRegistry.require_player_by_ip(ip)
                 if player.country_flag is not None:
                     return player.country_flag.icon
 
@@ -4012,9 +4037,7 @@ class SessionTableModel(QAbstractTableModel):
             # Retrieve the player datetime object from the IP column
             def extract_datetime_for_ip(ip: str):
                 """Extract a datetime object for a given IP address."""
-                player = PlayersRegistry.get_player_by_ip(ip)
-                if not isinstance(player, Player):
-                    raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
+                player = PlayersRegistry.require_player_by_ip(ip)
 
                 # Retrieve the player datetime attribute name for the selected column
                 # Mapping column names to player datetime attributes
@@ -4022,8 +4045,8 @@ class SessionTableModel(QAbstractTableModel):
                     "First Seen": "first_seen",
                     "Last Rejoin": "last_rejoin",
                     "Last Seen": "last_seen",
-                }.get(self._headers[column], None)
-                if not isinstance(datetime_attribute, str):
+                }.get(self._headers[column])
+                if datetime_attribute is None:
                     raise TypeError(f'Expected "str", got "{type(datetime_attribute).__name__}"')
 
                 # Safely retrieve the attribute using `getattr`
@@ -4303,13 +4326,14 @@ class SessionTableView(QTableView):
 
                 if model.get_column_index_by_name("Country") == index.column():
                     ip = model.data(model.index(index.row(), model.IP_COLUMN_INDEX))
-                    if not isinstance(ip, str):
-                        raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
-                    ip = ip.removesuffix(" 👑")
+                    if ip is not None:
+                        if not isinstance(ip, str):
+                            raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                        ip = ip.removesuffix(" 👑")
 
-                    player = PlayersRegistry.get_player_by_ip(ip)
-                    if player is not None and player.country_flag is not None:
-                        self.show_flag_tooltip(event, index, player)
+                        player = PlayersRegistry.require_player_by_ip(ip)
+                        if player.country_flag is not None:
+                            self.show_flag_tooltip(event, index, player)
 
         return super().eventFilter(object, event)
 
@@ -4411,7 +4435,7 @@ class SessionTableView(QTableView):
 
             if header_label == "Usernames":
                 contain_usernames = any(
-                    model.data(model.index(row, column)) != ""
+                    (data := model.data(model.index(row, column))) and isinstance(data, str) and data != ""
                     for row in range(model.rowCount())
                 )
 
@@ -4599,15 +4623,14 @@ class SessionTableView(QTableView):
 
                 # Get the IP address from the selected cell
                 ip = selected_model.data(selected_indexes[0])
-                if not isinstance(ip, str):
+                if ip is None:
                     return  # Added this return cuz some rare times it would raise.
-                    # raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
+                if not isinstance(ip, str):
+                    raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
                 ip = ip.removesuffix(" 👑")
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
-                player = PlayersRegistry.get_player_by_ip(ip)
-                if not isinstance(player, Player):
-                    raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
+                player = PlayersRegistry.require_player_by_ip(ip)
 
                 add_action(
                     context_menu,
@@ -4650,7 +4673,7 @@ class SessionTableView(QTableView):
 
                 userip_menu = add_menu(context_menu, "UserIP  ")
 
-                if not player.userip:
+                if player.userip is None:
                     add_userip_menu = add_menu(userip_menu, "Add     ", "Add selected IP address to UserIP database.")  # Extra spaces for alignment
                     for database_path in userip_database_filepaths:
                         add_action(
@@ -4660,13 +4683,6 @@ class SessionTableView(QTableView):
                             handler=lambda _, database_path=database_path: self.userip_manager__add([ip], database_path),
                         )
                 else:
-                    # TODO(BUZZARDGTA): Add a "Rename" UserIP method
-                    #add_action(
-                    #    userip_menu,
-                    #    "Rename  ", # Extra spaces for alignment
-                    #    tooltip="Rename this IP address from UserIP databases.",
-                    #    handler=lambda: self.userip_manager__rename([ip]),
-                    #)
                     move_userip_menu = add_menu(userip_menu, "Move    ", "Move selected IP address to another database.")
                     for database_path in userip_database_filepaths:
                         add_action(
@@ -4693,6 +4709,8 @@ class SessionTableView(QTableView):
             # Get the IP addreses from the selected cells
             for index in selected_indexes:
                 ip = selected_model.data(index)
+                if ip is None:
+                    continue  # Added this continue cuz some rare times it would raise.
                 if not isinstance(ip, str):
                     raise TypeError(f'Expected "str", got "{type(ip).__name__}"')
                 ip = ip.removesuffix(" 👑")
@@ -4700,6 +4718,7 @@ class SessionTableView(QTableView):
 
             if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, "UserIP  ")
+
                 add_userip_menu = add_menu(userip_menu, "Add Selected")
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
                     add_action(
@@ -4711,14 +4730,6 @@ class SessionTableView(QTableView):
             elif all(ip in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, "UserIP  ")
 
-                # TODO(BUZZARDGTA):
-                #add_action(
-                #    userip_menu,
-                #    "Rename Selected", # Extra spaces for alignment
-                #    tooltip="Rename these IP addresses from UserIP databases.",
-                #    handler=lambda: self.userip_manager__rename([ip]),
-                #)
-
                 move_userip_menu = add_menu(userip_menu, "Move Selected")
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
                     add_action(
@@ -4727,6 +4738,7 @@ class SessionTableView(QTableView):
                         tooltip="Move selected IP addresses to this UserIP database.",
                         handler=lambda _, database_path=database_path: self.userip_manager__move(all_ips, database_path),
                     )
+
                 add_action(
                     userip_menu,
                     "Delete Selected",  # Extra spaces for alignment
@@ -4751,7 +4763,7 @@ class SessionTableView(QTableView):
         for index in selected_indexes:
             cell_text = selected_model.data(index)
             if cell_text is None:
-                return  # Added this return cuz some rare times it would raise.
+                continue  # Added this continue cuz some rare times it would raise.
             if not isinstance(cell_text, str):
                 raise TypeError(f'Expected "str", got "{type(cell_text).__name__}"')
 
@@ -4773,9 +4785,7 @@ class SessionTableView(QTableView):
     def show_detailed_ip_lookup_player_cell(self, ip: str):
         from modules.constants.standard import USERIP_DATABASES_PATH
 
-        player = PlayersRegistry.get_player_by_ip(ip)
-        if not isinstance(player, Player):
-            raise TypeError(f'Expected "Player", got "{type(player).__name__}"')
+        player = PlayersRegistry.require_player_by_ip(ip)
 
         msgbox_message = textwrap.dedent(f"""
             ############ Player Infos #############

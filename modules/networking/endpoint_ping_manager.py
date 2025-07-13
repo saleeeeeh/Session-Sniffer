@@ -5,8 +5,8 @@ It is used to determine whether each player's IP is responsive to pings.
 
 # Standard Python Libraries
 import time
-import threading
 from typing import NamedTuple
+from threading import Lock, Semaphore
 from urllib.parse import urlparse
 from dataclasses import dataclass, field
 
@@ -95,10 +95,10 @@ DEFAULT_RETRY_COOLDOWN = 3.0
 
 
 # Global dictionary to track semaphores per endpoint host
-host_locks: dict[str, threading.Semaphore] = {}
+host_locks: dict[str, Semaphore] = {}
 
 # Global lock to protect shared endpoint metrics.
-_endpoints_lock = threading.Lock()
+_endpoints_lock = Lock()
 
 # Create a mapping of endpoint URL to its EndpointInfo instance.
 endpoints_info: dict[str, EndpointInfo] = {
@@ -116,7 +116,7 @@ def get_host_semaphore(url: str):
     hostname = urlparse(url).netloc
     with _endpoints_lock:
         if hostname not in host_locks:
-            host_locks[hostname] = threading.Semaphore(10)
+            host_locks[hostname] = Semaphore(10)
         return host_locks[hostname]
 
 
