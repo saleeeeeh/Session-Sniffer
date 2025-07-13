@@ -3,11 +3,12 @@
 It is used to determine whether each player's IP is responsive to pings.
 """
 import time
-from dataclasses import dataclass, field
+from dataclasses import field
 from threading import Lock, Semaphore
 from typing import NamedTuple
 from urllib.parse import urlparse
 
+from pydantic.dataclasses import dataclass
 from requests import exceptions
 
 from modules.constants.standard import (
@@ -34,7 +35,7 @@ class AllEndpointsExhaustedError(Exception):
     """Exception raised when all endpoints have been exhausted."""
 
 
-@dataclass
+@dataclass(slots=True)
 class EndpointInfo:
     url: str
     calls: int = 0

@@ -13,7 +13,7 @@ import time
 import webbrowser
 import winsound
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
@@ -30,6 +30,7 @@ import requests
 from colorama import Fore
 from packaging.version import Version
 from prettytable import PrettyTable, TableStyle
+from pydantic.dataclasses import dataclass
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import (
@@ -1108,7 +1109,7 @@ class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
     hosting:        Literal["N/A", "..."] | bool        = "..."
 
 
-@dataclass(kw_only=True, slots=True)
+@dataclass(kw_only=True, config={"arbitrary_types_allowed": True}, slots=True)
 class PlayerCountryFlag:
     pixmap: QPixmap
     icon: QIcon
