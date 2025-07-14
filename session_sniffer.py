@@ -532,7 +532,6 @@ class Settings(DefaultSettings):
 
     @staticmethod
     def load_from_settings_file(settings_path: Path):
-        from modules.networking.utils import is_mac_address
         from modules.utils import (
             InvalidBooleanValueError,
             InvalidNoneTypeValueError,
@@ -1234,6 +1233,21 @@ class PlayersRegistry:
     _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
 
     @classmethod
+    def _get_sorted_connected_players(cls):
+        return sorted(
+            cls._connected_players_registry.values(),
+            key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
+        )
+
+    @classmethod
+    def _get_sorted_disconnected_players(cls):
+        return sorted(
+            cls._disconnected_players_registry.values(),
+            key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
+            reverse=True,
+        )
+
+    @classmethod
     def add_connected_player(cls, player: Player):
         """Add a connected player to the registry.
 
@@ -1330,21 +1344,20 @@ class PlayersRegistry:
         """
         with cls._registry_lock:
             players: list[Player] = []
-
             if include_connected:
-                players.extend(sorted(
-                    cls._connected_players_registry.values(),
-                    key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
-                ))
-
+                players.extend(cls._get_sorted_connected_players())
             if include_disconnected:
-                players.extend(sorted(
-                    cls._disconnected_players_registry.values(),
-                    key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
-                    reverse=True,
-                ))
-
+                players.extend(cls._get_sorted_disconnected_players())
             return players
+
+    @classmethod
+    def get_default_sorted_connected_and_disconnected_players(cls):
+        """Return connected and disconnected players, each sorted by their default criteria."""
+        with cls._registry_lock:
+            return (
+                cls._get_sorted_connected_players(),
+                cls._get_sorted_disconnected_players(),
+            )
 
 
 class SessionHost:
@@ -3762,7 +3775,6 @@ def rendering_core():
             STAND__PLUGIN__LOG_PATH,
             TWO_TAKE_ONE__PLUGIN__LOG_PATH,
         )
-        from modules.utils import dedup_preserve_order
 
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
         (
@@ -3807,9 +3819,6 @@ def rendering_core():
                 gui_closed__event.wait(0.1)
                 continue
 
-            session_connected: list[Player] = []
-            session_disconnected: list[Player] = []
-
             if last_mod_menus_logs_parse_time is None or time.monotonic() - last_mod_menus_logs_parse_time >= 1.0:
                 last_mod_menus_logs_parse_time = time.monotonic()
 
@@ -3850,7 +3859,41 @@ def rendering_core():
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
 
-            for player in PlayersRegistry.get_default_sorted_players():
+            session_connected, session_disconnected = PlayersRegistry.get_default_sorted_connected_and_disconnected_players()
+            for player in session_connected.copy():
+                if (
+                    not player.left_event.is_set()
+                    and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
+                ):
+                    player.mark_as_left()
+                    session_connected.remove(player)
+                    session_disconnected.append(player)
+                    continue
+
+                # Calculate PPS every second
+                if (time.monotonic() - player.pps.last_update_time) >= 1.0:
+                    player.pps.rate = player.pps.counter  # Count of packets in the last second
+                    player.pps.counter = 0
+                    player.pps.last_update_time = time.monotonic()
+                    player.pps.is_first_calculation = False
+
+                # Calculate PPM every minute
+                if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
+                    player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
+                    player.ppm.counter = 0
+                    player.ppm.last_update_time = time.monotonic()
+                    player.ppm.is_first_calculation = False
+
+                if Settings.GUI_SESSIONS_LOGGING:
+                    session_connected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_connected__padding_country_name, 27)
+                    session_connected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_connected__padding_continent_name, 13)
+
+            for player in session_disconnected:
+                if Settings.GUI_SESSIONS_LOGGING:
+                    session_disconnected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_disconnected__padding_country_name, 27)
+                    session_disconnected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_disconnected__padding_continent_name, 13)
+
+            for player in session_connected + session_disconnected:
                 if player.userip and player.ip not in UserIPDatabases.ips_set:
                     player.userip = None
                     player.userip_detection = None
@@ -3888,45 +3931,12 @@ def rendering_core():
                             icon=QIcon(pixmap),
                         )
 
-                if (
-                    not player.left_event.is_set()
-                    and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen).total_seconds() >= Settings.GUI_DISCONNECTED_PLAYERS_TIMER
-                ):
-                    player.mark_as_left()
-
                 if not player.iplookup.geolite2.is_initialized:
+                    player.iplookup.geolite2.is_initialized = True
                     player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
                     player.iplookup.geolite2.city = get_city_info(player.ip)
                     player.iplookup.geolite2.asn = get_asn_info(player.ip)
 
-                    player.iplookup.geolite2.is_initialized = True
-
-                if player.left_event.is_set():
-                    session_disconnected.append(player)
-
-                    if Settings.GUI_SESSIONS_LOGGING:
-                        session_disconnected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_disconnected__padding_country_name, 27)
-                        session_disconnected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_disconnected__padding_continent_name, 13)
-                else:
-                    session_connected.append(player)
-
-                    if Settings.GUI_SESSIONS_LOGGING:
-                        session_connected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_connected__padding_country_name, 27)
-                        session_connected__padding_continent_name = get_minimum_padding(player.iplookup.ipapi.continent, session_connected__padding_continent_name, 13)
-
-                    # Calculate PPS every second
-                    if (time.monotonic() - player.pps.last_update_time) >= 1.0:
-                        player.pps.rate = player.pps.counter  # Count of packets in the last second
-                        player.pps.counter = 0
-                        player.pps.last_update_time = time.monotonic()
-                        player.pps.is_first_calculation = False
-
-                    # Calculate PPM every minute
-                    if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
-                        player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
-                        player.ppm.counter = 0
-                        player.ppm.last_update_time = time.monotonic()
-                        player.ppm.is_first_calculation = False
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
                 if SessionHost.player and SessionHost.player.left_event.is_set():
@@ -3947,8 +3957,8 @@ def rendering_core():
                     SessionHost.get_host_player(session_connected)
 
             if Settings.GUI_SESSIONS_LOGGING and (last_session_logging_processing_time is None or (time.monotonic() - last_session_logging_processing_time) >= 1.0):
-                process_session_logging()
                 last_session_logging_processing_time = time.monotonic()
+                process_session_logging()
 
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):  # noqa: PLR2004
                 discord_rpc_manager.update(f"{len(session_connected)} player{pluralize(len(session_connected))} connected")
