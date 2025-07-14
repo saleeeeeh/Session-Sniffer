@@ -1006,12 +1006,21 @@ class PlayerReverseDNS:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerPPS:
+    """Class to manage player packets per second (PPS) calculations."""
     is_first_calculation: bool = True
     last_update_time: float = field(default_factory=time.monotonic)
     counter: int = 0
     rate: int = 0
 
+    def update_rate(self, counter: int):
+        """Update the current rate."""
+        self.is_first_calculation = False
+        self.last_update_time = time.monotonic()
+        self.counter = 0
+        self.rate = counter
+
     def reset(self):
+        """Resets the PlayerPPS to its initial state."""
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
         self.counter = 0
@@ -1020,12 +1029,21 @@ class PlayerPPS:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerPPM:
+    """Class to manage player packets per second (PPM) calculations."""
     is_first_calculation: bool = True
     last_update_time: float = field(default_factory=time.monotonic)
     counter: int = 0
     rate: int = 0
 
+    def update_rate(self, counter: int):
+        """Update the current rate."""
+        self.is_first_calculation = False
+        self.last_update_time = time.monotonic()
+        self.counter = 0
+        self.rate = counter
+
     def reset(self):
+        """Resets the PlayerPPS to its initial state."""
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
         self.counter = 0
@@ -2671,7 +2689,7 @@ def capture_core():
         def packet_callback(packet: Packet):
             from modules.networking.utils import is_private_device_ipv4
 
-            global tshark_restarted_times, global_pps_counter  # noqa: PLW0603
+            global tshark_restarted_times  # noqa: PLW0603
 
             packet_datetime = packet.frame.packet_datetime
 
@@ -2705,8 +2723,6 @@ def capture_core():
                     target_port = packet.udp.srcport
                 else:
                     return  # Neither source nor destination is a private IP address.
-
-            global_pps_counter += 1
 
             player = PlayersRegistry.get_player_by_ip(target_ip)
             if player is None:
@@ -3676,9 +3692,7 @@ def rendering_core():
                 session_disconnected_table__compiled_colors,
             )
 
-        def generate_gui_header_text(global_pps_last_update_time: float, global_pps_rate: int):
-            global global_pps_counter  # noqa: PLW0603
-
+        def generate_gui_header_text(global_pps_rate: int):
             from modules.constants.standalone import (
                 PPS_THRESHOLD_CRITICAL,
                 PPS_THRESHOLD_WARNING,
@@ -3708,11 +3722,6 @@ def rendering_core():
                 latency_color = '<span style="color: yellow;">'
             else:
                 latency_color = '<span style="color: green;">'
-
-            if (time.monotonic() - global_pps_last_update_time) >= 1.0:
-                global_pps_rate = global_pps_counter
-                global_pps_counter = 0
-                global_pps_last_update_time = time.monotonic()
 
             # For reference, in a GTA Online session, the packets per second (PPS) typically range from 0 (solo session) to 1500 (public session, 32 players).
             # If the packet rate exceeds these ranges, we flag them with yellow or red color to indicate potential issues (such as scanning unwanted packets outside of the GTA game).
@@ -3764,7 +3773,7 @@ def rendering_core():
                 if corrupted_settings_count:
                     header += f'Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{corrupted_settings_count}</span><br>'
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
-            return header, global_pps_last_update_time, global_pps_rate
+            return header
 
         from modules.constants.local import (
             CHERAX__PLUGIN__LOG_PATH,
@@ -3790,8 +3799,6 @@ def rendering_core():
         CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
         # DISCONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
 
-        global_pps_last_update_time = time.monotonic()
-        global_pps_rate = 0
         last_userip_parse_time = None
         last_mod_menus_logs_parse_time = None
         last_session_logging_processing_time = None
@@ -3859,6 +3866,8 @@ def rendering_core():
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
 
+            global_pps_rate = 0
+
             session_connected, session_disconnected = PlayersRegistry.get_default_sorted_connected_and_disconnected_players()
             for player in session_connected.copy():
                 if (
@@ -3870,19 +3879,15 @@ def rendering_core():
                     session_disconnected.append(player)
                     continue
 
+                global_pps_rate += player.pps.rate
+
                 # Calculate PPS every second
                 if (time.monotonic() - player.pps.last_update_time) >= 1.0:
-                    player.pps.rate = player.pps.counter  # Count of packets in the last second
-                    player.pps.counter = 0
-                    player.pps.last_update_time = time.monotonic()
-                    player.pps.is_first_calculation = False
+                    player.pps.update_rate(player.pps.counter)
 
                 # Calculate PPM every minute
                 if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
-                    player.ppm.rate = player.ppm.counter  # Count of packets in the last minute
-                    player.ppm.counter = 0
-                    player.ppm.last_update_time = time.monotonic()
-                    player.ppm.is_first_calculation = False
+                    player.ppm.update_rate(player.ppm.counter)
 
                 if Settings.GUI_SESSIONS_LOGGING:
                     session_connected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_connected__padding_country_name, 27)
@@ -3963,7 +3968,7 @@ def rendering_core():
             if Settings.DISCORD_PRESENCE and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):  # noqa: PLR2004
                 discord_rpc_manager.update(f"{len(session_connected)} player{pluralize(len(session_connected))} connected")
 
-            GUIrenderingData.header_text, global_pps_last_update_time, global_pps_rate = generate_gui_header_text(global_pps_last_update_time, global_pps_rate)
+            GUIrenderingData.header_text = generate_gui_header_text(global_pps_rate)
             (
                 GUIrenderingData.session_connected_table__num_rows,
                 GUIrenderingData.session_connected_table__processed_data,
@@ -3981,7 +3986,6 @@ clear_screen()
 set_window_title(f"DEBUG CONSOLE - {TITLE}")
 
 tshark_restarted_times = 0
-global_pps_counter = 0
 
 rendering_core__thread = Thread(target=rendering_core, name="rendering_core", daemon=True)
 rendering_core__thread.start()
