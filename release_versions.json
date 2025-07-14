@@ -28,7 +28,7 @@
         "is_devrelease": false,
         "is_postrelease": true,
         "is_prerelease": false,
-        "local": "20250714.942",
+        "local": "20250714.2200",
         "major": 1,
         "micro": 8,
         "minor": 3,
@@ -40,6 +40,6 @@
             3,
             8
         ],
-        "version": "1.3.8.post1+20250714.942"
+        "version": "1.3.8.post1+20250714.2200"
     }
 }
