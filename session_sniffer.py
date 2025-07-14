@@ -2691,10 +2691,8 @@ def capture_core():
 
             global tshark_restarted_times  # noqa: PLW0603
 
-            packet_datetime = packet.frame.packet_datetime
-
-            packet_latency = datetime.now(tz=LOCAL_TZ) - packet_datetime
-            tshark_packets_latencies.append((packet_datetime, packet_latency))
+            packet_latency = datetime.now(tz=LOCAL_TZ) - packet.datetime
+            tshark_packets_latencies.append((packet.datetime, packet_latency))
             if packet_latency >= timedelta(seconds=Settings.CAPTURE_OVERFLOW_TIMER):
                 tshark_restarted_times += 1
                 raise PacketCaptureOverflowError("Packet capture time exceeded 3 seconds.")
@@ -2702,10 +2700,10 @@ def capture_core():
             if Settings.CAPTURE_IP_ADDRESS:
                 if packet.ip.src == Settings.CAPTURE_IP_ADDRESS:
                     target_ip = packet.ip.dst
-                    target_port = packet.udp.dstport
+                    target_port = packet.port.dst
                 elif packet.ip.dst == Settings.CAPTURE_IP_ADDRESS:
                     target_ip = packet.ip.src
-                    target_port = packet.udp.srcport
+                    target_port = packet.port.src
                 else:
                     return  # Neither source nor destination matches the specified `Settings.CAPTURE_IP_ADDRESS`.
             else:
@@ -2717,10 +2715,10 @@ def capture_core():
 
                 if is_src_private_ip:
                     target_ip = packet.ip.dst
-                    target_port = packet.udp.dstport
+                    target_port = packet.port.dst
                 elif is_dst_private_ip:
                     target_ip = packet.ip.src
-                    target_port = packet.udp.srcport
+                    target_port = packet.port.src
                 else:
                     return  # Neither source nor destination is a private IP address.
 
@@ -2730,19 +2728,19 @@ def capture_core():
                     Player(
                         ip=target_ip,
                         port=target_port,
-                        packet_datetime=packet_datetime,
+                        packet_datetime=packet.datetime,
                     ),
                 )
             elif player.left_event.is_set():
                 player.mark_as_rejoined(
                     port=target_port,
-                    packet_datetime=packet_datetime,
+                    packet_datetime=packet.datetime,
                 )
                 PlayersRegistry.move_player_to_connected(player)
             else:
                 player.mark_as_seen(
                     port=target_port,
-                    packet_datetime=packet_datetime,
+                    packet_datetime=packet.datetime,
                 )
 
             if player.ip in UserIPDatabases.ips_set and (
@@ -2750,8 +2748,8 @@ def capture_core():
                 or not player.userip_detection.as_processed_task
             ):
                 player.userip_detection = PlayerUserIPDetection(
-                    time=packet_datetime.strftime("%H:%M:%S"),
-                    date_time=packet_datetime.strftime("%Y-%m-%d_%H:%M:%S"),
+                    time=packet.datetime.strftime("%H:%M:%S"),
+                    date_time=packet.datetime.strftime("%Y-%m-%d_%H:%M:%S"),
                 )
                 Thread(
                     target=process_userip_task,

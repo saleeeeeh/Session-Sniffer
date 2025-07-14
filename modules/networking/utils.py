@@ -1,57 +1,113 @@
-"""Module for defining networking utility functions, including MAC address and IPv4 address operations."""
+"""Module for defining networking utility functions."""
+import re
+from contextlib import suppress
 from ipaddress import AddressValueError, IPv4Address
 
-from modules.constants.standard import RE_MAC_ADDRESS_PATTERN
-
+RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$", re.IGNORECASE)
 IPV4_LAST_OCTET_VALUE = 255
 
 
-def is_mac_address(mac_address: str):
-    return bool(RE_MAC_ADDRESS_PATTERN.fullmatch(mac_address))
+class InvalidMacAddressError(Exception):
+    """Exception raised when an invalid MAC address is found."""
+
+    def __init__(self, mac_address: str):
+        """Initialize the exception with the invalid MAC address.
+
+        Args:
+            mac_address (str): The invalid MAC address that caused the error.
+        """
+        super().__init__(f"Invalid MAC address: {mac_address}")
 
 
-def sanitize_mac_address(mac_address: str):
+class InvalidIPv4AddressError(Exception):
+    """Exception raised when an invalid IPv4 address is found."""
+
+    def __init__(self, ipv4_address: str):
+        """Initialize the exception with the invalid IPv4 address.
+
+        Args:
+            ipv4_address (str): The invalid IPv4 address that caused the error.
+        """
+        super().__init__(f"Invalid IPv4 address: {ipv4_address}")
+
+
+def is_mac_address(mac_address: str, /, *, raise_exception: bool = False):
+    """Check if the given MAC address is valid.
+
+    If `raise_exception` is True, raises an `InvalidMacAddressError` if the MAC address is invalid.
+
+    Args:
+        mac_address (str): The MAC address to check.
+        raise_exception (bool): If True, raise an exception for invalid MAC addresses.
+
+    Returns:
+        bool: True if the MAC address is valid, False otherwise.
+
+    Raises:
+        InvalidMacAddressError: If the MAC address is invalid and `raise_exception` is True.
+    """
+    if RE_MAC_ADDRESS_PATTERN.fullmatch(mac_address):
+        return True
+    if raise_exception:
+        raise InvalidMacAddressError(mac_address)
+    return False
+
+
+def sanitize_mac_address(mac_address: str, /):
     """Remove any separators from the MAC address and convert to uppercase."""
     return "".join(c for c in mac_address if c.isalnum()).upper()
 
 
-def format_mac_address(mac_address: str, separator: str = ":"):
+def format_mac_address(mac_address: str, /, separator: str = ":"):
     """Format the MAC address using the specified separator (default: XX:XX:XX:XX:XX:XX)."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, len(sanitized_mac), 2))
 
 
-def get_mac_oui(mac_address: str, separator: str = ""):
+def get_mac_oui(mac_address: str, /, separator: str = ""):
     """Extract the OUI (first three hexadecimal pairs) from a MAC address and formats it with the specified separator."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, 6, 2))
 
 
-def is_ipv4_address(ip_address: str):
-    try:
-        IPv4Address(ip_address)
-    except AddressValueError:
-        return False
+def is_ipv4_address(ipv4_address: str, /, *, raise_exception: bool = False):
+    """Check if the given IPv4 address is valid.
 
-    return True
+    If `raise_exception` is True, raises an `InvalidIPv4AddressError` if the IP address is invalid.
+
+    Args:
+        ipv4_address (str): The IP address to check.
+        raise_exception (bool): If True, raise an exception for invalid IP addresses.
+
+    Returns:
+        bool: True if the IP address is valid, False otherwise.
+
+    Raises:
+        InvalidIPv4AddressError: If the IP address is invalid and `raise_exception` is True.
+    """
+    with suppress(AddressValueError):
+        IPv4Address(ipv4_address)
+        return True
+    if raise_exception:
+        raise InvalidIPv4AddressError(ipv4_address)
+    return False
 
 
-def is_private_device_ipv4(ip_address: str):
+def is_private_device_ipv4(ip_address: str, /):
     try:
         ipv4_obj = IPv4Address(ip_address)
     except AddressValueError:
         return False
-
     return ipv4_obj.is_private
 
 
-def is_valid_non_special_ipv4(ip_address: str):
+def is_valid_non_special_ipv4(ip_address: str, /):
     try:
         ipv4_obj = IPv4Address(ip_address)
     except AddressValueError:
         return False
 
-    invalid_conditions = [
+    invalid_conditions = (
         ipv4_obj.packed[-1] == IPV4_LAST_OCTET_VALUE,
         ipv4_obj.is_link_local,  # might want to remove this
         ipv4_obj.is_loopback,
@@ -59,6 +115,6 @@ def is_valid_non_special_ipv4(ip_address: str):
         ipv4_obj.is_unspecified,
         ipv4_obj.is_global,
         ipv4_obj.is_multicast,
-    ]
+    )
 
     return not any(invalid_conditions)

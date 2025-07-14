@@ -24,7 +24,6 @@ STAND__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/Stand/Lua Scripts/GTA_V
 
 # Compiled regex for matching the optional time component in the version string
 RE_VERSION_TIME = re.compile(r" \((\d{2}:\d{2})\)$")
-RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$", re.IGNORECASE)
 RE_OUI_MAC_ADDRESS_PATTERN = re.compile(r"^[0-9A-F]{6}$", re.IGNORECASE)
 RE_OUI_ENTRY_PATTERN = re.compile(
     r"^(?P<OUI>[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}-[0-9A-Fa-f]{2}) {3}\(hex\)\t{2}(?P<ORGANIZATION_NAME>.*)\r\n(?P<COMPANY_ID>[0-9A-Fa-f]{6}) {5}\(base 16\)\t{2}(?P<ORGANIZATION_NAME_BIS>.*)\r\n\t{4}(?P<ADDRESS_LINE_1>.*)\r\n\t{4}(?P<ADDRESS_LINE_2>.*)\r\n\t{4}(?P<ADDRESS_COUNTRY_ISO_CODE>.*)",
