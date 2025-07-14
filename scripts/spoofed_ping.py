@@ -6,6 +6,7 @@ import argparse
 import statistics
 import sys
 import time
+from contextlib import suppress
 from enum import Enum
 from ipaddress import AddressValueError, IPv4Address
 from typing import Literal
@@ -224,13 +225,12 @@ def ping_loop(target_ip: str, s: requests.Session):
         rprint(" " * 50, end="\r")
 
 
-def is_ipv4_address(ip_address: str):
-    try:
+def is_ipv4_address(ip_address: str, /):
+    """Check if the given IP address is a valid IPv4 address."""
+    with suppress(AddressValueError):
         IPv4Address(ip_address)
-    except AddressValueError:
-        return False
-
-    return True
+        return True
+    return False
 
 
 def main():
