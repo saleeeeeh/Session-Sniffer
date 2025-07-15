@@ -90,6 +90,8 @@ Join us on Discord to chat, get support, and stay updated on all our latest happ
 
 [![Join Our Discord](https://img.shields.io/badge/Join%20Our%20Discord-%235865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/hMZ7MsPX7G)
 
+---
+
 ## 🛠️ Contact Support
 
 Need help? You can reach out via:
