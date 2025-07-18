@@ -10,7 +10,7 @@ a = Analysis(
         ('..\\..\\requirements.txt', '.'),
         ('..\\..\\bin', 'bin'),
         ('..\\..\\images', 'images'),
-        (''..\\..\\resources', 'resources'),
+        ('..\\..\\resources', 'resources'),
         ('..\\..\\scripts', 'scripts'),
         ('..\\..\\setup', 'setup'),
         ('..\\..\\TTS', 'TTS')
