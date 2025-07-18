@@ -113,7 +113,7 @@ from modules.launcher.package_checker import (
     get_dependencies_from_requirements,
 )
 from modules.msgbox import MsgBox
-from modules.networking.oui_lookup import MacLookup
+from modules.networking.manuf_lookup import MacLookup
 from modules.networking.unsafe_https import s
 from modules.networking.utils import (
     format_mac_address,
@@ -761,7 +761,7 @@ class Settings(DefaultSettings):
 class ARPEntry:
     ip_address: str
     mac_address: str
-    manufacturer: str | None = None
+    organization_name: str | None = None
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1807,7 +1807,7 @@ def populate_network_interfaces_info():
             interface.add_arp_entry(ARPEntry(
                 ip_address=validated_ip_address,
                 mac_address=validated_and_formatted_mac_address,
-                manufacturer=mac_lookup.get_mac_address_organization_name(validated_and_formatted_mac_address) or "N/A",
+                organization_name=mac_lookup.get_mac_address_organization_name(validated_and_formatted_mac_address) or "N/A",
             ))
 
     _populate_network_adapter_details()
@@ -2216,9 +2216,9 @@ for interface in tshark_interfaces:
 
     if Settings.CAPTURE_ARP:
         for arp_entry in interface.get_arp_entries():
-            manufacturer = "N/A" if arp_entry.manufacturer is None else arp_entry.manufacturer
+            organization_name = "N/A" if arp_entry.organization_name is None else arp_entry.organization_name
 
-            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface.name, ", ".join(interface.descriptions), "N/A", "N/A", arp_entry.ip_address, arp_entry.mac_address, manufacturer, is_arp=True))
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface.name, ", ".join(interface.descriptions), "N/A", "N/A", arp_entry.ip_address, arp_entry.mac_address, organization_name, is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
 if not isinstance(selected_interface.name, str):

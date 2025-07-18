@@ -16,7 +16,8 @@ class InvalidMacAddressError(Exception):
         Args:
             mac_address (str): The invalid MAC address that caused the error.
         """
-        super().__init__(f"Invalid MAC address: {mac_address}")
+        super().__init__(f"Invalid MAC address: {mac_address}\n"
+                         f"A MAC address must be a 12-digit hexadecimal number long.")
 
 
 class InvalidIPv4AddressError(Exception):

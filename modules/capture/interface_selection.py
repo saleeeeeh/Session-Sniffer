@@ -25,15 +25,15 @@ from modules.utils import format_type_error
 
 
 class InterfaceSelectionData(NamedTuple):
-    selection_index: int
-    name:            str
-    description:     str | None
-    packets_sent:    Literal["N/A"] | int
-    packets_recv:    Literal["N/A"] | int
-    ip_address:      str | None
-    mac_address:     str | None
-    manufacturer:    Literal["N/A"] | str
-    is_arp:          bool                 = False
+    selection_index:   int
+    name:              str
+    description:       str | None
+    packets_sent:      Literal["N/A"] | int
+    packets_recv:      Literal["N/A"] | int
+    ip_address:        str | None
+    mac_address:       str | None
+    organization_name: Literal["N/A"] | str
+    is_arp:            bool                 = False
 
 
 class SafeQTableWidget(QTableWidget):
@@ -91,7 +91,7 @@ class InterfaceSelectionDialog(QDialog):
         # Table widget for displaying interfaces
         self.table = SafeQTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(
-            ["Name", "Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Manufacturer"],
+            ["Name", "Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Organization Name"],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -138,7 +138,7 @@ class InterfaceSelectionDialog(QDialog):
             item = QTableWidgetItem(str(interface.mac_address))
             self.table.setItem(idx, 5, item)
 
-            item = QTableWidgetItem(str(interface.manufacturer))
+            item = QTableWidgetItem(str(interface.organization_name))
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(idx, 6, item)
 

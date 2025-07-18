@@ -14,6 +14,7 @@
         "GeoLite2 Databases": true,
         "images": true,
         "modules/**/__pycache__/": true,
+        "resources": true,
         "Session_Sniffer.exe": true,
         "setup": true,
         "TTS": true,
