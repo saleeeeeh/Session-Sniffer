@@ -1,7 +1,7 @@
 [project]
 name = "session_sniffer"
 description = "A packet sniffer (also known as an IP grabber/puller/sniffer) specifically designed for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox)."
-version = "1.3.8.post2+20250718.1102"
+version = "1.3.8.post2+20250718.1111"
 readme = "README.md"
 requires-python = ">= 3.13"
 authors = [
