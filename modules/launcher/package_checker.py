@@ -1,7 +1,11 @@
 """This module checks the validity of packages for the launcher."""
 import importlib.metadata
+from typing import TYPE_CHECKING, Literal
 
 from packaging.requirements import Requirement
+
+if TYPE_CHECKING:
+    from packaging.specifiers import SpecifierSet
 
 
 def get_dependencies_from_pyproject():
@@ -15,11 +19,11 @@ def get_dependencies_from_pyproject():
 
 
 def get_dependencies_from_requirements():
-    from modules.constants.local import REQUIEREMENTS_PATH
+    from modules.constants.local import REQUIREMENTS_PATH
 
     dependencies: dict[str, Requirement] = {}
 
-    with REQUIEREMENTS_PATH.open("r") as f:
+    with REQUIREMENTS_PATH.open("r", encoding="utf-8") as f:
         for line in f:
             stripped_line = line.strip()
             if (
@@ -35,7 +39,7 @@ def get_dependencies_from_requirements():
 
 
 def check_packages_version(required_packages: dict[str, Requirement]):
-    outdated_packages: list[str, str, str] = []
+    outdated_packages: list[tuple[str, SpecifierSet, str | Literal["Not Installed"]]] = []
     for package_name, requirement in required_packages.items():
         try:
             installed_version = importlib.metadata.version(package_name)

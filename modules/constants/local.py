@@ -9,7 +9,7 @@ from modules.utils import format_project_version, get_documents_folder, resource
 BIN_FOLDER_PATH = resource_path(Path("bin/"))
 IMAGES_FOLDER_PATH = resource_path(Path("images/"))
 PYPROJECT_PATH = resource_path(Path("pyproject.toml"))
-REQUIEREMENTS_PATH = resource_path(Path("requirements.txt"))
+REQUIREMENTS_PATH = resource_path(Path("requirements.txt"))
 RESOURCES_FOLDER_PATH = resource_path(Path("resources/"))
 SCRIPTS_FOLDER_PATH = resource_path(Path("scripts/"))
 SETUP_FOLDER_PATH = resource_path(Path("setup/"))
