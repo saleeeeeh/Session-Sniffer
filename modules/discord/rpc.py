@@ -16,15 +16,27 @@ from pypresence import (
     exceptions,
 )
 
+from modules.utils import format_type_error
+
 QueueType = SimpleQueue[str | object]
 
 SHUTDOWN_SIGNAL = sentinel.create("ShutdownSignal")
+DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
+START_TIME_INT = int(time.time())
+DISCORD_RPC_BUTTONS = [
+    {"label": "GitHub Repo", "url": "https://github.com/BUZZARDGTA/Session-Sniffer"},
+]
 
 
 class DiscordRPC:
     """Manage Discord Rich Presence updates and connection."""
 
     def __init__(self, client_id: int):
+        """Initialize the DiscordRPC instance.
+
+        Args:
+            client_id (int): The client ID for connecting to Discord Rich Presence.
+        """
         self._rpc = Presence(client_id)
         self._closed = False
         self._queue: QueueType = SimpleQueue()
@@ -65,12 +77,7 @@ class DiscordRPC:
 
 
 def _run(rpc: Presence, queue: QueueType, connection_status: Event):
-    DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
-    START_TIME_INT = int(time.time())
-    DISCORD_RPC_BUTTONS = [
-        {"label": "GitHub Repo", "url": "https://github.com/BUZZARDGTA/Session-Sniffer"},
-    ]
-
+    """Run the Discord RPC update loop in a separate thread."""
     while True:
         queue_item = queue.get()
         if queue_item is SHUTDOWN_SIGNAL:
@@ -78,6 +85,9 @@ def _run(rpc: Presence, queue: QueueType, connection_status: Event):
                 rpc.clear()
                 rpc.close()
             return
+
+        if not isinstance(queue_item, str):
+            raise TypeError(format_type_error(queue_item, str))
 
         state_message = queue_item
 
