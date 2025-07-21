@@ -3975,13 +3975,17 @@ class SessionTableModel(QAbstractTableModel):
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
         self.IP_COLUMN_INDEX = self._headers.index("IP Address")  # pylint: disable=invalid-name
 
-    # pylint: disable=invalid-name,unused-argument
-    def rowCount(self, parent: QModelIndex | None = None):  # noqa: ARG002, N802
-        return len(self._data)  # The number of rows in the model
+    # pylint: disable=invalid-name
+    def rowCount(self, parent: QModelIndex | None = None):  # noqa: N802
+        if parent is None:
+            parent = QModelIndex()
+        return len(self._data)
 
-    def columnCount(self, parent: QModelIndex | None = None):  # noqa: ARG002, N802
-        return len(self._headers)  # The number of columns in the model
-    # pylint: enable=unused-argument
+    def columnCount(self, parent: QModelIndex | None = None):  # noqa: N802
+        if parent is None:
+            parent = QModelIndex()
+        return len(self._headers)
+    # pylint: enable=invalid-name
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         """Override data method to customize data retrieval and alignment."""
@@ -4042,6 +4046,7 @@ class SessionTableModel(QAbstractTableModel):
 
         return None
 
+    # pylint: disable=invalid-name
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # noqa: N802
         from modules.constants.standalone import GUI_COLUMN_HEADERS_TOOLTIPS
 
@@ -4065,6 +4070,7 @@ class SessionTableModel(QAbstractTableModel):
             return True
 
         return False
+    # pylint enable=invalid-name
 
     def flags(self, index: QModelIndex):
         if not index.isValid():
@@ -5350,11 +5356,11 @@ class MainWindow(QMainWindow):
 
 
 class ClickableLabel(QLabel):
-    clicked = pyqtSignal()  # Custom signal
+    clicked = pyqtSignal()
 
-    def mousePressEvent(self, event: QMouseEvent):  # pylint: disable=invalid-name  # noqa: N802
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()  # Emit the signal when clicked
+    def mousePressEvent(self, event: QMouseEvent | None):  # pylint: disable=invalid-name  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+        if event is not None and event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
 
 
 class DiscordIntro(QDialog):
