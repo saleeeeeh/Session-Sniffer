@@ -44,6 +44,7 @@ from PyQt6.QtCore import (
     QObject,
     QPoint,
     QPropertyAnimation,
+    QSize,
     Qt,
     QThread,
     QTimer,
@@ -77,6 +78,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSpacerItem,
     QTableView,
+    QToolBar,
     QToolTip,
     QVBoxLayout,
     QWidget,
@@ -3773,16 +3775,6 @@ def rendering_core():
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
             return header
 
-        from modules.constants.local import (
-            CHERAX__PLUGIN__LOG_PATH,
-            COUNTRY_FLAGS_FOLDER_PATH,
-        )
-        from modules.constants.standard import (
-            RE_MODMENU_LOGS_USER_PATTERN,
-            STAND__PLUGIN__LOG_PATH,
-            TWO_TAKE_ONE__PLUGIN__LOG_PATH,
-        )
-
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
         (
             GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
@@ -3797,8 +3789,10 @@ def rendering_core():
         CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
         # DISCONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
 
+        from modules.constants.local import COUNTRY_FLAGS_FOLDER_PATH
+        from modules.rendering_core.modmenu_logs_parser import ModMenuLogsParser
+
         last_userip_parse_time = None
-        last_mod_menus_logs_parse_time = None
         last_session_logging_processing_time = None
 
         if Settings.DISCORD_PRESENCE:
@@ -3806,9 +3800,6 @@ def rendering_core():
             from modules.discord.rpc import DiscordRPC
 
             discord_rpc_manager = DiscordRPC(client_id=DISCORD_APPLICATION_ID)
-
-        modmenu__plugins__ip_to_usernames: dict[str, list[str]] = {}
-        file_mod_time_cache: dict[Path, float] = {}
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
@@ -3824,37 +3815,6 @@ def rendering_core():
                 gui_closed__event.wait(0.1)
                 continue
 
-            if last_mod_menus_logs_parse_time is None or time.monotonic() - last_mod_menus_logs_parse_time >= 1.0:
-                last_mod_menus_logs_parse_time = time.monotonic()
-
-                for log_path in (STAND__PLUGIN__LOG_PATH, CHERAX__PLUGIN__LOG_PATH, TWO_TAKE_ONE__PLUGIN__LOG_PATH):
-                    if not log_path.is_file():
-                        continue
-
-                    # Check modification time
-                    mod_time = log_path.stat().st_mtime
-                    if file_mod_time_cache.get(log_path) == mod_time:
-                        continue  # Skip unchanged files
-
-                    file_mod_time_cache[log_path] = mod_time
-
-                    # Read the content and split it into lines
-                    for line in log_path.read_text(encoding="utf-8").splitlines():
-                        match = RE_MODMENU_LOGS_USER_PATTERN.fullmatch(line)
-                        if not match:
-                            continue
-
-                        username = match.group("username")
-                        if not isinstance(username, str):
-                            continue
-
-                        ip = match.group("ip")
-                        if not isinstance(ip, str):
-                            continue
-
-                        if username not in modmenu__plugins__ip_to_usernames.setdefault(ip, []):
-                            modmenu__plugins__ip_to_usernames[ip].append(username)
-
             if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases()
 
@@ -3863,6 +3823,8 @@ def rendering_core():
                 session_connected__padding_continent_name = 0
                 session_disconnected__padding_country_name = 0
                 session_disconnected__padding_continent_name = 0
+
+            ModMenuLogsParser.refresh()
 
             global_pps_rate = 0
 
@@ -3877,8 +3839,6 @@ def rendering_core():
                     session_disconnected.append(player)
                     continue
 
-                global_pps_rate += player.pps.rate
-
                 # Calculate PPS every second
                 if (time.monotonic() - player.pps.last_update_time) >= 1.0:
                     player.pps.update_rate(player.pps.counter)
@@ -3886,6 +3846,8 @@ def rendering_core():
                 # Calculate PPM every minute
                 if (time.monotonic() - player.ppm.last_update_time) >= 60.0:  # noqa: PLR2004
                     player.ppm.update_rate(player.ppm.counter)
+
+                global_pps_rate += player.pps.rate
 
                 if Settings.GUI_SESSIONS_LOGGING:
                     session_connected__padding_country_name = get_minimum_padding(player.iplookup.geolite2.country, session_connected__padding_country_name, 27)
@@ -3901,18 +3863,20 @@ def rendering_core():
                     player.userip = None
                     player.userip_detection = None
 
-                if (
-                    player.mod_menus
-                    and modmenu__plugins__ip_to_usernames
-                    and player.ip in modmenu__plugins__ip_to_usernames
-                ):
-                    for username in modmenu__plugins__ip_to_usernames[player.ip]:
-                        if username not in player.mod_menus.usernames:
-                            player.mod_menus.usernames.append(username)
+                modmenu_usernames_for_player = ModMenuLogsParser.get_usernames_by_ip(player.ip)
+                if modmenu_usernames_for_player:
+                    if player.mod_menus is None:
+                        player.mod_menus = PlayerModMenus(
+                            usernames=modmenu_usernames_for_player,
+                        )
+                    else:
+                        player.mod_menus.usernames[:] = modmenu_usernames_for_player
+                else:
+                    player.mod_menus = None
 
                 player.usernames = dedup_preserve_order(
-                    player.mod_menus.usernames if player.mod_menus else [],
                     player.userip.usernames if player.userip else [],
+                    player.mod_menus.usernames if player.mod_menus else [],
                 )
 
                 if player.country_flag is None:
@@ -3939,7 +3903,6 @@ def rendering_core():
                     player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
                     player.iplookup.geolite2.city = get_city_info(player.ip)
                     player.iplookup.geolite2.asn = get_asn_info(player.ip)
-
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
                 if SessionHost.player and SessionHost.player.left_event.is_set():

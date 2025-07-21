@@ -4,7 +4,7 @@ from pathlib import Path
 import toml
 from packaging.version import Version
 
-from modules.utils import format_project_version, get_documents_folder, resource_path
+from modules.utils import format_project_version, resource_path
 
 BIN_FOLDER_PATH = resource_path(Path("bin/"))
 IMAGES_FOLDER_PATH = resource_path(Path("images/"))
@@ -24,5 +24,3 @@ NPCAP_SETUP_PATH = SETUP_FOLDER_PATH / "npcap-1.78.exe"
 PYPROJECT_DATA = toml.load(PYPROJECT_PATH)
 CURRENT_VERSION = Version(PYPROJECT_DATA["project"]["version"])
 VERSION = format_project_version(CURRENT_VERSION)
-
-CHERAX__PLUGIN__LOG_PATH = get_documents_folder() / "Cherax/Lua/GTA_V_Session_Sniffer-plugin/log.txt"
