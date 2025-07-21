@@ -5230,6 +5230,33 @@ class MainWindow(QMainWindow):
         # Layout for the central widget
         self.main_layout = QVBoxLayout(central_widget)
 
+        # Create the toolbar
+        toolbar = QToolBar("Main Toolbar", self)
+        toolbar.setAllowedAreas(Qt.ToolBarArea.TopToolBarArea)
+        toolbar.setFloatable(False)
+        toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+
+        # ----- Open Project Repository Button -----
+        open_project_repo_action = QAction("Project Repository", self)
+        open_project_repo_action.triggered.connect(self.open_project_repo)
+        toolbar.addAction(open_project_repo_action)
+
+        toolbar.addSeparator()
+
+        # ----- Open Documentation Button -----
+        open_documentation_action = QAction("Documentation", self)
+        open_documentation_action.triggered.connect(self.open_documentation)
+        toolbar.addAction(open_documentation_action)
+
+        toolbar.addSeparator()
+
+        # ----- Join Discord Button -----
+        discord_action = QAction("Discord Server", self)
+        discord_action.triggered.connect(self.join_discord)
+        toolbar.addAction(discord_action)
+
         # Header text
         self.header_text = QLabel()
         self.header_text.setTextFormat(Qt.TextFormat.RichText)
@@ -5294,12 +5321,13 @@ class MainWindow(QMainWindow):
         self.worker_thread.update_signal.connect(self.update_gui)
         self.worker_thread.start()
 
-    def closeEvent(self, event: QCloseEvent):  # pylint: disable=invalid-name  # noqa: N802
+    def closeEvent(self, event: QCloseEvent | None):    # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
 
-        event.accept()  # Accept the close event
+        if event is not None:
+            event.accept()
 
         terminate_script("EXIT")
 
@@ -5353,6 +5381,21 @@ class MainWindow(QMainWindow):
 
         self.disconnected_table_model.sort_current_column()
         self.disconnected_table_view.adjust_table_column_widths()
+
+    def open_project_repo(self):
+        from modules.constants.standalone import GITHUB_REPO_URL
+
+        webbrowser.open(GITHUB_REPO_URL)
+
+    def open_documentation(self):
+        from modules.constants.standalone import DOCUMENTATION_URL
+
+        webbrowser.open(DOCUMENTATION_URL)
+
+    def join_discord(self):
+        from modules.constants.standalone import DISCORD_INVITE_URL
+
+        webbrowser.open(DISCORD_INVITE_URL)
 
 
 class ClickableLabel(QLabel):
