@@ -1,0 +1,14 @@
+[flake8]
+extend-ignore =
+    E201,  # Whitespace after '('
+    E203,  # Whitespace before ':'
+    E221,  # Multiple spaces before operator
+    E222,  # Multiple spaces after operator
+    E241,  # Multiple spaces after ','
+    E265,  # Block comment should start with '# '
+    E501,  # Line too long (82 > 79 characters)
+    W503,  # Line break occurred before a binary operator
+extend-exclude =
+    .dev,
+    .history,
+    .venv,

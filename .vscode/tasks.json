@@ -15,8 +15,31 @@
                 "reveal": "always",
                 "focus": false,
                 "panel": "new"
-            },
-            "problemMatcher": []
+            }
+        },
+        {
+            "label": "Code Quality: All Checks",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/code-quality-checks.ps1"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/Activate.ps1; pip install -r requirements.txt",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
         }
     ]
 }

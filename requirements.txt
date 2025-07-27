@@ -10,7 +10,7 @@ PyQt6==6.8.1
 pywin32==311; platform_system == "Windows"
 QDarkStyle==3.2.3
 requests==2.32.4
-rich==14.0.0
+rich==14.1.0
 sentinel==1.0.0
 toml==0.10.2
 tzlocal==5.3.1
