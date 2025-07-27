@@ -1,8 +1,3 @@
-[build-system]
-requires = ["setuptools>=80.9.0", "wheel>=0.45.1"]
-build-backend = "setuptools.build_meta"
-
-
 [project]
 name = "session_sniffer"
 version = "1.3.9+20250721.1357"
@@ -45,16 +40,6 @@ Documentation = "https://github.com/BUZZARDGTA/Session-Sniffer/wiki"
 Repository = "https://github.com/BUZZARDGTA/Session-Sniffer"
 Issues = "https://github.com/BUZZARDGTA/Session-Sniffer/issues"
 Discord = "https://discord.gg/hMZ7MsPX7G"
-
-
-[tool.setuptools.packages.find]
-include = [
-    "commands*",
-    "config*",
-    "models*",
-    "utils*",
-    "views*",
-]
 
 
 [tool.ruff]

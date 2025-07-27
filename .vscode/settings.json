@@ -7,7 +7,6 @@
         "**/.mypy_cache": true,
         "**/.pytest_cache": true,
         "**/.ruff_cache": true,
-        "**/*.egg-info": true,
         "**/*.pyc": true,
         "**/*.pyd": true,
         "**/*.pyo": true,
