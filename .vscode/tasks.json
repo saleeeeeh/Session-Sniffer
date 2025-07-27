@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run Session Sniffer",
+            "label": "🚀 Launch Session Sniffer",
             "type": "shell",
             "command": "${workspaceFolder}/.venv/Scripts/python.exe",
             "args": ["session_sniffer.py"],
@@ -14,15 +14,20 @@
                 "echo": true,
                 "reveal": "always",
                 "focus": false,
-                "panel": "new"
+                "panel": "new",
+                "clear": true
+
             }
         },
         {
-            "label": "Code Quality: All Checks",
+            "label": "🔍 Run All Quality Checks",
             "type": "shell",
             "command": "powershell.exe",
             "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/code-quality-checks.ps1"],
-            "group": "test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -31,10 +36,106 @@
             }
         },
         {
-            "label": "Install Dependencies",
+            "label": "📦 Install Dependencies",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/Activate.ps1; pip install -r requirements.txt",
+            "command": "${workspaceFolder}/.venv/Scripts/pip",
+            "args": ["install", "-r", "requirements.txt"],
             "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "⚡ Ruff - Fast Python Linter",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/ruff",
+            "args": ["check", ".", "--config", "pyproject.toml"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🔬 MyPy - Static Type Checker",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/mypy",
+            "args": [".", "--config-file", "pyproject.toml"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "📝 Flake8 - Style Guide Enforcer",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/flake8",
+            "args": [".", "--config", ".flake8"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🎯 Pyright - Microsoft Type Checker",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/pyright",
+            "args": [".", "--project", "pyproject.toml"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🧹 Pylint - Code Quality Analyzer",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/pylint",
+            "args": [".", "--rcfile", "pyproject.toml"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🔐 Pip Audit - Vulnerability Scanner",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/pip-audit",
+            "args": ["--local", "--skip-editable"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🛡️ Safety - Security Vulnerability Check",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/safety",
+            "args": ["scan"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "🐍 Snyk - Developer Security Platform",
+            "type": "shell",
+            "command": "${workspaceFolder}/.venv/Scripts/Activate.ps1; snyk test",
+            "group": "test",
             "presentation": {
                 "echo": true,
                 "reveal": "always",

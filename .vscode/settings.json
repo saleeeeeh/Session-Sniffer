@@ -18,7 +18,8 @@
         "resources": true,
         "Session_Sniffer.exe": true,
         "setup": true,
-        "TTS": true
+        "TTS": true,
+        "scripts": true
     },
     "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
     "python.terminal.activateEnvironment": true,
