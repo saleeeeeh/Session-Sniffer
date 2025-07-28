@@ -5,7 +5,6 @@ for further network sniffing operations.
 """
 from typing import Literal, NamedTuple
 
-# pylint: disable=no-name-in-module
 from PyQt6.QtCore import QItemSelectionModel, Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
@@ -20,7 +19,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-# pylint: enable = no-name-in-module
 from modules.utils import format_type_error
 
 

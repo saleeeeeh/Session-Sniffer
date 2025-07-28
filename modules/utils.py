@@ -249,7 +249,7 @@ def dedup_preserve_order[T](*iterables: Iterable[T]) -> list[T]:
 
 
 def is_file_need_newline_ending(file: Path):
-    if not file.exists() or file.stat().st_size == 0:
+    if not file.exists() or not file.stat().st_size:
         return False
 
     return not file.read_bytes().endswith(b"\n")

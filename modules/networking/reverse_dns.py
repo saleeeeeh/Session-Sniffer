@@ -2,11 +2,8 @@
 
 It includes a function `lookup` which resolves hostnames from IP addresses.
 """
-
-# External/Third-party Python Libraries
 import dns.resolver
 import dns.reversename
-
 
 NAMESERVERS = ["1.1.1.1", "1.0.0.1"]
 

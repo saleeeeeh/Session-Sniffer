@@ -32,8 +32,6 @@ from colorama import Fore
 from packaging.version import Version
 from prettytable import PrettyTable, TableStyle
 from pydantic.dataclasses import dataclass
-
-# pylint: disable=no-name-in-module
 from PyQt6.QtCore import (
     QAbstractItemModel,
     QAbstractTableModel,
@@ -84,8 +82,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-# pylint: enable=no-name-in-module
 from rich.console import Console
 from rich.text import Text
 from rich.traceback import Traceback
