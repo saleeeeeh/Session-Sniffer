@@ -75,6 +75,7 @@ ignore = [
     "PLR0912", # too-many-branches
     "PLR0913", # too-many-arguments
     "PLR0915", # too-many-statements
+    "PLW0603", # global-statement
     "PYI051",  # redundant-literal-union
     "S602",    # subprocess-popen-with-shell-equals-true
     "S603",    # subprocess-without-shell-equals-true
@@ -108,8 +109,9 @@ exclude = [
     "^scripts/$",
 ]
 disable_error_code = [
-    "no-untyped-def",
+    "arg-type",
     "no-untyped-call",
+    "no-untyped-def",
 ]
 check_untyped_defs = true
 ignore_missing_imports = true
@@ -128,11 +130,13 @@ recursive = true
 
 [tool.pylint."messages control"]
 disable = [
+    "global-statement",
     "import-outside-toplevel",
     "line-too-long",
     "locally-disabled",
     "missing-class-docstring",
     "missing-function-docstring",
+    "redefined-outer-name",
     "suppressed-message",
     "too-few-public-methods",
     "too-many-arguments",
