@@ -258,5 +258,5 @@ class PacketCapture:
             # After stdout is done, check if there were any errors in stderr
             if process.stderr:
                 stderr_output = process.stderr.read()
-                if process.returncode != 0:
+                if isinstance(process.returncode, int) and process.returncode:
                     raise TSharkCrashExceptionError(process.returncode, stderr_output)
