@@ -60,12 +60,14 @@ def ping_loop(target_ip: str, s: requests.Session):
 
         nodes = response.json()
         if not isinstance(nodes, dict):
-            raise TypeError(f'Expected "dict", got "{type(nodes).__name__}"')
+            error_msg = f'Expected "dict", got "{type(nodes).__name__}"'
+            raise TypeError(error_msg)
         request_id = nodes.get("request_id")
         if request_id is None:
             return None, None
         if not isinstance(request_id, str):
-            raise TypeError(f'Expected "str", got "{type(request_id).__name__}"')
+            error_msg = f'Expected "str", got "{type(request_id).__name__}"'
+            raise TypeError(error_msg)
         return request_id, nodes
 
     def get_ping_results(request_id: str, delay: int = 10):
@@ -80,14 +82,16 @@ def ping_loop(target_ip: str, s: requests.Session):
 
         results: PingCheckResults = response.json()
         if not isinstance(results, dict):
-            raise TypeError(f'Expected "dict", got "{type(results).__name__}"')
+            error_msg = f'Expected "dict", got "{type(results).__name__}"'
+            raise TypeError(error_msg)
 
         for pings in results.values():
             if pings is None:
                 continue
 
             if not isinstance(pings, list):
-                raise TypeError(f'Expected "list", got "{type(pings).__name__}"')
+                error_msg = f'Expected "list", got "{type(pings).__name__}"'
+                raise TypeError(error_msg)
 
         return results
 
@@ -120,7 +124,8 @@ def ping_loop(target_ip: str, s: requests.Session):
 
         results: PingCheckResults = get_ping_results(request_id)
         if not isinstance(results, dict):
-            raise TypeError(f'Expected "dict", got "{type(results).__name__}"')
+            error_msg = f'Expected "dict", got "{type(results).__name__}"'
+            raise TypeError(error_msg)
         if not results:
             rprint(f"[{Colors.RED}]Failed to retrieve ping results.[/{Colors.RED}]")
             time.sleep(10)
@@ -139,10 +144,12 @@ def ping_loop(target_ip: str, s: requests.Session):
         for node, pings in results.items():
             country = nodes["nodes"][node][1]
             if not isinstance(country, str):
-                raise TypeError(f'Expected "str", got "{type(country).__name__}"')
+                error_msg = f'Expected "str", got "{type(country).__name__}"'
+                raise TypeError(error_msg)
             city = nodes["nodes"][node][2]
             if not isinstance(city, str):
-                raise TypeError(f'Expected "str", got "{type(city).__name__}"')
+                error_msg = f'Expected "str", got "{type(city).__name__}"'
+                raise TypeError(error_msg)
 
             message = None
             if pings is None:
@@ -159,10 +166,12 @@ def ping_loop(target_ip: str, s: requests.Session):
                     for i in range(4):
                         result = ping[i][0]
                         if not isinstance(result, str):
-                            raise TypeError(f'Expected "str", got "{type(result).__name__}"')
+                            error_msg = f'Expected "str", got "{type(result).__name__}"'
+                            raise TypeError(error_msg)
                         rtt = ping[i][1]
                         if not isinstance(rtt, (float, int)):
-                            raise TypeError(f'Expected "(float, int)", got "{type(rtt).__name__}"')
+                            error_msg = f'Expected "(float, int)", got "{type(rtt).__name__}"'
+                            raise TypeError(error_msg)
 
                         if result == "OK":
                             successful_pings += 1
