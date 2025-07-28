@@ -607,12 +607,12 @@ class Settings(DefaultSettings):
                             need_rewrite_settings = True
                 elif setting_name == "CAPTURE_OVERFLOW_TIMER":
                     try:
-                        CAPTURE_OVERFLOW_TIMER = float(setting_value)
+                        capture_overflow_timer = float(setting_value)
                     except (ValueError, TypeError):
                         need_rewrite_settings = True
                     else:
-                        if CAPTURE_OVERFLOW_TIMER >= 1:
-                            Settings.CAPTURE_OVERFLOW_TIMER = CAPTURE_OVERFLOW_TIMER
+                        if capture_overflow_timer >= 1:
+                            Settings.CAPTURE_OVERFLOW_TIMER = capture_overflow_timer
                         else:
                             need_rewrite_settings = True
                 elif setting_name == "CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER":
@@ -1000,7 +1000,7 @@ class ThirdPartyServers(enum.Enum):
 class PlayerReverseDNS:
     is_initialized: bool = False
 
-    hostname: Literal["..."] | str = "..."
+    hostname: Literal["..."] | str = "..."  # noqa: PYI051
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1092,34 +1092,34 @@ class PlayerDateTime:
 class PlayerGeoLite2:
     is_initialized: bool = False
 
-    country:      Literal["N/A", "..."] | str = "..."
-    country_code: Literal["N/A", "..."] | str = "..."
-    city:         Literal["N/A", "..."] | str = "..."
-    asn:          Literal["N/A", "..."] | str = "..."
+    country:      Literal["N/A", "..."] | str = "..."  # noqa: PYI051
+    country_code: Literal["N/A", "..."] | str = "..."  # noqa: PYI051
+    city:         Literal["N/A", "..."] | str = "..."  # noqa: PYI051
+    asn:          Literal["N/A", "..."] | str = "..."  # noqa: PYI051
 
 
 @dataclass(kw_only=True, slots=True)
 class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
     is_initialized: bool = False
 
-    continent:      Literal["N/A", "..."] | str         = "..."
-    continent_code: Literal["N/A", "..."] | str         = "..."
-    country:        Literal["N/A", "..."] | str         = "..."
-    country_code:   Literal["N/A", "..."] | str         = "..."
-    region:         Literal["N/A", "..."] | str         = "..."
-    region_code:    Literal["N/A", "..."] | str         = "..."
-    city:           Literal["N/A", "..."] | str         = "..."
-    district:       Literal["N/A", "..."] | str         = "..."
-    zip_code:       Literal["N/A", "..."] | str         = "..."
+    continent:      Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    continent_code: Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    country:        Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    country_code:   Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    region:         Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    region_code:    Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    city:           Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    district:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    zip_code:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
     lat:            Literal["N/A", "..."] | float | int = "..."
     lon:            Literal["N/A", "..."] | float | int = "..."
-    time_zone:      Literal["N/A", "..."] | str         = "..."
+    time_zone:      Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
     offset:         Literal["N/A", "..."] | int         = "..."
-    currency:       Literal["N/A", "..."] | str         = "..."
-    org:            Literal["N/A", "..."] | str         = "..."
-    isp:            Literal["N/A", "..."] | str         = "..."
-    asn:            Literal["N/A", "..."] | str         = "..."
-    as_name:        Literal["N/A", "..."] | str         = "..."
+    currency:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    org:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    isp:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    asn:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
+    as_name:        Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
     mobile:         Literal["N/A", "..."] | bool        = "..."
     proxy:          Literal["N/A", "..."] | bool        = "..."
     hosting:        Literal["N/A", "..."] | bool        = "..."
@@ -1421,7 +1421,7 @@ class UserIPSettings(NamedTuple):
     COLOR: QColor
     LOG: bool
     NOTIFICATIONS: bool
-    VOICE_NOTIFICATIONS: str | Literal["False"]
+    VOICE_NOTIFICATIONS: Literal["Male", "Female", False]
     PROTECTION: Literal["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC", False]
     PROTECTION_PROCESS_PATH: Path | None
     PROTECTION_RESTART_PROCESS_PATH: Path | None

@@ -30,7 +30,7 @@ class InterfaceSelectionData(NamedTuple):
     packets_recv:      Literal["N/A"] | int
     ip_address:        str | None
     mac_address:       str | None
-    organization_name: Literal["N/A"] | str
+    organization_name: Literal["N/A"] | str  # noqa: PYI051
     is_arp:            bool                 = False
 
 
