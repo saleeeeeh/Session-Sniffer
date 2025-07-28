@@ -26,7 +26,6 @@ import colorama
 import geoip2.database
 import geoip2.errors
 import psutil
-import qdarkstyle
 import requests
 from colorama import Fore
 from packaging.version import Version
@@ -63,7 +62,6 @@ from PyQt6.QtGui import (
     QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QApplication,
     QDialog,
     QFrame,
     QHBoxLayout,
@@ -86,6 +84,10 @@ from rich.console import Console
 from rich.text import Text
 from rich.traceback import Traceback
 
+from modules.capture.exceptions import (
+    PacketCaptureOverflowError,
+    TSharkOutputParsingError,
+)
 from modules.capture.interface_selection import (
     InterfaceSelectionData,
     show_interface_selection_dialog,
@@ -105,6 +107,18 @@ from modules.constants.standalone import (
     TITLE,
 )
 from modules.constants.standard import SETTINGS_PATH
+from modules.exceptions import (
+    PlayerAlreadyExistsError,
+    PlayerNotFoundInRegistryError,
+    UnexpectedPlayerCountError,
+)
+from modules.guis.app import app
+from modules.guis.exceptions import (
+    InvalidDateFieldConfigurationError,
+    PrimaryScreenNotFoundError,
+    TableDataConsistencyError,
+    UnsupportedSortColumnError,
+)
 from modules.guis.utils import get_screen_size
 from modules.launcher.package_checker import (
     check_packages_version,
@@ -112,6 +126,9 @@ from modules.launcher.package_checker import (
     get_dependencies_from_requirements,
 )
 from modules.msgbox import MsgBox
+from modules.networking.exceptions import (
+    NetworkInterfaceStateMismatchError,
+)
 from modules.networking.manuf_lookup import MacLookup
 from modules.networking.unsafe_https import s
 from modules.networking.utils import (
@@ -245,31 +262,6 @@ def handle_sigint(_sig: int, _frame: FrameType | None):
 
 sys.excepthook = handle_exception
 signal.signal(signal.SIGINT, handle_sigint)
-
-
-class PacketCaptureOverflowError(Exception):
-    pass
-
-
-class PlayerAlreadyExistsError(ValueError):
-    """Raised when attempting to add a player that already exists in the registry."""
-
-    def __init__(self, ip: str):
-        """"Initialize the exception with a message."""
-        super().__init__(f'Player with IP "{ip}" already exists.')
-
-
-class UnsupportedSortColumnError(Exception):
-    """Raised when an unsupported column name is used for sorting."""
-    def __init__(self, column_name: str):
-        super().__init__(f"Sorting by column '{column_name}' is not supported.")
-
-
-class PlayerNotFoundInRegistryError(Exception):
-    """Raised when a player with the specified IP address is not found in the players registry."""
-
-    def __init__(self, ip: str):
-        super().__init__(f'Player with IP "{ip}" not found in the players registry.')
 
 
 class ScriptControl:
@@ -532,12 +524,14 @@ class Settings(DefaultSettings):
     @staticmethod
     def load_from_settings_file(settings_path: Path):
         from modules.utils import (
-            InvalidBooleanValueError,
-            InvalidNoneTypeValueError,
-            NoMatchFoundError,
             check_case_insensitive_and_exact_match,
             custom_str_to_bool,
             custom_str_to_nonetype,
+        )
+        from modules.utils_exceptions import (
+            InvalidBooleanValueError,
+            InvalidNoneTypeValueError,
+            NoMatchFoundError,
         )
 
         matched_settings_count = 0
@@ -814,7 +808,7 @@ class Interface:
             return False
 
         if self.ip_enabled is not None and self.ip_enabled != new_value:
-            raise ValueError(f"ip_enabled mismatch: existing={self.ip_enabled}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="ip_enabled", existing_value=self.ip_enabled, new_value=new_value)
         self.ip_enabled = new_value
         return True
 
@@ -823,7 +817,7 @@ class Interface:
             return False
 
         if self.state is not None and self.state != new_value:
-            raise ValueError(f"state mismatch: existing={self.state}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="state", existing_value=self.state, new_value=new_value)
         self.state = new_value
         return True
 
@@ -832,7 +826,7 @@ class Interface:
             return False
 
         if self.name is not None and self.name != new_value:
-            raise ValueError(f"name mismatch: existing={self.name}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="name", existing_value=self.name, new_value=new_value)
         self.name = new_value
         return True
 
@@ -841,7 +835,7 @@ class Interface:
             return False
 
         if self.mac_address is not None and self.mac_address != new_value:
-            raise ValueError(f"mac_address mismatch: existing={self.mac_address}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="mac_address", existing_value=self.mac_address, new_value=new_value)
         self.mac_address = new_value
         return True
 
@@ -850,7 +844,7 @@ class Interface:
             return False
 
         if self.manufacturer is not None and self.manufacturer != new_value:
-            raise ValueError(f"manufacturer mismatch: existing={self.manufacturer}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="manufacturer", existing_value=self.manufacturer, new_value=new_value)
         self.manufacturer = new_value
         return True
 
@@ -859,7 +853,7 @@ class Interface:
             return False
 
         if self.packets_sent is not None and self.packets_sent != new_value:
-            raise ValueError(f"packets_sent mismatch: existing={self.packets_sent}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="packets_sent", existing_value=self.packets_sent, new_value=new_value)
         self.packets_sent = new_value
         return True
 
@@ -868,7 +862,7 @@ class Interface:
             return False
 
         if self.packets_recv is not None and self.packets_recv != new_value:
-            raise ValueError(f"packets_recv mismatch: existing={self.packets_recv}, new={new_value}")
+            raise NetworkInterfaceStateMismatchError(field_name="packets_recv", existing_value=self.packets_recv, new_value=new_value)
         self.packets_recv = new_value
         return True
 
@@ -1398,7 +1392,7 @@ class SessionHost:
             if time_difference >= timedelta(milliseconds=200):
                 potential_session_host_player = connected_players[0]
         else:
-            raise ValueError(f"Unexpected number of connected players: {len(connected_players)}")
+            raise UnexpectedPlayerCountError(len(connected_players))
 
         if (
             not potential_session_host_player
@@ -1836,7 +1830,7 @@ def get_filtered_tshark_interfaces():
         parts = stdout_line.strip().split(" ", maxsplit=INTERFACE_PARTS_LENGTH - 1)
 
         if len(parts) != INTERFACE_PARTS_LENGTH:
-            raise ValueError(f'Expected "{INTERFACE_PARTS_LENGTH}" parts, got "{len(parts)}" in "{stdout_line}"')
+            raise TSharkOutputParsingError(INTERFACE_PARTS_LENGTH, len(parts), stdout_line)
 
         index = int(parts[0].removesuffix("."))
         device_name = parts[1]
@@ -2191,10 +2185,7 @@ tshark_interfaces = [
     if (i := AllInterfaces.get_interface_by_name(name)) and not i.is_interface_inactive()
 ]
 
-# Create a QApplication instance
-app = QApplication([])  # Passing an empty list for application arguments
-app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt6())
-screen_width, screen_height = get_screen_size(app)
+screen_width, screen_height = get_screen_size()
 
 interfaces_selection_data: list[InterfaceSelectionData] = []
 
@@ -2704,7 +2695,7 @@ def capture_core():
             tshark_packets_latencies.append((packet.datetime, packet_latency))
             if packet_latency >= timedelta(seconds=Settings.CAPTURE_OVERFLOW_TIMER):
                 tshark_restarted_times += 1
-                raise PacketCaptureOverflowError("Packet capture time exceeded 3 seconds.")
+                raise PacketCaptureOverflowError(Settings.CAPTURE_OVERFLOW_TIMER)
 
             if Settings.CAPTURE_IP_ADDRESS:
                 if packet.ip.src == Settings.CAPTURE_IP_ADDRESS:
@@ -3508,7 +3499,7 @@ def rendering_core():
                 if Settings.GUI_DATE_FIELDS_SHOW_TIME:
                     parts.append(datetime_object.strftime("%H:%M:%S.%f")[:-3])
                 if not parts:
-                    raise ValueError("Invalid settings: Both date and time are disabled.")
+                    raise InvalidDateFieldConfigurationError
 
                 formatted_datetime = " ".join(parts)
 
@@ -4107,11 +4098,11 @@ class SessionTableModel(QAbstractTableModel):
         """
         if not self._data:
             if self._compiled_colors:
-                raise ValueError("Inconsistent state: It's not possible to have colors if there's no data.")
+                raise TableDataConsistencyError(case="colors_without_data")
             return  # No data to process, exit early.
 
         if not self._compiled_colors:
-            raise ValueError("Inconsistent state: It's not possible to have data without colors.")
+            raise TableDataConsistencyError(case="data_without_colors")
 
         self.layoutAboutToBeChanged.emit()
 
@@ -4119,7 +4110,7 @@ class SessionTableModel(QAbstractTableModel):
         # Combine data and colors for sorting
         combined = list(zip(self._data, self._compiled_colors, strict=True))
         if not combined:
-            raise ValueError("Inconsistent state: 'combined' is unexpectedly empty at this point.")
+            raise TableDataConsistencyError(case="empty_combined")
         sort_order_bool = order == Qt.SortOrder.DescendingOrder
 
         if sorted_column_name == "Usernames":
@@ -4849,8 +4840,8 @@ class SessionTableView(QTableView):
 
     def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: list[QModelIndex]):
         """Copy the selected cells data from the table to the clipboard."""
-        # Access the system clipboard
-        clipboard = QApplication.clipboard()
+        # Access the system clipboard from the centralized app instance
+        clipboard = app.clipboard()
         if not isinstance(clipboard, QClipboard):
             raise TypeError(format_type_error(clipboard, QClipboard))
 
@@ -5571,9 +5562,9 @@ class DiscordIntro(QDialog):
     # pylint: enable=invalid-name
 
     def center_window(self):
-        screen = QApplication.primaryScreen()
+        screen = app.primaryScreen()
         if screen is None:
-            raise RuntimeError("No primary screen detected.")
+            raise PrimaryScreenNotFoundError
 
         screen_geometry = screen.geometry()
         x = (screen_geometry.width() - self.width()) // 2

@@ -16,23 +16,25 @@ from modules.constants.standard import (
     RE_PACKET_STATS_PATTERN,
     RE_RTT_STATS_PATTERN,
 )
+from modules.networking.exceptions import (
+    AllEndpointsExhaustedError,
+    InvalidPingResultError,
+)
 from modules.networking.unsafe_https import s
-from modules.utils import format_type_error
 
 
-class InvalidPingResultError(Exception):
-    """Exception raised when the parsed ping result contains invalid or missing data."""
+def format_type_error(
+    obj: object,
+    expected_types: type | tuple[type, ...],
+    suffix: str = "",
+):
+    """Generate a formatted error message for a type mismatch."""
+    if isinstance(expected_types, tuple):
+        type_names = " or ".join(t.__name__ for t in expected_types)
+    else:
+        type_names = expected_types.__name__
 
-    def __init__(self, ip: str, response_content: str, ping_result: "PingResult"):
-        attributes = "\n".join(f"{attr}={getattr(ping_result, attr)}"
-                               for attr in ping_result._fields)
-        super().__init__(f"Invalid ping result for {ip}:\n"
-                         f"Response: {response_content}\n"
-                         f"{attributes}")
-
-
-class AllEndpointsExhaustedError(Exception):
-    """Exception raised when all endpoints have been exhausted."""
+    return f"Expected {type_names}, got {type(obj).__name__}: {obj!r}{suffix}"
 
 
 @dataclass(slots=True)

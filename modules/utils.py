@@ -21,67 +21,43 @@ from win32com.shell import (  # type: ignore[import-error]  # pylint: disable=im
     shellcon,  # type: ignore[import-error]
 )
 
+from modules.utils_exceptions import (
+    InvalidBooleanValueError,
+    InvalidFileError,
+    InvalidNoneTypeValueError,
+    MismatchedBooleanValueError,
+    NoMatchFoundError,
+    ParenthesisMismatchError,
+)
 
-class InvalidFileError(Exception):
-    """Exception raised when a file is not valid."""
-
-    def __init__(self, file_path: Path):
-        """Initialize the exception with a default error message.
-
-        Args:
-            file_path (Path): The path to the invalid file.
-        """
-        super().__init__(f"Invalid file: {file_path.absolute()}")
-
-
-class InvalidBooleanValueError(Exception):
-    """Exception raised when a value is not a valid boolean."""
-
-    def __init__(self):
-        """Initialize the exception with a default error message."""
-        super().__init__("Input is not a valid boolean value")
-
-
-class MismatchedBooleanValueError(Exception):
-    """Exception raised when the resolved value does not match the expected boolean value."""
-
-    def __init__(self):
-        """Initialize the exception with a default error message."""
-        super().__init__("Input does not match the specified boolean value")
-
-
-class InvalidNoneTypeValueError(Exception):
-    """Exception raised when a string is not a valid NoneType value."""
-
-    def __init__(self):
-        """Initialize the exception with a default error message."""
-        super().__init__("Input is not a valid NoneType value")
-
-
-class NoMatchFoundError(Exception):
-    """Exception raised when no case-insensitive match is found."""
-
-    def __init__(self, input_value: str):
-        """Initialize the exception with the input value and an optional custom message.
-
-        Args:
-            input_value (str): The value that did not match any item in the list.
-        """
-        super().__init__(f"No matching value found in the provided list: '{input_value}'")
-
-
-class ParenthesisMismatchError(Exception):
-    def __init__(self, expr: str, unmatched_opening: list[int], unmatched_closing: list[int]):
-        """Initialize the exception with unmatched parentheses positions."""
-        message = "\n".join(
-            f"Unmatched {type_} parentheses at position{pluralize(len(positions))}: {positions}"
-            for type_, positions in (
-                ("opening", unmatched_opening),
-                ("closing", unmatched_closing),
-            ) if positions
-        )
-        message += f"\nExpression: {expr!r}"
-        super().__init__(message)
+__all__ = [
+    "check_case_insensitive_and_exact_match",
+    "clear_screen",
+    "custom_str_to_bool",
+    "custom_str_to_nonetype",
+    "dedup_preserve_order",
+    "format_attribute_error",
+    "format_file_not_found_error",
+    "format_project_version",
+    "format_triple_quoted_text",
+    "format_type_error",
+    "get_documents_folder",
+    "get_pid_by_path",
+    "get_working_directory_to_script_location",
+    "is_file_need_newline_ending",
+    "is_pyinstaller_compiled",
+    "pluralize",
+    "resource_path",
+    "run_cmd_command",
+    "run_cmd_script",
+    "set_window_title",
+    "set_working_directory_to_script_location",
+    "take",
+    "terminate_process_tree",
+    "validate_and_strip_balanced_outer_parens",
+    "validate_file",
+    "write_lines_to_file",
+]
 
 
 def format_attribute_error(cls: type, name: str):

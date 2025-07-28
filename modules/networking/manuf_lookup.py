@@ -7,6 +7,13 @@ import re
 from pydantic.dataclasses import dataclass
 
 from modules.constants.local import MANUF_FILE_PATH
+from modules.networking.exceptions import (
+    InvalidCidrError,
+    InvalidMacPrefixError,
+    InvalidManufacturerError,
+    InvalidOrganizationNameError,
+    ManufLineParseError,
+)
 from modules.networking.utils import is_mac_address
 
 ManufDatabaseType = dict[str, list["ManufEntry"]]
@@ -23,40 +30,6 @@ RE_MANUF_ENTRY_PATTERN = re.compile(
     """,
     re.VERBOSE,
 )
-
-
-class ManufLineParseError(ValueError):
-    def __init__(self, line: str):
-        super().__init__(f"Failed to parse manuf line: {line!r}")
-
-
-class InvalidManufEntryFieldError(TypeError):
-    """Base class for all ManufEntry field type errors."""
-
-    def __init__(self, field_name: str, value: object):
-        super().__init__(
-            f"Invalid type for {field_name}: expected str but got {type(value).__name__} ({value!r})",
-        )
-
-
-class InvalidMacPrefixError(InvalidManufEntryFieldError):
-    def __init__(self, value: object):
-        super().__init__("mac_prefix", value)
-
-
-class InvalidCidrError(InvalidManufEntryFieldError):
-    def __init__(self, value: object):
-        super().__init__("cidr", value)
-
-
-class InvalidManufacturerError(InvalidManufEntryFieldError):
-    def __init__(self, value: object):
-        super().__init__("manufacturer", value)
-
-
-class InvalidOrganizationNameError(InvalidManufEntryFieldError):
-    def __init__(self, value: object):
-        super().__init__("organization_name", value)
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

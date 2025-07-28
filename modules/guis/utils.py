@@ -3,13 +3,16 @@
 This module provides helper functions to interact with GUI elements.
 """
 
-from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow
+from PyQt6.QtWidgets import QDialog, QMainWindow
+
+from .app import app
+from .exceptions import PrimaryScreenNotFoundError
 
 
-def get_screen_size(app: QApplication):
+def get_screen_size():
     screen = app.primaryScreen()
     if screen is None:
-        raise RuntimeError("No primary screen detected.")
+        raise PrimaryScreenNotFoundError
 
     size = screen.size()
     return size.width(), size.height()
