@@ -1,6 +1,5 @@
 # pylint: disable=missing-module-docstring,too-many-lines,invalid-name  # noqa: D100
 import ast
-import copy
 import enum
 import hashlib
 import json
@@ -5214,12 +5213,12 @@ class GUIWorkerThread(QThread):
 
             header_text = GUIrenderingData.header_text
 
-            connected_data = copy.deepcopy(GUIrenderingData.session_connected_table__processed_data)
-            connected_colors = copy.deepcopy(GUIrenderingData.session_connected_table__compiled_colors)
+            connected_data = [row[:] for row in GUIrenderingData.session_connected_table__processed_data]
+            connected_colors = [row[:] for row in GUIrenderingData.session_connected_table__compiled_colors]
             connected_num = GUIrenderingData.session_connected_table__num_rows
 
-            disconnected_data = copy.deepcopy(GUIrenderingData.session_disconnected_table__processed_data)
-            disconnected_colors = copy.deepcopy(GUIrenderingData.session_disconnected_table__compiled_colors)
+            disconnected_data = [row[:] for row in GUIrenderingData.session_disconnected_table__processed_data]
+            disconnected_colors = [row[:] for row in GUIrenderingData.session_disconnected_table__compiled_colors]
             disconnected_num = GUIrenderingData.session_disconnected_table__num_rows
 
             connected_rows = list(zip(connected_data, connected_colors, strict=True))
