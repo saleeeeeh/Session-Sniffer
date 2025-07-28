@@ -1,5 +1,6 @@
 # pylint: disable=missing-module-docstring,too-many-lines,invalid-name  # noqa: D100
 import ast
+import copy
 import enum
 import hashlib
 import json
@@ -3985,6 +3986,7 @@ class SessionTableModel(QAbstractTableModel):
         self._view: SessionTableView | None = None  # Initially, no view is attached
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
         self.IP_COLUMN_INDEX = self._headers.index("IP Address")  # pylint: disable=invalid-name
+        self.USERNAME_COLUMN_INDEX = self._headers.index("Usernames")  # pylint: disable=invalid-name
         self.TABLE_CELL_TOOLTIP_MARGIN = 8  # Margin in pixels for determining when to show tooltips for truncated text
 
     # pylint: disable=invalid-name
@@ -4509,29 +4511,38 @@ class SessionTableView(QTableView):
 
     # Custom Methods:
 
-    def adjust_table_column_widths(self):
-        """Adjust the column widths of a QTableView to fit content."""
+    def setup_static_column_resizing(self):
+        """Set up static column resizing for the table."""
         model = self.model()
         horizontal_header = self.horizontalHeader()
 
         for column in range(model.columnCount()):
-            # Get the header label for the column
             header_label = model.headerData(column, Qt.Orientation.Horizontal)
 
-            if header_label == "Usernames":
-                contain_usernames = any(
-                    (data := model.data(model.index(row, column))) and isinstance(data, str) and data
-                    for row in range(model.rowCount())
-                )
-
-                if contain_usernames:
-                    horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-                else:
-                    horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-            elif header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging"}:
+            if header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "PPM",
+                                "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging",
+                                "R. Code", "ZIP Code", "Lat", "Lon", "Offset", "Currency", "Time Zone"}:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+
+    def adjust_username_column_width(self):
+        """Adjust the 'Usernames' column width based on whether any username is non-empty."""
+        model = self.model()
+        header = self.horizontalHeader()
+
+        found_username = False
+        for row in range(model.rowCount()):
+            index = model.index(row, model.USERNAME_COLUMN_INDEX)
+            data = model.data(index)
+            if isinstance(data, str) and data.strip():  # Check for non-empty, non-whitespace
+                found_username = True
+                break
+
+        if found_username:
+            header.setSectionResizeMode(model.USERNAME_COLUMN_INDEX, QHeaderView.ResizeMode.Stretch)
+        else:
+            header.setSectionResizeMode(model.USERNAME_COLUMN_INDEX, QHeaderView.ResizeMode.ResizeToContents)
 
     def get_sorted_column(self):
         """Get the currently sorted column and its order for this table view."""
@@ -5179,46 +5190,47 @@ class GUIWorkerThread(QThread):
         list,
         list,
         int,
-        list,
-        list,
         int,
-    )  # Signal to send updated table data and new size
+    )
 
     def __init__(
         self,
-        connected_table_model: SessionTableModel,
         connected_table_view: SessionTableView,
-        disconnected_table_model: SessionTableModel,
         disconnected_table_view: SessionTableView,
     ):
         super().__init__()
 
-        self.connected_table_model = connected_table_model
         self.connected_table_view = connected_table_view
-        self.disconnected_table_model = disconnected_table_model
         self.disconnected_table_view = disconnected_table_view
 
     def run(self):
-        # While the GUI is not closed, we repeat this loop
         while not gui_closed__event.is_set():
-            # Retrieve the sorted column for both tables
             GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = self.connected_table_view.get_sorted_column()
             GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = self.disconnected_table_view.get_sorted_column()
 
-            # Wait for the gui_rendering data to be ready (timeout of 0.1 second)
-            # If the event is not set within the timeout, just continue
-            if not GUIrenderingData.gui_rendering_ready_event.wait(timeout=0.1):
+            if not GUIrenderingData.gui_rendering_ready_event.is_set():
                 continue
             GUIrenderingData.gui_rendering_ready_event.clear()
 
+            header_text = GUIrenderingData.header_text
+
+            connected_data = copy.deepcopy(GUIrenderingData.session_connected_table__processed_data)
+            connected_colors = copy.deepcopy(GUIrenderingData.session_connected_table__compiled_colors)
+            connected_num = GUIrenderingData.session_connected_table__num_rows
+
+            disconnected_data = copy.deepcopy(GUIrenderingData.session_disconnected_table__processed_data)
+            disconnected_colors = copy.deepcopy(GUIrenderingData.session_disconnected_table__compiled_colors)
+            disconnected_num = GUIrenderingData.session_disconnected_table__num_rows
+
+            connected_rows = list(zip(connected_data, connected_colors, strict=True))
+            disconnected_rows = list(zip(disconnected_data, disconnected_colors, strict=True))
+
             self.update_signal.emit(
-                GUIrenderingData.header_text,
-                GUIrenderingData.session_connected_table__processed_data,
-                GUIrenderingData.session_connected_table__compiled_colors,
-                GUIrenderingData.session_connected_table__num_rows,
-                GUIrenderingData.session_disconnected_table__processed_data,
-                GUIrenderingData.session_disconnected_table__compiled_colors,
-                GUIrenderingData.session_disconnected_table__num_rows,
+                header_text,
+                connected_rows,
+                disconnected_rows,
+                connected_num,
+                disconnected_num,
             )
 
 
@@ -5285,9 +5297,10 @@ class MainWindow(QMainWindow):
         # Create the table model and view
         while not GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
-        # Determine the sort order
         self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         self.connected_table_view = SessionTableView(self.connected_table_model, GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Rejoin"), Qt.SortOrder.DescendingOrder)
+        self.connected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
+        self.connected_table_view.setup_static_column_resizing()
         self.connected_table_model.set_view(self.connected_table_view)
 
         # Add a horizontal line separator
@@ -5305,9 +5318,10 @@ class MainWindow(QMainWindow):
         # Create the table model and view
         while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
-        # Determine the sort order
         self.disconnected_table_model = SessionTableModel(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         self.disconnected_table_view = SessionTableView(self.disconnected_table_model, GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Seen"), Qt.SortOrder.AscendingOrder)
+        self.disconnected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
+        self.disconnected_table_view.setup_static_column_resizing()
         self.disconnected_table_model.set_view(self.disconnected_table_view)
 
         # Layout to organize the widgets
@@ -5324,9 +5338,7 @@ class MainWindow(QMainWindow):
 
         # Create the worker thread for table updates
         self.worker_thread = GUIWorkerThread(
-            self.connected_table_model,
             self.connected_table_view,
-            self.disconnected_table_model,
             self.disconnected_table_view,
         )
         self.worker_thread.update_signal.connect(self.update_gui)
@@ -5347,19 +5359,17 @@ class MainWindow(QMainWindow):
     def update_gui(
         self,
         header_text: str,
-        session_connected_table__processed_data: list[list[str]],
-        session_connected_table__compiled_colors: list[list[CellColor]],
-        session_connected_table__num_rows: int,
-        session_disconnected_table__processed_data: list[list[str]],
-        session_disconnected_table__compiled_colors: list[list[CellColor]],
-        session_disconnected_table__num_rows: int,
+        connected_rows: list[tuple[list[str], list[CellColor]]],
+        disconnected_rows: list[tuple[list[str], list[CellColor]]],
+        connected_num: int,
+        disconnected_num: int,
     ):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
-        self.session_connected_header.setText(f"Players connected in your session ({session_connected_table__num_rows}):")
+        self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
 
-        for processed_data, compiled_colors in zip(session_connected_table__processed_data, session_connected_table__compiled_colors, strict=True):
+        for processed_data, compiled_colors in connected_rows:
             ip = processed_data[self.connected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
@@ -5373,11 +5383,11 @@ class MainWindow(QMainWindow):
                 self.connected_table_model.update_row_without_refresh(connected_row_index, processed_data, compiled_colors)
 
         self.connected_table_model.sort_current_column()
-        self.connected_table_view.adjust_table_column_widths()
+        self.connected_table_view.adjust_username_column_width()
 
-        self.session_disconnected_header.setText(f"Players who've left your session ({session_disconnected_table__num_rows}):")
+        self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
 
-        for processed_data, compiled_colors in zip(session_disconnected_table__processed_data, session_disconnected_table__compiled_colors, strict=True):
+        for processed_data, compiled_colors in disconnected_rows:
             ip = processed_data[self.disconnected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
@@ -5391,7 +5401,7 @@ class MainWindow(QMainWindow):
                 self.disconnected_table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
 
         self.disconnected_table_model.sort_current_column()
-        self.disconnected_table_view.adjust_table_column_widths()
+        self.disconnected_table_view.adjust_username_column_width()
 
     def open_project_repo(self):
         from modules.constants.standalone import GITHUB_REPO_URL
