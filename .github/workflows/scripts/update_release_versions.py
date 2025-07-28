@@ -1,4 +1,4 @@
-# noqa: D100, INP001
+# noqa: D100, INP001  # pylint: disable=missing-module-docstring
 import argparse
 import json
 from pathlib import Path
@@ -20,7 +20,7 @@ def main():
         error_msg = f'File: "{json_path.absolute()}" not found.'
         raise FileNotFoundError(error_msg)
 
-    data = json.loads(json_path.read_text())
+    data = json.loads(json_path.read_text(encoding="utf-8"))
 
     target_key = "latest_prerelease" if args.prerelease else "latest_stable"
 
@@ -41,7 +41,7 @@ def main():
         "version": str(version),
     }
 
-    json_path.write_text(json.dumps(data, indent=4) + "\n")
+    json_path.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
