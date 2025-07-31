@@ -49,6 +49,7 @@ Grab the latest stable release and get started instantly!
 | Mortal Kombat 11                           | PS4                                      |
 | NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                      |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                               |
+| Call of Duty®: Advanced Warfare            | PC (Steam)                               |
 | Call of Duty®: Black Ops III (Zombies)     | PC (Steam)                               |
 | Call of Duty®: Infinite Warfare (Zombies)  | PC (Steam)                               |
 | Call of Duty®: WWII                        | PC (Steam)                               |
