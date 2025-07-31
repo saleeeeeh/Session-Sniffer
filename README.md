@@ -38,21 +38,28 @@ Grab the latest stable release and get started instantly!
 
 ## 🎮 Officially Tested and Supported Video Games
 
-| Supported Video Games               | Tested Platforms                         |
-| :---------------------------------- | :--------------------------------------: |
-| Grand Theft Auto Online             | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
-| Red Dead Online                     | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
-| Minecraft Bedrock Edition (Friends) | PC, PS3                                  |
-| PlayStation Party Chat              | PS4, PS5                                 |
-| Grand Theft Auto IV                 | PS3                                      |
-| Red Dead Redemption                 | PS3                                      |
-| Call of Duty: Black Ops 2           | PS3                                      |
-| Call of Duty: Black Ops 3           | PS3                                      |
-| Destiny                             | PS3                                      |
-| Skate 3                             | PS3                                      |
-| Sniper Elite 3                      | PS3                                      |
+| Supported Video Games                      | Tested Platforms                         |
+| :----------------------------------------- | :--------------------------------------: |
+| Grand Theft Auto Online                    | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
+| Red Dead Online                            | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
+| Minecraft Bedrock Edition (Friends)        | PC, PS3                                  |
+| PlayStation Party Chat                     | PS4, PS5                                 |
+| ELDEN RING                                 | PS4                                      |
+| ELDEN RING NIGHTREIGN                      | PS4                                      |
+| Mortal Kombat 11                           | PS4                                      |
+| NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                      |
+| Call of Duty®: Black Ops 2 (Zombies)       | PC (Steam)                               |
+| Call of Duty®: Black Ops 3 (Zombies)       | PC (Steam)                               |
+| Call of Duty®: Infinite Warfare (Zombies)  | PC (Steam)                               |
+| Grand Theft Auto IV                        | PS3                                      |
+| Red Dead Redemption                        | PS3                                      |
+| Call of Duty: Black Ops 2                  | PS3                                      |
+| Call of Duty: Black Ops 3                  | PS3                                      |
+| Destiny                                    | PS3                                      |
+| Skate 3                                    | PS3                                      |
+| Sniper Elite 3                             | PS3                                      |
 
-> _Note_: The script works for all P2P (Peer-To-Peer) games, but only the games listed above have servers filtering.
+> _Note_: The script works with all P2P (Peer-to-Peer) games, but only the titles above are confirmed to work.
 
 ---
 
