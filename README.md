@@ -51,7 +51,7 @@ Grab the latest stable release and get started instantly!
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                               |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                               |
 | Call of Duty®: Black Ops III (Zombies)     | PC (Steam)                               |
-| Call of Duty®: Infinite Warfare (Zombies)  | PC (Steam)                               |
+| Call of Duty®: Infinite Warfare            | PC (Steam)                               |
 | Call of Duty®: WWII                        | PC (Steam)                               |
 | Grand Theft Auto IV                        | PS3                                      |
 | Red Dead Redemption                        | PS3                                      |
