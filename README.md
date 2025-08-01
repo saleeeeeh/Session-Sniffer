@@ -48,6 +48,7 @@ Grab the latest stable release and get started instantly!
 | ELDEN RING NIGHTREIGN                      | PS4                                      |
 | Mortal Kombat 11                           | PS4                                      |
 | NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                      |
+| Call of Duty®: Black Ops II                | PS3                                      |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                               |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                               |
 | Call of Duty®: Black Ops III               | PC (Steam), PS3                          |
@@ -55,7 +56,6 @@ Grab the latest stable release and get started instantly!
 | Call of Duty®: WWII                        | PC (Steam)                               |
 | Grand Theft Auto IV                        | PS3                                      |
 | Red Dead Redemption                        | PS3                                      |
-| Call of Duty®: Black Ops II                | PS3                                      |
 | Destiny                                    | PS3                                      |
 | Skate 3                                    | PS3                                      |
 | Sniper Elite 3                             | PS3                                      |
