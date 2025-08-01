@@ -50,7 +50,7 @@ Grab the latest stable release and get started instantly!
 | NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                      |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                               |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                               |
-| Call of Duty®: Black Ops III (Zombies)     | PC (Steam)                               |
+| Call of Duty®: Black Ops III               | PC (Steam)                               |
 | Call of Duty®: Infinite Warfare            | PC (Steam)                               |
 | Call of Duty®: WWII                        | PC (Steam)                               |
 | Grand Theft Auto IV                        | PS3                                      |
