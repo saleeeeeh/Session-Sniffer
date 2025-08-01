@@ -38,28 +38,27 @@ Grab the latest stable release and get started instantly!
 
 ## 🎮 Officially Tested and Supported Video Games
 
-| Supported Video Games                      | Tested Platforms                         |
-| :----------------------------------------- | :--------------------------------------: |
-| Grand Theft Auto Online                    | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
-| Red Dead Online                            | PC, Xbox One, Xbox Series X\|S, PS4, PS5 |
-| Minecraft Bedrock Edition (Friends)        | PC, PS3                                  |
-| PlayStation Party Chat                     | PS4, PS5                                 |
-| ELDEN RING                                 | PS4                                      |
-| ELDEN RING NIGHTREIGN                      | PS4                                      |
-| Mortal Kombat 11                           | PS4                                      |
-| NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                      |
-| Call of Duty®: Black Ops II                | PS3                                      |
-| Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                               |
-| Call of Duty®: Advanced Warfare            | PC (Steam)                               |
-| Call of Duty®: Black Ops III               | PC (Steam), PS3                          |
-| Call of Duty®: Infinite Warfare            | PC (Steam)                               |
-| Call of Duty®: WWII                        | PC (Steam)                               |
-| Grand Theft Auto IV                        | PS3                                      |
-| Red Dead Redemption                        | PS3                                      |
-| Destiny                                    | PS3                                      |
-| Skate 3                                    | PS3                                      |
-| Sniper Elite 3                             | PS3                                      |
-| GSClient                                   | PC                                       |
+| Supported Video Games                      | Tested Platforms                              |
+| :----------------------------------------- | :-------------------------------------------: |
+| Grand Theft Auto Online                    | PC, Xbox Series X\|S, Xbox One, PS5, PS4      |
+| Grand Theft Auto IV                        | PS3                                           |
+| Red Dead Online                            | PC, Xbox Series X\|S, Xbox One, PS5, PS4, PS3 |
+| Minecraft Bedrock Edition (Friends)        | PC, PS3                                       |
+| PlayStation Party Chat                     | PS4, PS5                                      |
+| Call of Duty®: Black Ops II                | PS3                                           |
+| Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                                    |
+| Call of Duty®: Advanced Warfare            | PC (Steam)                                    |
+| Call of Duty®: Black Ops III               | PC (Steam), PS3                               |
+| Call of Duty®: Infinite Warfare            | PC (Steam)                                    |
+| Call of Duty®: WWII                        | PC (Steam)                                    |
+| ELDEN RING                                 | PS4                                           |
+| ELDEN RING NIGHTREIGN                      | PS4                                           |
+| Mortal Kombat 11                           | PS4                                           |
+| NARUTO SHIPPUDEN: Ultimate Ninja STORM 4   | PS4                                           |
+| Destiny                                    | PS3                                           |
+| Skate 3                                    | PS3                                           |
+| Sniper Elite 3                             | PS3                                           |
+| GSClient                                   | PC                                            |
 
 > _Note_: The script works with all P2P (Peer-to-Peer) games, but only the titles above are confirmed to work.
 
