@@ -36,14 +36,14 @@ Grab the latest stable release and get started instantly!
 
 ---
 
-## 🎮 Officially Tested and Supported Video Games
+## 🎮 Officially Tested and Supported P2P Video Games
 
-| Supported Video Games                      | Tested Platforms                              | Additional Note(s)                                                                                                                      |
+| Supported P2P Video Games                  | Tested Platforms                              | Additional Note(s)                                                                                                                      |
 | :----------------------------------------- | :-------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------: |
 | Grand Theft Auto Online                    | PC, Xbox Series X\|S, Xbox One, PS5, PS4      |                                                                                                                                         |
 | Grand Theft Auto IV                        | PS3                                           |                                                                                                                                         |
 | Red Dead Online                            | PC, Xbox Series X\|S, Xbox One, PS5, PS4, PS3 |                                                                                                                                         |
-| Minecraft Bedrock Edition (Friends)        | PC, PS3                                       |                                                                                                                                         |
+| Minecraft Bedrock Edition                  | PC, PS4                                       | Only P2P via friends' worlds — you must invite friends or join their hosted world.                                                      |
 | PlayStation Party Chat                     | PS5, PS4                                      | [Understanding How PSN/XBOX Party Chats Work](https://help.octosniff.net/en/article/understanding-how-psnxbox-party-chats-work-feco1b/) |
 | Call of Duty®: Modern Warfare® 2 (2009)    | PC (Steam), PS3                               |                                                                                                                                         |
 | Call of Duty®: Black Ops                   | PC (Steam), PS3                               | On PC (Steam), only non-ranked servers & without VAC are P2P.<br>On PC (Steam), the Zombies game mode is always P2P.                    |
