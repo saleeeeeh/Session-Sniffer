@@ -45,6 +45,7 @@ Grab the latest stable release and get started instantly!
 | Red Dead Online                            | PC, Xbox Series X\|S, Xbox One, PS5, PS4, PS3 |
 | Minecraft Bedrock Edition (Friends)        | PC, PS3                                       |
 | PlayStation Party Chat                     | PS5, PS4                                      |
+| Call of Duty®: Modern Warfare® 2 (2009)    | PC (Steam)                                    |
 | Call of Duty®: Black Ops II                | PS3                                           |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                                    |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                                    |
