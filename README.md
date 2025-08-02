@@ -46,6 +46,7 @@ Grab the latest stable release and get started instantly!
 | Minecraft Bedrock Edition (Friends)        | PC, PS3                                       |
 | PlayStation Party Chat                     | PS5, PS4                                      |
 | Call of Duty®: Modern Warfare® 2 (2009)    | PC (Steam)                                    |
+| Call of Duty®: Modern Warfare® 3 (2011)    | PC (Steam)                                    |
 | Call of Duty®: Black Ops II                | PS3                                           |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                                    |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                                    |
