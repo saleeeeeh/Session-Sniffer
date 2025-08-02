@@ -50,6 +50,7 @@ Grab the latest stable release and get started instantly!
 | Call of Duty®: Modern Warfare® 3 (2011)    | PC (Steam)                                    |
 | Call of Duty®: Black Ops II                | PS3                                           |
 | Call of Duty®: Black Ops II (Zombies)      | PC (Steam)                                    |
+| Call of Duty®: Ghosts                      | PC (Steam)                                    |
 | Call of Duty®: Advanced Warfare            | PC (Steam)                                    |
 | Call of Duty®: Black Ops III               | PC (Steam), PS3                               |
 | Call of Duty®: Infinite Warfare            | PC (Steam)                                    |
