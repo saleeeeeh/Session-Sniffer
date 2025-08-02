@@ -10,7 +10,7 @@
 
 ## 📝 Description
 
-**Session Sniffer** is a powerful packet sniffer (also known as an IP grabber/puller/sniffer) designed specifically for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox). It helps you monitor session activity, such as:
+**Session Sniffer** is a powerful packet sniffer (also known as an IP sniffer/puller) designed specifically for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox). It helps you monitor session activity, such as:
 - Players currently in your session.
 - Players joining your session.
 - Players who have left or rejoined your session.
