@@ -33,7 +33,7 @@ requires-python = ">=3.13"
 authors = [
     {name = "BUZZARDGTA"},
 ]
-description = "A packet sniffer (also known as an IP grabber/puller/sniffer) specifically designed for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox)."
+description = "A packet sniffer (also known as an IP sniffer/puller) specifically designed for Peer-To-Peer (P2P) video games on PC and consoles (PlayStation and Xbox)."
 readme = "README.md"
 
 
