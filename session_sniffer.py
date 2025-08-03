@@ -4952,6 +4952,8 @@ class SessionTableView(QTableView):
         if not ok:
             return
 
+        port_str = port_str.strip()
+
         if not port_str.isdigit():
             QMessageBox.warning(self, "Error", "No valid port number provided.")
             return
@@ -4971,7 +4973,12 @@ class SessionTableView(QTableView):
         # Prompt the user for a username
         username, ok = QInputDialog.getText(self, "Input Username", f"Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:")
 
-        if ok and username:  # Only proceed if the user clicked 'OK' and provided a username
+        if not ok:
+            return
+
+        username = username.strip()
+
+        if username:  # Only proceed if the user clicked 'OK' and provided a username
             # Append the username and associated IP(s) to the corresponding database file
             write_lines_to_file(selected_database, "a", [f"{username}={ip}\n" for ip in ip_addresses])
 
