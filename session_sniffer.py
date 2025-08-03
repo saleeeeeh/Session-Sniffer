@@ -3780,7 +3780,7 @@ def rendering_core():
                     <span style="font-size: 24px; color: #88c0d0">Welcome to {TITLE}</span>&nbsp;&nbsp;<span style="font-size: 14px; color: #aaa">{VERSION}</span>
                 </div>
                 <p style="font-size: 16px; margin: 5px 0;">
-                    The best FREE and Open-Source packet sniffer, aka IP grabber, works WITHOUT mods.
+                    The best FREE and Open-Source packet sniffer, aka IP puller, works WITHOUT mods.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Scanning on interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span> | Preset:<span style="color: yellow;">{Settings.CAPTURE_PROGRAM_PRESET}</span>
