@@ -428,7 +428,7 @@ class Settings(DefaultSettings):
 
     @classmethod
     def iterate_over_settings(cls):
-        _allowed_settings_types = (type(None), Path, bool, list, str, float, int)
+        _allowed_settings_types = (type(None), tuple, str, bool, float, int)
 
         for attr_name, attr_value in vars(DefaultSettings).items():
             if (
@@ -635,11 +635,11 @@ class Settings(DefaultSettings):
                         need_rewrite_settings = True
                 elif setting_name == "GUI_FIELDS_TO_HIDE":
                     try:
-                        gui_fields_to_hide: list[str] = ast.literal_eval(setting_value)
+                        gui_fields_to_hide: tuple[str] = ast.literal_eval(setting_value)
                     except (ValueError, SyntaxError):
                         need_rewrite_settings = True
                     else:
-                        if isinstance(gui_fields_to_hide, list) and all(isinstance(item, str) for item in gui_fields_to_hide):
+                        if isinstance(gui_fields_to_hide, tuple) and all(isinstance(item, str) for item in gui_fields_to_hide):
                             filtered_gui_fields_to_hide: list[str] = []
 
                             for value in gui_fields_to_hide:
