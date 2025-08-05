@@ -96,6 +96,14 @@ For more detailed information, check out the [**Project Wiki**](https://github.c
 
 ---
 
+## 💖 Support My Work
+
+If you find Session Sniffer useful, consider donating to support my work on this project!
+
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/buzzardgta)
+
+---
+
 ## 🌟 Connect with Us!
 
 We'd love to have **you** in our community!  
