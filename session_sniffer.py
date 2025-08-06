@@ -2537,8 +2537,8 @@ def iplookup_core():
 
             try:
                 response = s.post(
-                    f"http://ip-api.com/batch",
-                    params={"fields={FIELDS_TO_LOOKUP}",
+                    "http://ip-api.com/batch",
+                    params={"fields": FIELDS_TO_LOOKUP},
                     headers={"Content-Type": "application/json"},
                     json=ips_to_lookup,
                     timeout=3,
