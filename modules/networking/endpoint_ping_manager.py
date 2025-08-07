@@ -2,10 +2,9 @@
 
 It is used to determine whether each player's IP is responsive to pings.
 """
+import dataclasses
 import time
-from dataclasses import field
 from threading import Lock, Semaphore
-from typing import NamedTuple
 from urllib.parse import urlparse
 
 from pydantic.dataclasses import dataclass
@@ -44,7 +43,7 @@ class EndpointInfo:
     failures: int = 0
     total_time: float = 0.0
     cooldown_until: float = 0.0
-    failed_ips: dict[str, int] = field(default_factory=dict)
+    failed_ips: dict[str, int] = dataclasses.field(default_factory=dict)
 
     def update_success(self, duration: float, ip: str):
         self.calls += 1
@@ -76,7 +75,8 @@ class EndpointInfo:
         return self.average_time() + penalty
 
 
-class PingResult(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class PingResult:
     ping_times:          list[float]
     packets_transmitted: int   | None
     packets_received:    int   | None

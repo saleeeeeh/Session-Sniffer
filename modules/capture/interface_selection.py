@@ -3,8 +3,9 @@
 It displays a list of interfaces with relevant details and allows users to select an interface
 for further network sniffing operations.
 """
-from typing import Literal, NamedTuple
+from typing import Literal
 
+from pydantic.dataclasses import dataclass
 from PyQt6.QtCore import QItemSelectionModel, Qt
 from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
@@ -22,7 +23,8 @@ from PyQt6.QtWidgets import (
 from modules.utils import format_type_error
 
 
-class InterfaceSelectionData(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class InterfaceSelectionData:
     selection_index:   int
     name:              str
     description:       str | None

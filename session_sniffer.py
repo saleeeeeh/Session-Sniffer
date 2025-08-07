@@ -1,5 +1,6 @@
 # pylint: disable=missing-module-docstring,too-many-lines,invalid-name  # noqa: D100
 import ast
+import dataclasses
 import enum
 import hashlib
 import json
@@ -14,13 +15,12 @@ import time
 import webbrowser
 import winsound
 from collections.abc import Callable
-from dataclasses import field
 from datetime import datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
 from threading import Event, Lock, RLock, Thread
 from types import FrameType, TracebackType
-from typing import Any, ClassVar, Literal, NamedTuple
+from typing import Any, ClassVar, Literal
 
 import colorama
 import geoip2.database
@@ -164,7 +164,8 @@ logging.captureWarnings(capture=True)
 logger = logging.getLogger(__name__)
 
 
-class ExceptionInfo(NamedTuple):
+@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+class ExceptionInfo:
     exc_type: type[BaseException]
     exc_value: BaseException
     exc_traceback: TracebackType | None
@@ -767,9 +768,9 @@ class Interface:
     manufacturer: str  | None    = None
     packets_sent: int  | None    = None
     packets_recv: int  | None    = None
-    descriptions: list[str]      = field(default_factory=list)
-    ip_addresses: list[str]      = field(default_factory=list)
-    arp_entries:  list[ARPEntry] = field(default_factory=list)
+    descriptions: list[str]      = dataclasses.field(default_factory=list)
+    ip_addresses: list[str]      = dataclasses.field(default_factory=list)
+    arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)
 
     def add_arp_entry(self, arp_entry: ARPEntry):
         """Add an ARP entry for the given interface."""
@@ -1001,7 +1002,7 @@ class PlayerReverseDNS:
 class PlayerPPS:
     """Class to manage player packets per second (PPS) calculations."""
     is_first_calculation: bool = True
-    last_update_time: float = field(default_factory=time.monotonic)
+    last_update_time: float = dataclasses.field(default_factory=time.monotonic)
     counter: int = 0
     rate: int = 0
 
@@ -1024,7 +1025,7 @@ class PlayerPPS:
 class PlayerPPM:
     """Class to manage player packets per second (PPM) calculations."""
     is_first_calculation: bool = True
-    last_update_time: float = field(default_factory=time.monotonic)
+    last_update_time: float = dataclasses.field(default_factory=time.monotonic)
     counter: int = 0
     rate: int = 0
 
@@ -1119,7 +1120,7 @@ class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
     hosting:        Literal["N/A", "..."] | bool        = "..."
 
 
-@dataclass(kw_only=True, config={"arbitrary_types_allowed": True}, slots=True)
+@dataclass(config={"arbitrary_types_allowed": True}, kw_only=True, slots=True)
 class PlayerCountryFlag:
     pixmap: QPixmap
     icon: QIcon
@@ -1127,8 +1128,8 @@ class PlayerCountryFlag:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerIPLookup:
-    geolite2: PlayerGeoLite2 = field(default_factory=PlayerGeoLite2)
-    ipapi: PlayerIPAPI = field(default_factory=PlayerIPAPI)
+    geolite2: PlayerGeoLite2 = dataclasses.field(default_factory=PlayerGeoLite2)
+    ipapi: PlayerIPAPI = dataclasses.field(default_factory=PlayerIPAPI)
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1158,7 +1159,7 @@ class PlayerUserIPDetection:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerModMenus:
-    usernames: list[str] = field(default_factory=list)
+    usernames: list[str] = dataclasses.field(default_factory=list)
 
 
 class Player:  # pylint: disable=too-many-instance-attributes
@@ -1409,7 +1410,8 @@ class SessionHost:
         SessionHost.search_player = False
 
 
-class UserIPSettings(NamedTuple):
+@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+class UserIPSettings:
     """Class to represent settings with attributes for each setting key."""
     ENABLED: bool
     COLOR: QColor
@@ -1422,7 +1424,8 @@ class UserIPSettings(NamedTuple):
     PROTECTION_SUSPEND_PROCESS_MODE: int | float | Literal["Auto", "Manual"]
 
 
-class UserIP(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class UserIP:
     """Class representing information associated with a specific IP, including settings and usernames."""
     ip: str
     database_path: Path
@@ -2770,7 +2773,8 @@ def capture_core():
                 continue
 
 
-class CellColor(NamedTuple):
+@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+class CellColor:
     foreground: QColor
     background: QColor
 
