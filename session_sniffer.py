@@ -2773,7 +2773,7 @@ def capture_core():
                 continue
 
 
-@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, kw_only=True, slots=True)
 class CellColor:
     foreground: QColor
     background: QColor

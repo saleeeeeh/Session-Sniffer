@@ -75,7 +75,7 @@ class EndpointInfo:
         return self.average_time() + penalty
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class PingResult:
     ping_times:          list[float]
     packets_transmitted: int   | None
