@@ -3569,10 +3569,10 @@ def rendering_core():
                 row_texts.append(f"{player.total_packets}")
                 row_texts.append(f"{player.packets}")
                 if "PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPS"]]._replace(foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING["PPS"]], foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
                     row_texts.append(f"{player.pps.rate}")
                 if "PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = row_colors[CONNECTED_COLUMN_MAPPING["PPM"]]._replace(foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
+                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING["PPM"]], foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
                     row_texts.append(f"{player.ppm.rate}")
                 row_texts.append(f"{format_player_gui_ip(player.ip)}")
                 if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
