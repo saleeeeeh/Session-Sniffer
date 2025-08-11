@@ -3838,16 +3838,6 @@ def rendering_core():
             if ScriptControl.has_crashed():
                 return
 
-            # Wait for sorting fields to be initialized from the GUI
-            while (
-                GUIrenderingData.session_connected_sorted_column_name is None
-                or GUIrenderingData.session_disconnected_sorted_column_name is None
-                or GUIrenderingData.session_disconnected_sort_order is None
-                or GUIrenderingData.session_connected_sort_order is None
-            ):
-                gui_closed__event.wait(0.1)
-                continue
-
             if last_userip_parse_time is None or time.monotonic() - last_userip_parse_time >= 1.0:
                 last_userip_parse_time = update_userip_databases()
 
