@@ -1094,37 +1094,37 @@ class PlayerDateTime:
 class PlayerGeoLite2:
     is_initialized: bool = False
 
-    country:      Literal["N/A", "..."] | str = "..."  # noqa: PYI051
-    country_code: Literal["N/A", "..."] | str = "..."  # noqa: PYI051
-    city:         Literal["N/A", "..."] | str = "..."  # noqa: PYI051
-    asn:          Literal["N/A", "..."] | str = "..."  # noqa: PYI051
+    country:      Literal["...", "N/A"] | str = "..."  # noqa: PYI051
+    country_code: Literal["...", "N/A"] | str = "..."  # noqa: PYI051
+    city:         Literal["...", "N/A"] | str = "..."  # noqa: PYI051
+    asn:          Literal["...", "N/A"] | str = "..."  # noqa: PYI051
 
 
 @dataclass(kw_only=True, slots=True)
 class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
     is_initialized: bool = False
 
-    continent:      Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    continent_code: Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    country:        Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    country_code:   Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    region:         Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    region_code:    Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    city:           Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    district:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    zip_code:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    lat:            Literal["N/A", "..."] | float | int = "..."
-    lon:            Literal["N/A", "..."] | float | int = "..."
-    time_zone:      Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    offset:         Literal["N/A", "..."] | int         = "..."
-    currency:       Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    org:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    isp:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    asn:            Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    as_name:        Literal["N/A", "..."] | str         = "..."  # noqa: PYI051
-    mobile:         Literal["N/A", "..."] | bool        = "..."
-    proxy:          Literal["N/A", "..."] | bool        = "..."
-    hosting:        Literal["N/A", "..."] | bool        = "..."
+    continent:      Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    continent_code: Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    country:        Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    country_code:   Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    region:         Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    region_code:    Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    city:           Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    district:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    zip_code:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    lat:            Literal["...", "N/A"] | float | int = "..."
+    lon:            Literal["...", "N/A"] | float | int = "..."
+    time_zone:      Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    offset:         Literal["...", "N/A"] | int         = "..."
+    currency:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    org:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    isp:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    asn:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    as_name:        Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
+    mobile:         Literal["...", "N/A"] | bool        = "..."
+    proxy:          Literal["...", "N/A"] | bool        = "..."
+    hosting:        Literal["...", "N/A"] | bool        = "..."
 
 
 @dataclass(config={"arbitrary_types_allowed": True}, kw_only=True, slots=True)
