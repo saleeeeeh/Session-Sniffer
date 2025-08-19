@@ -119,6 +119,13 @@ from modules.guis.exceptions import (
     TableDataConsistencyError,
     UnsupportedSortColumnError,
 )
+from modules.guis.stylesheets import (
+    DISCORD_POPUP_EXIT_BUTTON_STYLESHEET,
+    DISCORD_POPUP_JOIN_BUTTON_STYLESHEET,
+    DISCORD_POPUP_MAIN_STYLESHEET,
+    SESSION_CONNECTED_HEADER_STYLESHEET,
+    SESSION_DISCONNECTED_HEADER_STYLESHEET,
+)
 from modules.guis.utils import get_screen_size
 from modules.launcher.package_checker import (
     check_packages_version,
@@ -5291,7 +5298,7 @@ class MainWindow(QMainWindow):
         # Custom header for the Session Connected table with matching background as first column
         self.session_connected_header = QLabel("Players connected in your session (0):")
         self.session_connected_header.setTextFormat(Qt.TextFormat.RichText)
-        self.session_connected_header.setStyleSheet("background-color: green; color: white; font-size: 16px; font-weight: bold; padding: 5px;")
+        self.session_connected_header.setStyleSheet(SESSION_CONNECTED_HEADER_STYLESHEET)
         self.session_connected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.session_connected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
 
@@ -5312,7 +5319,7 @@ class MainWindow(QMainWindow):
         # Custom header for the Session Disconnected table with matching background as first column
         self.session_disconnected_header = QLabel("Players who've left your session (0):")
         self.session_disconnected_header.setTextFormat(Qt.TextFormat.RichText)
-        self.session_disconnected_header.setStyleSheet("background-color: red; color: white; font-size: 16px; font-weight: bold; padding: 5px;")
+        self.session_disconnected_header.setStyleSheet(SESSION_DISCONNECTED_HEADER_STYLESHEET)
         self.session_disconnected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.session_disconnected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
 
@@ -5445,23 +5452,14 @@ class DiscordIntro(QDialog):
         self.setWindowOpacity(0)
 
         # Styling for the main container window
-        self.setStyleSheet("""
-            background-color: #222244;  /* Dark blueish background */
-            border-radius: 15px;        /* Rounded corners */
-            color: white;
-        """)
+        self.setStyleSheet(DISCORD_POPUP_MAIN_STYLESHEET)
 
         self.fade_out = QPropertyAnimation(self, b"windowOpacity")
 
         # Exit button in the top right corner
         self.exit_button = QPushButton("x", self)
         self.exit_button.setFixedSize(16, 16)  # Make the width and height equal
-        self.exit_button.setStyleSheet("""
-            font-size: 10px;
-            color: white;
-            background-color: #FF4C4C;  /* Light red background */
-            border-radius: 15px;        /* Make it circular */
-        """)
+        self.exit_button.setStyleSheet(DISCORD_POPUP_EXIT_BUTTON_STYLESHEET)
         self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.exit_button.clicked.connect(self.close_popup)
 
@@ -5486,14 +5484,7 @@ class DiscordIntro(QDialog):
 
         # Join button container
         self.join_button = QPushButton("🔥 Join Now - Session Sniffer Discord! 🔥", self)
-        self.join_button.setStyleSheet("""
-            font-size: 14px;
-            padding: 7px;
-            background-color: #5865F2;  /* Discord blue */
-            color: white;
-            border-radius: 10px;
-            border: none;
-        """)
+        self.join_button.setStyleSheet(DISCORD_POPUP_JOIN_BUTTON_STYLESHEET)
         self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.join_button.clicked.connect(self.open_discord)
 
