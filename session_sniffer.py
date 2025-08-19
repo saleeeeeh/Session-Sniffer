@@ -948,7 +948,7 @@ class AllInterfaces:
             new_interface (Interface): The interface object to add.
 
         Returns:
-            bool: True if the interface was added, False if it already exists.
+            bool: `True` if the interface was added, `False` if it already exists.
         """
         if new_interface.index not in cls.all_interfaces:
             cls.all_interfaces[new_interface.index] = new_interface
@@ -965,7 +965,7 @@ class AllInterfaces:
             index (int): The index of the interface to delete.
 
         Returns:
-            bool: True if the interface was deleted, False if no matching interface was found.
+            bool: `True` if the interface was deleted, `False` if no matching interface was found.
         """
         interface = cls.all_interfaces.pop(index, None)
         if interface:
