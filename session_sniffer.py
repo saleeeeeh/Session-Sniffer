@@ -2590,7 +2590,7 @@ def hostname_core():
         from modules.networking.reverse_dns import lookup as reverse_dns_lookup
 
         with ThreadPoolExecutor(max_workers=32) as executor:
-            futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
+            futures: dict[Future[str], str] = {}  # Maps futures to their corresponding IPs
             pending_ips: set[str] = set()   # Tracks IPs currently being processed
 
             while not gui_closed__event.is_set():
@@ -2615,9 +2615,7 @@ def hostname_core():
 
                     futures.pop(future)
 
-                    hostname: str = future.result()
-                    if not isinstance(hostname, str):
-                        raise TypeError(format_type_error(hostname, str))
+                    hostname = future.result()
 
                     player = PlayersRegistry.require_player_by_ip(ip)
                     player.reverse_dns.hostname = hostname
