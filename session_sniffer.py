@@ -2576,9 +2576,9 @@ def iplookup_core():
                     raise TypeError(format_type_error(player_ip, str))
 
                 player = PlayersRegistry.require_player_by_ip(player_ip)
-                player.iplookup.ipapi.is_initialized = True
                 for attr, (json_key, expected_types) in FIELD_MAPPINGS.items():
                     setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
+                player.iplookup.ipapi.is_initialized = True
 
             throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
 
@@ -2620,8 +2620,8 @@ def hostname_core():
                         raise TypeError(format_type_error(hostname, str))
 
                     player = PlayersRegistry.require_player_by_ip(ip)
-                    player.reverse_dns.is_initialized = True
                     player.reverse_dns.hostname = hostname
+                    player.reverse_dns.is_initialized = True
 
                 gui_closed__event.wait(0.1)
 
@@ -2675,9 +2675,7 @@ def pinger_core():
                         raise TypeError(format_type_error(ping_result, PingResult))
 
                     player = PlayersRegistry.require_player_by_ip(ip)
-                    player.ping.is_initialized = True
                     player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
-
                     player.ping.ping_times = ping_result.ping_times
                     player.ping.packets_transmitted = ping_result.packets_transmitted
                     player.ping.packets_received = ping_result.packets_received
@@ -2687,6 +2685,7 @@ def pinger_core():
                     player.ping.rtt_avg = ping_result.rtt_avg
                     player.ping.rtt_max = ping_result.rtt_max
                     player.ping.rtt_mdev = ping_result.rtt_mdev
+                    player.ping.is_initialized = True
 
                 gui_closed__event.wait(0.1)
 
@@ -3914,10 +3913,10 @@ def rendering_core():
                         )
 
                 if not player.iplookup.geolite2.is_initialized:
-                    player.iplookup.geolite2.is_initialized = True
                     player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
                     player.iplookup.geolite2.city = get_city_info(player.ip)
                     player.iplookup.geolite2.asn = get_asn_info(player.ip)
+                    player.iplookup.geolite2.is_initialized = True
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
                 if SessionHost.player and SessionHost.player.left_event.is_set():
