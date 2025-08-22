@@ -2467,7 +2467,8 @@ def process_userip_task(
                         "text": format_triple_quoted_text(f"""
                             #### UserIP detected at {player.userip_detection.time} ####
                             User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
-                            IP: {player.ip}
+                            IP Address: {player.ip}
+                            Hostname: {player.reverse_dns.hostname}
                             Port{pluralize(len(player.ports.all))}: {', '.join(map(str, reversed(player.ports.all)))}
                             Country Code: {player.iplookup.geolite2.country_code}
                             Detection Type: {player.userip_detection.type}
