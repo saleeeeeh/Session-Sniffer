@@ -5033,8 +5033,10 @@ class SessionTableView(QTableView):
     def show_context_menu(self, pos: QPoint):
         """Show the context menu at the specified position with options to interact with the table's content."""
         from modules.constants.standard import (
-            CUSTOM_CONTEXT_MENU_STYLESHEET,
             USERIP_DATABASES_PATH,
+        )
+        from modules.guis.stylesheets import (
+            CUSTOM_CONTEXT_MENU_STYLESHEET,
         )
 
         def add_action(
