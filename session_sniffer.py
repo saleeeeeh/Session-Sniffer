@@ -120,6 +120,7 @@ from modules.guis.exceptions import (
     UnsupportedSortColumnError,
 )
 from modules.guis.stylesheets import (
+    CUSTOM_CONTEXT_MENU_STYLESHEET,
     DISCORD_POPUP_EXIT_BUTTON_STYLESHEET,
     DISCORD_POPUP_JOIN_BUTTON_STYLESHEET,
     DISCORD_POPUP_MAIN_STYLESHEET,
@@ -5034,9 +5035,6 @@ class SessionTableView(QTableView):
         """Show the context menu at the specified position with options to interact with the table's content."""
         from modules.constants.standard import (
             USERIP_DATABASES_PATH,
-        )
-        from modules.guis.stylesheets import (
-            CUSTOM_CONTEXT_MENU_STYLESHEET,
         )
 
         def add_action(
