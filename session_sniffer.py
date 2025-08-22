@@ -392,6 +392,33 @@ class DefaultSettings:  # pylint: disable=too-many-instance-attributes,invalid-n
 
 
 class Settings(DefaultSettings):
+    ALL_SETTINGS: ClassVar = (
+        "CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT",
+        "CAPTURE_INTERFACE_NAME",
+        "CAPTURE_IP_ADDRESS",
+        "CAPTURE_MAC_ADDRESS",
+        "CAPTURE_ARP",
+        "CAPTURE_BLOCK_THIRD_PARTY_SERVERS",
+        "CAPTURE_PROGRAM_PRESET",
+        "CAPTURE_OVERFLOW_TIMER",
+        "CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER",
+        "CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER",
+        "GUI_SESSIONS_LOGGING",
+        "GUI_RESET_PORTS_ON_REJOINS",
+        "GUI_FIELDS_TO_HIDE",
+        "GUI_DATE_FIELDS_SHOW_DATE",
+        "GUI_DATE_FIELDS_SHOW_TIME",
+        "GUI_DATE_FIELDS_SHOW_ELAPSED",
+        "GUI_FIELD_SHOW_COUNTRY_CODE",
+        "GUI_FIELD_SHOW_CONTINENT_CODE",
+        "GUI_DISCONNECTED_PLAYERS_TIMER",
+        "DISCORD_PRESENCE",
+        "SHOW_DISCORD_POPUP",
+        "UPDATER_CHANNEL",
+    )
+
+    _ALL_SETTINGS_SET: ClassVar = frozenset(ALL_SETTINGS)
+
     GUI_FIELDS_MAPPING: ClassVar = {
         "Usernames": "usernames",
         "First Seen": "datetime.first_seen",
@@ -436,31 +463,22 @@ class Settings(DefaultSettings):
 
     @classmethod
     def iterate_over_settings(cls):
-        _allowed_settings_types = (type(None), tuple, str, bool, float, int)
-
-        for attr_name, attr_value in vars(DefaultSettings).items():
-            if (
-                attr_name.startswith("_")
-                or callable(attr_value)
-                or not attr_name.isupper()
-                or not isinstance(attr_value, _allowed_settings_types)
-            ):
-                continue
-
-            # Get the value from Settings if it exists, otherwise from DefaultSettings
-            current_value = getattr(cls, attr_name, attr_value)
-            yield attr_name, current_value
+        """Iterate over all settings and their current values."""
+        for setting_name in cls.ALL_SETTINGS:
+            yield setting_name, getattr(cls, setting_name)
 
     @classmethod
     def get_settings_length(cls):
-        return sum(1 for _ in cls.iterate_over_settings())
+        """Get the total number of settings."""
+        return len(cls.ALL_SETTINGS)
 
     @classmethod
     def has_setting(cls, setting_name: str):
-        return hasattr(cls, setting_name)
+        """Check if a setting exists."""
+        return setting_name in cls._ALL_SETTINGS_SET
 
-    @staticmethod
-    def reconstruct_settings():
+    @classmethod
+    def reconstruct_settings(cls):
         print('\nCorrect reconstruction of "Settings.ini" ...')
         text = format_triple_quoted_text(f"""
             ;;-----------------------------------------------------------------------------
@@ -472,7 +490,7 @@ class Settings(DefaultSettings):
             ;; https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#script-settings-configuration
             ;;-----------------------------------------------------------------------------
         """, add_trailing_newline=True)
-        for setting_name, setting_value in Settings.iterate_over_settings():
+        for setting_name, setting_value in cls.iterate_over_settings():
             text += f"{setting_name}={setting_value}\n"
         SETTINGS_PATH.write_text(text, encoding="utf-8")
 
@@ -528,8 +546,8 @@ class Settings(DefaultSettings):
 
         return ini_database, need_rewrite_ini
 
-    @staticmethod
-    def load_from_settings_file(settings_path: Path):
+    @classmethod
+    def load_from_settings_file(cls, settings_path: Path):
         from modules.utils import (
             check_case_insensitive_and_exact_match,
             custom_str_to_bool,
@@ -544,12 +562,12 @@ class Settings(DefaultSettings):
         matched_settings_count = 0
 
         try:
-            settings, need_rewrite_settings = Settings.parse_settings_ini_file(settings_path)
+            settings, need_rewrite_settings = cls.parse_settings_ini_file(settings_path)
         except FileNotFoundError:
             need_rewrite_settings = True
         else:
             for setting_name, setting_value in settings.items():
-                if not Settings.has_setting(setting_name):
+                if not cls.has_setting(setting_name):
                     need_rewrite_settings = True
                     continue
 
@@ -721,7 +739,7 @@ class Settings(DefaultSettings):
                 if need_rewrite_current_setting:
                     need_rewrite_settings = True
 
-            if matched_settings_count != Settings.get_settings_length():
+            if matched_settings_count != cls.get_settings_length():
                 need_rewrite_settings = True
 
         if (
@@ -754,7 +772,7 @@ class Settings(DefaultSettings):
                 setattr(Settings, setting_name, getattr(DefaultSettings, setting_name))
 
         if need_rewrite_settings:
-            Settings.reconstruct_settings()
+            cls.reconstruct_settings()
 
 
 @dataclass(slots=True, kw_only=True, eq=True)
