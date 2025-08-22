@@ -14,7 +14,7 @@ import tempfile
 import time
 import webbrowser
 import winsound
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
@@ -273,7 +273,7 @@ signal.signal(signal.SIGINT, handle_sigint)
 
 
 class ScriptControl:
-    _lock: ClassVar[Lock] = Lock()
+    _lock: ClassVar = Lock()
     _crashed: ClassVar[bool] = False
     _message: ClassVar[str | None] = None
 
@@ -392,7 +392,7 @@ class DefaultSettings:  # pylint: disable=too-many-instance-attributes,invalid-n
 
 
 class Settings(DefaultSettings):
-    gui_fields_mapping: ClassVar[dict[str, str]] = {
+    GUI_FIELDS_MAPPING: ClassVar = {
         "Usernames": "usernames",
         "First Seen": "datetime.first_seen",
         "Last Rejoin": "datetime.last_rejoin",
@@ -429,10 +429,10 @@ class Settings(DefaultSettings):
         "Hosting": "iplookup.ipapi.hosting",
         "Pinging": "ping.is_pinging",
     }
-    gui_forced_fields          : ClassVar[tuple[str, ...]] = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address")
-    gui_hideable_fields        : ClassVar[tuple[str, ...]] = (                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
-    gui_all_connected_fields   : ClassVar[tuple[str, ...]] = ("Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
-    gui_all_disconnected_fields: ClassVar[tuple[str, ...]] = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    GUI_FORCED_FIELDS          : ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address")
+    GUI_HIDEABLE_FIELDS        : ClassVar = (                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    GUI_ALL_CONNECTED_FIELDS   : ClassVar = ("Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    GUI_ALL_DISCONNECTED_FIELDS: ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
 
     @classmethod
     def iterate_over_settings(cls):
@@ -440,9 +440,8 @@ class Settings(DefaultSettings):
 
         for attr_name, attr_value in vars(DefaultSettings).items():
             if (
-                callable(attr_value)
-                or attr_name.startswith("_")
-                or attr_name in {"gui_fields_mapping", "gui_forced_fields", "gui_hideable_fields", "gui_all_connected_fields", "gui_all_disconnected_fields"}
+                attr_name.startswith("_")
+                or callable(attr_value)
                 or not attr_name.isupper()
                 or not isinstance(attr_value, _allowed_settings_types)
             ):
@@ -652,7 +651,7 @@ class Settings(DefaultSettings):
 
                             for value in gui_fields_to_hide:
                                 try:
-                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.gui_hideable_fields)
+                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.GUI_HIDEABLE_FIELDS)
                                     filtered_gui_fields_to_hide.append(normalized_match)
                                     if not case_sensitive_match:
                                         need_rewrite_current_setting = True
@@ -1244,10 +1243,10 @@ class PlayersRegistry:
 
     This class provides methods to add, retrieve, and iterate over players in the registry.
     """
-    _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar[str] = "datetime.last_rejoin"
-    _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar[str] = "datetime.last_seen"
+    _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar = "datetime.last_rejoin"
+    _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar = "datetime.last_seen"
 
-    _registry_lock: ClassVar[RLock] = RLock()
+    _registry_lock: ClassVar = RLock()
     _connected_players_registry   : ClassVar[dict[str, Player]] = {}
     _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
 
@@ -1441,7 +1440,7 @@ class UserIP:
 
 
 class UserIPDatabases:
-    _update_userip_database_lock: ClassVar[Lock] = Lock()
+    _update_userip_database_lock: ClassVar = Lock()
 
     userip_databases: ClassVar[list[tuple[Path, UserIPSettings, dict[str, list[str]]]]] = []
     ips_set: ClassVar[set[str]] = set()
@@ -2635,7 +2634,7 @@ def pinger_core():
         )
 
         with ThreadPoolExecutor(max_workers=32) as executor:
-            futures: dict[Future, str] = {}  # Maps futures to their corresponding IPs
+            futures: dict[Future[PingResult], str] = {}  # Maps futures to their corresponding IPs
             pending_ips: set[str] = set()   # Tracks IPs currently being processed
 
             while not gui_closed__event.is_set():
@@ -2662,15 +2661,9 @@ def pinger_core():
                     pending_ips.remove(ip)
 
                     try:
-                        ping_result: PingResult | None = future.result()
+                        ping_result: PingResult = future.result()
                     except AllEndpointsExhaustedError:
                         continue
-
-                    if ping_result is None:
-                        continue
-
-                    if not isinstance(ping_result, PingResult):
-                        raise TypeError(format_type_error(ping_result, PingResult))
 
                     player = PlayersRegistry.require_player_by_ip(ip)
                     player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
@@ -2787,7 +2780,7 @@ class ThreadSafeMeta(type):
     """Metaclass that ensures thread-safe access to class attributes."""
 
     # Define a lock for the metaclass itself to be shared across all instances of classes using this metaclass.
-    _rlock: ClassVar[RLock] = RLock()
+    _rlock: ClassVar = RLock()
 
     def __getattr__(cls, name: str):
         """Get an attribute from the class in a thread-safe manner."""
@@ -2825,7 +2818,7 @@ class AbstractGUIRenderingData:
 
 
 class GUIrenderingData(AbstractGUIRenderingData, metaclass=ThreadSafeMeta):
-    gui_rendering_ready_event: ClassVar[Event] = Event()
+    gui_rendering_ready_event: ClassVar = Event()
 
 
 def rendering_core():
@@ -2833,16 +2826,16 @@ def rendering_core():
         def compile_tables_header_field_names():
             gui_connected_players_table__field_names = [
                 field_name
-                for field_name in Settings.gui_all_connected_fields
+                for field_name in Settings.GUI_ALL_CONNECTED_FIELDS
                 if field_name not in GUIrenderingData.FIELDS_TO_HIDE
             ]
             gui_disconnected_players_table__field_names = [
                 field_name
-                for field_name in Settings.gui_all_disconnected_fields
+                for field_name in Settings.GUI_ALL_DISCONNECTED_FIELDS
                 if field_name not in GUIrenderingData.FIELDS_TO_HIDE
             ]
-            logging_connected_players_table__field_names = list(Settings.gui_all_connected_fields)
-            logging_disconnected_players_table__field_names = list(Settings.gui_all_disconnected_fields)
+            logging_connected_players_table__field_names = list(Settings.GUI_ALL_CONNECTED_FIELDS)
+            logging_disconnected_players_table__field_names = list(Settings.GUI_ALL_DISCONNECTED_FIELDS)
 
             return (
                 gui_connected_players_table__field_names,
@@ -3328,7 +3321,7 @@ def rendering_core():
                     return ", ".join(map(str, reversed(player.ports.middle)))
                 return ""
 
-            def add_sort_arrow_char_to_sorted_logging_table_field(field_names: list[str], sorted_field: str, sort_order: Qt.SortOrder):
+            def add_sort_arrow_char_to_sorted_logging_table_field(field_names: Sequence[str], sorted_field: str, sort_order: Qt.SortOrder):
                 arrow = " \u2193" if sort_order == Qt.SortOrder.DescendingOrder else " \u2191"  # Down arrow for descending, up arrow for ascending
                 return [
                     field + arrow if field == sorted_field else field

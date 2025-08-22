@@ -57,7 +57,7 @@ def _parse_log_file(log_path: Path):
 class ModMenuLogsParser:
     """Thread-safe parser to extract and track IP-to-username mappings from mod menu logs."""
 
-    _lock: ClassVar[Lock] = Lock()
+    _lock: ClassVar = Lock()
     _last_known_log_files_mod_times: ClassVar[dict[Path, float]] = {}
     _ip_to_usernames_map: ClassVar[defaultdict[str, list[str]]] = defaultdict(list)
 
