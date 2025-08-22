@@ -23,23 +23,23 @@
         "version": "1.3.7rc2+20250329.2119"
     },
     "latest_stable": {
-        "base_version": "1.3.8",
+        "base_version": "1.3.9",
         "epoch": 0,
         "is_devrelease": false,
-        "is_postrelease": true,
+        "is_postrelease": false,
         "is_prerelease": false,
-        "local": "20250718.1117",
+        "local": "20250822.832",
         "major": 1,
-        "micro": 8,
+        "micro": 9,
         "minor": 3,
-        "post": 2,
+        "post": null,
         "pre": null,
-        "public": "1.3.8.post2",
+        "public": "1.3.9",
         "release": [
             1,
             3,
-            8
+            9
         ],
-        "version": "1.3.8.post2+20250718.1117"
+        "version": "1.3.9+20250822.832"
     }
 }
