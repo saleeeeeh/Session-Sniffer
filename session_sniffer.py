@@ -1247,6 +1247,11 @@ class Player:  # pylint: disable=too-many-instance-attributes
 
         PlayersRegistry.move_player_to_disconnected(self)
 
+        # Clear IP from warning sets so detections will trigger again on rejoin
+        MobileWarnings.remove_notified_ip(self.ip)
+        VPNWarnings.remove_notified_ip(self.ip)
+        HostingWarnings.remove_notified_ip(self.ip)
+
         if self.userip_detection and self.userip_detection.as_processed_task:
             self.userip_detection.as_processed_task = False
             Thread(
@@ -1576,6 +1581,244 @@ class UserIPDatabases:
     def get_userip_database_filepaths(cls):
         with cls._update_userip_database_lock:
             return [database_path for database_path, _, _ in cls.userip_databases]
+
+
+# Detection warning tracking systems
+class MobileWarnings:
+    lock: ClassVar = Lock()
+    notified_mobile_ips: ClassVar[set[str]] = set()
+
+    @classmethod
+    def add_notified_ip(cls, ip: str):
+        """Add an IP to the notified mobile IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to add
+
+        Returns:
+            bool: `True` if the IP was newly added, `False` if it was already present
+        """
+        with cls.lock:
+            if ip in cls.notified_mobile_ips:
+                return False
+            cls.notified_mobile_ips.add(ip)
+            return True
+
+    @classmethod
+    def is_ip_notified(cls, ip: str):
+        """Check if an IP has already been notified for mobile detection.
+
+        Args:
+            ip: The IP address to check
+
+        Returns:
+            bool: `True` if the IP has been notified, `False` otherwise
+        """
+        with cls.lock:
+            return ip in cls.notified_mobile_ips
+
+    @classmethod
+    def remove_notified_ip(cls, ip: str):
+        """Remove an IP from the notified mobile IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to remove
+
+        Returns:
+            bool: `True` if the IP was removed, `False` if it wasn't present
+        """
+        with cls.lock:
+            if ip in cls.notified_mobile_ips:
+                cls.notified_mobile_ips.remove(ip)
+                return True
+            return False
+
+    @classmethod
+    def clear_all_notified_ips(cls):
+        """Clear all notified mobile IPs in a thread-safe manner."""
+        with cls.lock:
+            cls.notified_mobile_ips.clear()
+
+    @classmethod
+    def get_notified_ips_count(cls):
+        """Get the count of notified mobile IPs in a thread-safe manner.
+
+        Returns:
+            The number of notified mobile IPs
+        """
+        with cls.lock:
+            return len(cls.notified_mobile_ips)
+
+    @classmethod
+    def get_notified_ips_copy(cls):
+        """Get a copy of the notified mobile IPs set in a thread-safe manner.
+
+        Returns:
+            A copy of the notified mobile IPs set
+        """
+        with cls.lock:
+            return cls.notified_mobile_ips.copy()
+
+
+class VPNWarnings:
+    lock: ClassVar = Lock()
+    notified_vpn_ips: ClassVar[set[str]] = set()
+
+    @classmethod
+    def add_notified_ip(cls, ip: str):
+        """Add an IP to the notified VPN IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to add
+
+        Returns:
+            bool: `True` if the IP was newly added, `False` if it was already present
+        """
+        with cls.lock:
+            if ip in cls.notified_vpn_ips:
+                return False
+            cls.notified_vpn_ips.add(ip)
+            return True
+
+    @classmethod
+    def is_ip_notified(cls, ip: str):
+        """Check if an IP has already been notified for VPN detection.
+
+        Args:
+            ip: The IP address to check
+
+        Returns:
+            bool: `True` if the IP has been notified, `False` otherwise
+        """
+        with cls.lock:
+            return ip in cls.notified_vpn_ips
+
+    @classmethod
+    def remove_notified_ip(cls, ip: str):
+        """Remove an IP from the notified VPN IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to remove
+
+        Returns:
+            bool: `True` if the IP was removed, `False` if it wasn't present
+        """
+        with cls.lock:
+            if ip in cls.notified_vpn_ips:
+                cls.notified_vpn_ips.remove(ip)
+                return True
+            return False
+
+    @classmethod
+    def clear_all_notified_ips(cls):
+        """Clear all notified VPN IPs in a thread-safe manner."""
+        with cls.lock:
+            cls.notified_vpn_ips.clear()
+
+    @classmethod
+    def get_notified_ips_count(cls):
+        """Get the count of notified VPN IPs in a thread-safe manner.
+
+        Returns:
+            The number of notified VPN IPs
+        """
+        with cls.lock:
+            return len(cls.notified_vpn_ips)
+
+    @classmethod
+    def get_notified_ips_copy(cls):
+        """Get a copy of the notified VPN IPs set in a thread-safe manner.
+
+        Returns:
+            A copy of the notified VPN IPs set
+        """
+        with cls.lock:
+            return cls.notified_vpn_ips.copy()
+
+
+class HostingWarnings:
+    lock: ClassVar = Lock()
+    notified_hosting_ips: ClassVar[set[str]] = set()
+
+    @classmethod
+    def add_notified_ip(cls, ip: str):
+        """Add an IP to the notified hosting IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to add
+
+        Returns:
+            bool: `True` if the IP was newly added, `False` if it was already present
+        """
+        with cls.lock:
+            if ip in cls.notified_hosting_ips:
+                return False
+            cls.notified_hosting_ips.add(ip)
+            return True
+
+    @classmethod
+    def is_ip_notified(cls, ip: str):
+        """Check if an IP has already been notified for hosting detection.
+
+        Args:
+            ip: The IP address to check
+
+        Returns:
+            bool: `True` if the IP has been notified, `False` otherwise
+        """
+        with cls.lock:
+            return ip in cls.notified_hosting_ips
+
+    @classmethod
+    def remove_notified_ip(cls, ip: str):
+        """Remove an IP from the notified hosting IPs set in a thread-safe manner.
+
+        Args:
+            ip: The IP address to remove
+
+        Returns:
+            bool: `True` if the IP was removed, `False` if it wasn't present
+        """
+        with cls.lock:
+            if ip in cls.notified_hosting_ips:
+                cls.notified_hosting_ips.remove(ip)
+                return True
+            return False
+
+    @classmethod
+    def clear_all_notified_ips(cls):
+        """Clear all notified hosting IPs in a thread-safe manner."""
+        with cls.lock:
+            cls.notified_hosting_ips.clear()
+
+    @classmethod
+    def get_notified_ips_count(cls):
+        """Get the count of notified hosting IPs in a thread-safe manner.
+
+        Returns:
+            The number of notified hosting IPs
+        """
+        with cls.lock:
+            return len(cls.notified_hosting_ips)
+
+    @classmethod
+    def get_notified_ips_copy(cls):
+        """Get a copy of the notified hosting IPs set in a thread-safe manner.
+
+        Returns:
+            A copy of the notified hosting IPs set
+        """
+        with cls.lock:
+            return cls.notified_hosting_ips.copy()
+
+
+class GUIDetectionSettings:
+    """Runtime GUI detection settings that persist during application execution but are not saved to settings file."""
+    mobile_detection_enabled: ClassVar[bool] = False
+    vpn_detection_enabled: ClassVar[bool] = False
+    hosting_detection_enabled: ClassVar[bool] = False
+    player_join_notifications_enabled: ClassVar[bool] = False
+    player_leave_notifications_enabled: ClassVar[bool] = False
 
 
 def check_for_updates():
@@ -2341,6 +2584,159 @@ gui_closed__event = Event()
 _userip_logging_file_write_lock = Lock()
 
 
+def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal["userip.usernames", "reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"], ...], timeout: float):
+    """Wait for specific player data fields to be ready for display.
+
+    Args:
+        player: The player object to wait for
+        data_fields: Tuple of data field paths to wait for
+        timeout: Maximum time to wait for data to be ready
+
+    Returns:
+        bool: `True` if all specified data is ready, `False` if timeout occurred
+    """
+    def check_userip_usernames(player: Player):
+        """Check if player has usernames in userip data."""
+        return isinstance(player.userip, UserIP) and len(player.userip.usernames) > 0
+
+    def check_reverse_dns_hostname(player: Player):
+        """Check if player reverse DNS is initialized."""
+        return player.reverse_dns.is_initialized
+
+    def check_iplookup_geolite2(player: Player):
+        """Check if player GeoLite2 data is initialized."""
+        return player.iplookup.geolite2.is_initialized
+
+    def check_iplookup_ipapi(player: Player):
+        """Check if player IP API data is initialized."""
+        return player.iplookup.ipapi.is_initialized
+
+    field_checkers = {
+        "userip.usernames": check_userip_usernames,
+        "reverse_dns.hostname": check_reverse_dns_hostname,
+        "iplookup.geolite2": check_iplookup_geolite2,
+        "iplookup.ipapi": check_iplookup_ipapi,
+    }
+
+    while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=timeout):
+        if all(field_checkers[field](player) for field in data_fields if field in field_checkers):
+            return True
+
+        gui_closed__event.wait(0.1)
+
+    return False
+
+
+def show_detection_warning_popup(
+    player: Player,
+    notification_type: Literal["mobile", "vpn", "hosting", "player_joined", "player_left"],
+):
+    """Show a notification popup for detections or player connection events.
+
+    Args:
+        player: The player object with detection data
+        notification_type: Type of notification - `mobile`, `vpn`, `hosting`, `player_joined`, or `player_left`
+    """
+    def show_popup_thread():
+        """Thread function to show popup after ensuring data is ready."""
+        notification_configs: dict[Literal["mobile", "vpn", "hosting", "player_joined", "player_left"], dict[Literal["emoji", "title", "description", "icon", "thread_name"], str | MsgBox.Style]] = {
+            "mobile": {
+                "emoji": "📱",
+                "title": "MOBILE CONNECTION DETECTED!",
+                "description": "A player using a mobile (cellular) connection has been detected in your session!",
+                "icon": MsgBox.Style.MB_ICONINFORMATION,
+                "thread_name": "MobileWarning",
+            },
+            "vpn": {
+                "emoji": "🚨",
+                "title": "VPN CONNECTION DETECTED!",
+                "description": "A player using a VPN/Proxy/Tor connection has been detected in your session!",
+                "icon": MsgBox.Style.MB_ICONEXCLAMATION,
+                "thread_name": "VPNWarning",
+            },
+            "hosting": {
+                "emoji": "🏢",
+                "title": "HOSTING CONNECTION DETECTED!",
+                "description": "A player connecting from a hosting provider or data center has been detected in your session!",
+                "icon": MsgBox.Style.MB_ICONWARNING,
+                "thread_name": "HostingWarning",
+            },
+            "player_joined": {
+                "emoji": "🟢",
+                "title": "PLAYER JOINED SESSION!",
+                "description": "A new player has joined your session!",
+                "icon": MsgBox.Style.MB_ICONINFORMATION,
+                "thread_name": "PlayerJoined",
+            },
+            "player_left": {
+                "emoji": "🔴",
+                "title": "PLAYER LEFT SESSION!",
+                "description": "A player has left your session!",
+                "icon": MsgBox.Style.MB_ICONINFORMATION,
+                "thread_name": "PlayerLeft",
+            },
+        }
+
+        config = notification_configs[notification_type]
+        data_ready = wait_for_player_data_ready(player, data_fields=("reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"), timeout=3.0)
+        time_label = "Detection Time" if notification_type in {"mobile", "vpn", "hosting"} else "Event Time"
+        data_status_line = "" if data_ready else "⚠️ Some data may still be loading and missing from this notification\n\n"
+
+        MsgBox.show(
+            title=f"{TITLE} - {config['title']}",
+            text=format_triple_quoted_text(f"""
+                {config['emoji']} {config['title']} {config['emoji']}
+
+                {config['description']}
+
+                {data_status_line}############ PLAYER DETAILS ############
+                Username{pluralize(len(player.usernames))}: {', '.join(player.usernames) or ""}
+                {time_label}: {datetime.now(tz=LOCAL_TZ).strftime("%H:%M.%S")}
+
+                ############ CONNECTION DETAILS ############
+                IP Address: {player.ip}
+                Hostname: {player.reverse_dns.hostname}
+                Last Port: {player.ports.last}
+                Middle Ports: {", ".join(map(str, reversed(player.ports.middle)))}
+                First Port: {player.ports.first}
+                Total Packets Exchanged: {player.total_packets}
+                Current Session Packets: {player.packets}
+                Rejoins: {player.rejoins}
+
+                ############ LOCATION DETAILS ############
+                Continent: {player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})
+                Country: {player.iplookup.ipapi.country} ({player.iplookup.ipapi.country_code})
+                Region: {player.iplookup.ipapi.region} ({player.iplookup.ipapi.region_code})
+
+                ############ NETWORK DETAILS ############
+                ISP: {player.iplookup.ipapi.isp}
+                Organization: {player.iplookup.ipapi.org}
+                ASN: {player.iplookup.ipapi.asn} ({player.iplookup.ipapi.as_name})
+
+                ############ DETECTION FLAGS ############
+                Mobile (cellular) connection: {player.iplookup.ipapi.mobile}
+                Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
+                Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
+            """),
+            style=MsgBox.Style.MB_OK | MsgBox.Style(config["icon"]) | MsgBox.Style.MB_SYSTEMMODAL,
+        )
+
+    # Get thread name for the notification type
+    notification_configs_for_thread_name = {
+        "mobile": "MobileWarning",
+        "vpn": "VPNWarning",
+        "hosting": "HostingWarning",
+        "player_joined": "PlayerJoined",
+        "player_left": "PlayerLeft",
+    }
+
+    Thread(
+        target=show_popup_thread,
+        name=f"{notification_configs_for_thread_name[notification_type]}-{player.ip}",
+        daemon=True,
+    ).start()
+
+
 def process_userip_task(
     player: Player,
     connection_type: Literal["connected", "disconnected"],
@@ -2431,14 +2827,9 @@ def process_userip_task(
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
         if connection_type == "connected":
-            while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
-                if player.userip.usernames and player.iplookup.geolite2.is_initialized:
-                    break
-                gui_closed__event.wait(0.1)
-            else:
-                return
-
             from modules.constants.standard import USERIP_DATABASES_PATH
+
+            wait_for_player_data_ready(player, data_fields=("userip.usernames", "iplookup.geolite2"), timeout=10.0)
 
             relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")
 
@@ -2452,12 +2843,7 @@ def process_userip_task(
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
-                while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=10):
-                    if player.iplookup.ipapi.is_initialized:
-                        break
-                    gui_closed__event.wait(0.1)
-                else:
-                    return
+                wait_for_player_data_ready(player, data_fields=("userip.usernames", "reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"), timeout=10.0)
 
                 Thread(
                     target=MsgBox.show,
@@ -2751,12 +3137,19 @@ def capture_core():
                         packet_datetime=packet.datetime,
                     ),
                 )
+
+                if GUIDetectionSettings.player_join_notifications_enabled:
+                    show_detection_warning_popup(player, "player_joined")
+
             elif player.left_event.is_set():
                 player.mark_as_rejoined(
                     port=target_port,
                     packet_datetime=packet.datetime,
                 )
                 PlayersRegistry.move_player_to_connected(player)
+
+                if GUIDetectionSettings.player_join_notifications_enabled:
+                    show_detection_warning_popup(player, "player_joined")
             else:
                 player.mark_as_seen(
                     port=target_port,
@@ -3870,6 +4263,10 @@ def rendering_core():
                     player.mark_as_left()
                     session_connected.remove(player)
                     session_disconnected.append(player)
+
+                    if GUIDetectionSettings.player_leave_notifications_enabled:
+                        show_detection_warning_popup(player, "player_left")
+
                     continue
 
                 # Calculate PPS every second
@@ -3927,6 +4324,31 @@ def rendering_core():
                     player.iplookup.geolite2.city = get_city_info(player.ip)
                     player.iplookup.geolite2.asn = get_asn_info(player.ip)
                     player.iplookup.geolite2.is_initialized = True
+
+                if player in session_connected:
+                    if (
+                        player.iplookup.ipapi.mobile is True
+                        and GUIDetectionSettings.mobile_detection_enabled
+                        and not MobileWarnings.is_ip_notified(player.ip)
+                        and MobileWarnings.add_notified_ip(player.ip)
+                    ):
+                        show_detection_warning_popup(player, "mobile")
+
+                    if (
+                        player.iplookup.ipapi.proxy is True
+                        and GUIDetectionSettings.vpn_detection_enabled
+                        and not VPNWarnings.is_ip_notified(player.ip)
+                        and VPNWarnings.add_notified_ip(player.ip)
+                    ):
+                        show_detection_warning_popup(player, "vpn")
+
+                    if (
+                        player.iplookup.ipapi.hosting is True
+                        and GUIDetectionSettings.hosting_detection_enabled
+                        and not HostingWarnings.is_ip_notified(player.ip)
+                        and HostingWarnings.add_notified_ip(player.ip)
+                    ):
+                        show_detection_warning_popup(player, "hosting")
 
             if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
                 if SessionHost.player and SessionHost.player.left_event.is_set():
@@ -5251,6 +5673,28 @@ class GUIWorkerThread(QThread):
             )
 
 
+class PersistentMenu(QMenu):
+    """Custom QMenu that doesn't close when checkable actions are triggered."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+
+    def mouseReleaseEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
+        """Override mouse release event to prevent auto-closing on checkable actions."""
+        if event is None:
+            super().mouseReleaseEvent(event)
+            return
+
+        action = self.actionAt(event.pos())
+        if action and action.isCheckable():
+            # Trigger the action but don't close the menu
+            action.trigger()
+            event.accept()
+            return
+        # For non-checkable actions, use default behavior (close menu)
+        super().mouseReleaseEvent(event)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, screen_width: int, screen_height: int):
         super().__init__()
@@ -5296,6 +5740,54 @@ class MainWindow(QMainWindow):
         discord_action = QAction("Discord Server", self)
         discord_action.triggered.connect(self.join_discord)
         toolbar.addAction(discord_action)
+
+        toolbar.addSeparator()
+
+        # ----- Detection Menu -----
+        detection_menu_button = QPushButton(" Detection Settings ", self)
+        detection_menu_button.setToolTip("Be notified when new connected players join based on specific detection flags or general connection events.\n\nNOTE: Detection notifications are shown only once per IP address during the IP lookup process.\nPlayer join/leave notifications are shown for each connection event.")
+
+        detection_menu = PersistentMenu(self)
+
+        # Mobile Detection action
+        self.mobile_detection_action = QAction("Mobile (cellular) connection", self)
+        self.mobile_detection_action.setCheckable(True)
+        self.mobile_detection_action.setChecked(GUIDetectionSettings.mobile_detection_enabled)
+        self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)
+        detection_menu.addAction(self.mobile_detection_action)
+
+        # VPN Detection action
+        self.vpn_detection_action = QAction("Proxy, VPN or Tor exit address", self)
+        self.vpn_detection_action.setCheckable(True)
+        self.vpn_detection_action.setChecked(GUIDetectionSettings.vpn_detection_enabled)
+        self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)
+        detection_menu.addAction(self.vpn_detection_action)
+
+        # Hosting Detection action
+        self.hosting_detection_action = QAction("Hosting, colocated or data center", self)
+        self.hosting_detection_action.setCheckable(True)
+        self.hosting_detection_action.setChecked(GUIDetectionSettings.hosting_detection_enabled)
+        self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)
+        detection_menu.addAction(self.hosting_detection_action)
+
+        detection_menu.addSeparator()
+
+        # Player Join Notification action
+        self.player_join_notification_action = QAction("Player join notifications", self)
+        self.player_join_notification_action.setCheckable(True)
+        self.player_join_notification_action.setChecked(GUIDetectionSettings.player_join_notifications_enabled)
+        self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)
+        detection_menu.addAction(self.player_join_notification_action)
+
+        # Player Leave Notification action
+        self.player_leave_notification_action = QAction("Player leave notifications", self)
+        self.player_leave_notification_action.setCheckable(True)
+        self.player_leave_notification_action.setChecked(GUIDetectionSettings.player_leave_notifications_enabled)
+        self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)
+        detection_menu.addAction(self.player_leave_notification_action)
+
+        detection_menu_button.setMenu(detection_menu)
+        toolbar.addWidget(detection_menu_button)
 
         # Header text
         self.header_text = QLabel()
@@ -5434,6 +5926,38 @@ class MainWindow(QMainWindow):
         from modules.constants.standalone import DISCORD_INVITE_URL
 
         webbrowser.open(DISCORD_INVITE_URL)
+
+    def toggle_mobile_detection(self):
+        """Toggle Mobile detection on/off and save the setting."""
+        GUIDetectionSettings.mobile_detection_enabled = self.mobile_detection_action.isChecked()
+
+        # Clear the Mobile notifications set when disabling to allow re-detection
+        if not GUIDetectionSettings.mobile_detection_enabled:
+            MobileWarnings.clear_all_notified_ips()
+
+    def toggle_vpn_detection(self):
+        """Toggle VPN detection on/off and save the setting."""
+        GUIDetectionSettings.vpn_detection_enabled = self.vpn_detection_action.isChecked()
+
+        # Clear the VPN notifications set when disabling to allow re-detection
+        if not GUIDetectionSettings.vpn_detection_enabled:
+            VPNWarnings.clear_all_notified_ips()
+
+    def toggle_hosting_detection(self):
+        """Toggle Hosting detection on/off and save the setting."""
+        GUIDetectionSettings.hosting_detection_enabled = self.hosting_detection_action.isChecked()
+
+        # Clear the Hosting notifications set when disabling to allow re-detection
+        if not GUIDetectionSettings.hosting_detection_enabled:
+            HostingWarnings.clear_all_notified_ips()
+
+    def toggle_player_join_notifications(self):
+        """Toggle player join notifications on/off."""
+        GUIDetectionSettings.player_join_notifications_enabled = self.player_join_notification_action.isChecked()
+
+    def toggle_player_leave_notifications(self):
+        """Toggle player leave notifications on/off."""
+        GUIDetectionSettings.player_leave_notifications_enabled = self.player_leave_notification_action.isChecked()
 
 
 class ClickableLabel(QLabel):
