@@ -4510,17 +4510,6 @@ class SessionTableModel(QAbstractTableModel):
                 return GUI_COLUMN_HEADERS_TOOLTIPS.get(header_name, None)
 
         return None
-
-    def setData(self, index: QModelIndex, value: str, role: int = Qt.ItemDataRole.EditRole):  # noqa: N802
-        if not index.isValid():
-            return False
-
-        if role == Qt.ItemDataRole.EditRole:
-            self._data[index.row()][index.column()] = value  # Set the data at the specified index
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])  # Notify the view of data change
-            return True
-
-        return False
     # pylint enable=invalid-name
 
     def flags(self, index: QModelIndex):
