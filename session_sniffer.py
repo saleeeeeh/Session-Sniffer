@@ -5892,13 +5892,25 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(self.connected_expand_button)
         self.main_layout.addWidget(self.disconnected_expand_button)
 
-        # Raise and activate window to ensure it gets focus
-        self.raise_()
-        self.activateWindow()
-
         # Initialize tracking variables for text updates optimization
         self._last_connected_count = -1
         self._last_disconnected_count = -1
+
+        # Initialize tracking variables for selection counts
+        self._connected_selected_count = 0
+        self._disconnected_selected_count = 0
+
+        # Connect to selection change signals to track selected cells
+        self.connected_table_view.selectionModel().selectionChanged.connect(
+            lambda: self._update_selection_count(self.connected_table_view, "connected"),
+        )
+        self.disconnected_table_view.selectionModel().selectionChanged.connect(
+            lambda: self._update_selection_count(self.disconnected_table_view, "disconnected"),
+        )
+
+        # Raise and activate window to ensure it gets focus
+        self.raise_()
+        self.activateWindow()
 
         # Create the worker thread for table updates
         self.worker_thread = GUIWorkerThread(
@@ -5919,6 +5931,46 @@ class MainWindow(QMainWindow):
         terminate_script("EXIT")
 
     # Custom Methods:
+
+    def _update_connected_header_with_selection(self):
+        """Update the connected table header to include selection information."""
+        base_text = f"Players connected in your session ({self._last_connected_count}):"
+        if self._connected_selected_count > 0:
+            player_text = "player" if self._connected_selected_count == 1 else "players"
+            combined_text = f"{base_text} ({self._connected_selected_count} {player_text} selected)"
+        else:
+            combined_text = base_text
+
+        if self.session_connected_header.text() != combined_text:
+            self.session_connected_header.setText(combined_text)
+
+    def _update_disconnected_header_with_selection(self):
+        """Update the disconnected table header to include selection information."""
+        base_text = f"Players who've left your session ({self._last_disconnected_count}):"
+        if self._disconnected_selected_count > 0:
+            player_text = "player" if self._disconnected_selected_count == 1 else "players"
+            combined_text = f"{base_text} ({self._disconnected_selected_count} {player_text} selected)"
+        else:
+            combined_text = base_text
+
+        if self.session_disconnected_header.text() != combined_text:
+            self.session_disconnected_header.setText(combined_text)
+
+    def _update_selection_count(self, table_view: SessionTableView, table_type: str):
+        """Update the selection count for the specified table and refresh table headers."""
+        selection_model = table_view.selectionModel()
+        selected_indexes = selection_model.selectedIndexes()
+
+        # Count unique rows (players) instead of individual cells
+        unique_rows = {index.row() for index in selected_indexes}
+        selected_count = len(unique_rows)
+
+        if table_type == "connected":
+            self._connected_selected_count = selected_count
+            self._update_connected_header_with_selection()
+        elif table_type == "disconnected":
+            self._disconnected_selected_count = selected_count
+            self._update_disconnected_header_with_selection()
 
     def _update_separator_visibility(self):
         """Update the separator visibility based on whether both tables are visible."""
@@ -5975,14 +6027,17 @@ class MainWindow(QMainWindow):
         disconnected_num: int,
     ):
         """Update header text and table data for connected and disconnected players."""
-        self.header_text.setText(header_text)
+        # Update the main header text only if it has changed
+        if self.header_text.text() != header_text:
+            self.header_text.setText(header_text)
 
+        # Check if counts changed to optimize text updates
         connected_count_changed = self._last_connected_count != connected_num
         disconnected_count_changed = self._last_disconnected_count != disconnected_num
 
         if connected_count_changed:
-            self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
             self._last_connected_count = connected_num
+            self._update_connected_header_with_selection()
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
@@ -6008,8 +6063,8 @@ class MainWindow(QMainWindow):
             self.connected_expand_button.setText(f"▲  Show Connected Players ({connected_num})")
 
         if disconnected_count_changed:
-            self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
             self._last_disconnected_count = disconnected_num
+            self._update_disconnected_header_with_selection()
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
