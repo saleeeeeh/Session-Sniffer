@@ -4536,6 +4536,7 @@ class SessionTableModel(QAbstractTableModel):
         self.layoutAboutToBeChanged.emit()
 
         sorted_column_name = self._headers[column]
+
         # Combine data and colors for sorting
         combined = list(zip(self._data, self._compiled_colors, strict=True))
         if not combined:
