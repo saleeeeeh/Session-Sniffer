@@ -4415,17 +4415,59 @@ capture_core__thread.start()
 
 
 class SessionTableModel(QAbstractTableModel):
+    TABLE_CELL_TOOLTIP_MARGIN = 8  # Margin in pixels for determining when to show tooltips for truncated text
+
     def __init__(self, headers: list[str]):
         super().__init__()
-        self._headers = headers  # The column headers
-        self._data: list[list[str]] = []  # The data to be displayed in the table
 
-        # Custom Variables
         self._view: SessionTableView | None = None  # Initially, no view is attached
+        self._data: list[list[str]] = []  # The data to be displayed in the table
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
-        self.IP_COLUMN_INDEX = self._headers.index("IP Address")  # pylint: disable=invalid-name
-        self.USERNAME_COLUMN_INDEX = self._headers.index("Usernames")  # pylint: disable=invalid-name
-        self.TABLE_CELL_TOOLTIP_MARGIN = 8  # Margin in pixels for determining when to show tooltips for truncated text
+        self._headers = headers  # The column headers
+        self._ip_column_index = self._headers.index("IP Address")
+        self._username_column_index = self._headers.index("Usernames")
+
+    # --------------------------------------------------------------------------
+    # Public properties
+    # --------------------------------------------------------------------------
+
+    @property
+    def view(self) -> "SessionTableView":
+        """Get or attach a `SessionTableView` to this model."""
+        if self._view is None:
+            raise TypeError(format_type_error(self._view, SessionTableView))
+        return self._view
+
+    @view.setter
+    def view(self, new_view: "SessionTableView"):
+        """Attach a `SessionTableView` to this model."""
+        self._view = new_view
+
+    # --------------------------------------------------------------------------
+    # Public read-only properties
+    # --------------------------------------------------------------------------
+
+    @property
+    def ip_column_index(self):
+        """Returns the index of the 'IP Address' column in this table model.
+
+        This value is computed during initialization based on the headers provided.<br>
+        It is read-only and specific to this instance.
+        """
+        return self._ip_column_index
+
+    @property
+    def username_column_index(self):
+        """Returns the index of the 'Usernames' column in this table model.
+
+        This value is computed during initialization based on the headers provided.<br>
+        It is read-only and specific to this instance.
+        """
+        return self._username_column_index
+
+    # --------------------------------------------------------------------------
+    # Qt model methods (overrides)
+    # --------------------------------------------------------------------------
 
     # pylint: disable=invalid-name
     def rowCount(self, parent: QModelIndex | None = None):  # noqa: N802
@@ -4453,7 +4495,7 @@ class SessionTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index_by_name("Country") == col_idx:
-                ip = self._data[row_idx][self.IP_COLUMN_INDEX]
+                ip = self._data[row_idx][self.ip_column_index]
                 if not isinstance(ip, str):
                     raise TypeError(format_type_error(ip, str))
                 ip = ip.removesuffix(" 👑")
@@ -4478,7 +4520,7 @@ class SessionTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.ToolTipRole:
             # Return the tooltip text for the cell
-            view = self.get_view()
+            view = self.view
             horizontal_header = view.horizontalHeader()
             resize_mode = horizontal_header.sectionResizeMode(index.column())
 
@@ -4568,7 +4610,7 @@ class SessionTableModel(QAbstractTableModel):
                 return getattr(player.datetime, datetime_attribute)
 
             combined.sort(
-                key=lambda row: extract_datetime_for_ip(row[0][self.IP_COLUMN_INDEX].removesuffix(" 👑")),
+                key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(" 👑")),
                 reverse=not sort_order_bool,
             )
         elif sorted_column_name == "IP Address":
@@ -4618,15 +4660,10 @@ class SessionTableModel(QAbstractTableModel):
         self.layoutChanged.emit()
     # pylint: enable=invalid-name
 
-    # Custom Methods:
+    # --------------------------------------------------------------------------
+    # Custom / internal management methods
+    # --------------------------------------------------------------------------
 
-    def set_view(self, view: "SessionTableView"):
-        self._view = view
-
-    def get_view(self):
-        if self._view is None:
-            raise TypeError(format_type_error(self._view, SessionTableView))
-        return self._view
 
     def get_column_index_by_name(self, column_name: str, /):
         """Get the table index of a specified column.
@@ -4649,7 +4686,7 @@ class SessionTableModel(QAbstractTableModel):
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if row_data[self.IP_COLUMN_INDEX].removesuffix(" 👑") == ip:
+            if row_data[self.ip_column_index].removesuffix(" 👑") == ip:
                 return row_index
         return None
 
@@ -4659,7 +4696,7 @@ class SessionTableModel(QAbstractTableModel):
         Ensures sorting reflects the current state of the header.
         """
         # Retrieve the current sort column and order
-        horizontal_header = self.get_view().horizontalHeader()
+        horizontal_header = self.view.horizontalHeader()
         sort_column = horizontal_header.sortIndicatorSection()
         sort_order = horizontal_header.sortIndicatorOrder()
 
@@ -4761,11 +4798,12 @@ class SessionTableModel(QAbstractTableModel):
 class SessionTableView(QTableView):
     def __init__(self, model: SessionTableModel, sort_column: int, sort_order: Qt.SortOrder):
         super().__init__()
-        self.setModel(model)
+
         self._drag_selecting: bool = False  # Track if the mouse is being dragged with Ctrl key
         self._previous_cell: QModelIndex | None = None  # Track the previously selected cell
         self._previous_sort_section_index: int | None = None
 
+        self.setModel(model)
         self.setMouseTracking(True)  # Track mouse without clicks
         viewport = self.viewport()
         viewport.installEventFilter(self)  # Install event filter
@@ -4840,7 +4878,7 @@ class SessionTableView(QTableView):
                 model = self.model()
 
                 if model.get_column_index_by_name("Country") == index.column():
-                    ip = model.data(model.index(index.row(), model.IP_COLUMN_INDEX))
+                    ip = model.data(model.index(index.row(), model.ip_column_index))
                     if ip is not None:
                         if not isinstance(ip, str):
                             raise TypeError(format_type_error(ip, str))
@@ -4937,7 +4975,9 @@ class SessionTableView(QTableView):
         super().mouseReleaseEvent(e)
     # pylint: enable=invalid-name
 
-    # Custom Methods:
+    # --------------------------------------------------------------------------
+    # Custom / internal management methods
+    # --------------------------------------------------------------------------
 
     def setup_static_column_resizing(self):
         """Set up static column resizing for the table."""
@@ -4961,16 +5001,16 @@ class SessionTableView(QTableView):
 
         found_username = False
         for row in range(model.rowCount()):
-            index = model.index(row, model.USERNAME_COLUMN_INDEX)
+            index = model.index(row, model.username_column_index)
             data = model.data(index)
             if isinstance(data, str) and data.strip():  # Check for non-empty, non-whitespace
                 found_username = True
                 break
 
         if found_username:
-            header.setSectionResizeMode(model.USERNAME_COLUMN_INDEX, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(model.username_column_index, QHeaderView.ResizeMode.Stretch)
         else:
-            header.setSectionResizeMode(model.USERNAME_COLUMN_INDEX, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(model.username_column_index, QHeaderView.ResizeMode.ResizeToContents)
 
     def get_sorted_column(self):
         """Get the currently sorted column and its order for this table view."""
@@ -5821,7 +5861,7 @@ class MainWindow(QMainWindow):
         self.connected_table_view = SessionTableView(self.connected_table_model, GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Rejoin"), Qt.SortOrder.DescendingOrder)
         self.connected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
         self.connected_table_view.setup_static_column_resizing()
-        self.connected_table_model.set_view(self.connected_table_view)
+        self.connected_table_model.view = self.connected_table_view
 
         # Add a horizontal line separator
         self.tables_separator = QFrame(self)
@@ -5870,7 +5910,7 @@ class MainWindow(QMainWindow):
         self.disconnected_table_view = SessionTableView(self.disconnected_table_model, GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Seen"), Qt.SortOrder.AscendingOrder)
         self.disconnected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
         self.disconnected_table_view.setup_static_column_resizing()
-        self.disconnected_table_model.set_view(self.disconnected_table_view)
+        self.disconnected_table_model.view = self.disconnected_table_view
 
         # Layout to organize the widgets
         self.main_layout.addWidget(self.header_text)
@@ -5920,7 +5960,9 @@ class MainWindow(QMainWindow):
 
         terminate_script("EXIT")
 
-    # Custom Methods:
+    # --------------------------------------------------------------------------
+    # Custom / internal management methods
+    # --------------------------------------------------------------------------
 
     def _update_connected_header_with_selection(self):
         """Update the connected table header to include selection information."""
