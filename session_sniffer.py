@@ -5862,13 +5862,13 @@ class MainWindow(QMainWindow):
         self.disconnected_header_layout.addWidget(self.disconnected_collapse_button)
 
         # Create expand button for when connected section is hidden
-        self.connected_expand_button = QPushButton("▲  Show Connected Players")
+        self.connected_expand_button = QPushButton("▲  Show Connected Players (0)")
         self.connected_expand_button.setStyleSheet(CONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.connected_expand_button.clicked.connect(self.expand_connected_section)
         self.connected_expand_button.setVisible(False)
 
         # Create expand button for when disconnected section is hidden
-        self.disconnected_expand_button = QPushButton("▲  Show Disconnected Players")
+        self.disconnected_expand_button = QPushButton("▲  Show Disconnected Players (0)")
         self.disconnected_expand_button.setStyleSheet(DISCONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)
         self.disconnected_expand_button.setVisible(False)
@@ -5932,6 +5932,8 @@ class MainWindow(QMainWindow):
         self._update_separator_visibility()
         self.connected_collapse_button.setVisible(True)
 
+        self.connected_table_model.refresh_view()  # Refresh the table view to ensure it's up to date after being hidden
+
     def expand_disconnected_section(self):
         """Handle the expand button click to show the disconnected section."""
         self.disconnected_expand_button.setVisible(False)
@@ -5940,12 +5942,15 @@ class MainWindow(QMainWindow):
         self._update_separator_visibility()
         self.disconnected_collapse_button.setVisible(True)
 
+        self.disconnected_table_model.refresh_view()  # Refresh the table view to ensure it's up to date after being hidden
+
     def minimize_connected_section(self):
         """Minimize the connected table completely."""
         self.connected_collapse_button.setVisible(False)
         self.connected_header_container.setVisible(False)
         self.connected_table_view.setVisible(False)
         self.tables_separator.setVisible(False)
+        self.connected_expand_button.setText(f"▲  Show Connected Players ({self.connected_table_model.rowCount()})")  # Set initial count on the expand button
         self.connected_expand_button.setVisible(True)
 
     def minimize_disconnected_section(self):
@@ -5954,6 +5959,7 @@ class MainWindow(QMainWindow):
         self.disconnected_header_container.setVisible(False)
         self.disconnected_table_view.setVisible(False)
         self.tables_separator.setVisible(False)
+        self.disconnected_expand_button.setText(f"▲  Show Disconnected Players ({self.disconnected_table_model.rowCount()})")  # Set initial count on the expand button
         self.disconnected_expand_button.setVisible(True)
 
     def update_gui(
@@ -5967,41 +5973,55 @@ class MainWindow(QMainWindow):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
+        # Always update the header text (even when collapsed, users can still see the count)
         self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
 
+        # Process connected players data
         for processed_data, compiled_colors in connected_rows:
             ip = processed_data[self.connected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
+            # Remove from disconnected table (maintain data consistency)
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
             if disconnected_row_index is not None:
                 self.disconnected_table_model.delete_row(disconnected_row_index)
 
+            # Update connected table data
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
             if connected_row_index is None:
                 self.connected_table_model.add_row_without_refresh(processed_data, compiled_colors)
             else:
                 self.connected_table_model.update_row_without_refresh(connected_row_index, processed_data, compiled_colors)
 
-        self.connected_table_model.sort_current_column()
-        self.connected_table_view.adjust_username_column_width()
+        # Only perform expensive UI operations if tables are visible
+        if self.connected_table_view.isVisible():
+            self.connected_table_model.sort_current_column()
+            self.connected_table_view.adjust_username_column_width()
+        else:
+            self.connected_expand_button.setText(f"▲  Show Connected Players ({connected_num})")
 
         self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
 
+        # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
             ip = processed_data[self.disconnected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
 
+            # Remove from connected table (maintain data consistency)
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
             if connected_row_index is not None:
                 self.connected_table_model.delete_row(connected_row_index)
 
+            # Update disconnected table data
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
             if disconnected_row_index is None:
                 self.disconnected_table_model.add_row_without_refresh(processed_data, compiled_colors)
             else:
                 self.disconnected_table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
 
-        self.disconnected_table_model.sort_current_column()
-        self.disconnected_table_view.adjust_username_column_width()
+        if self.disconnected_table_view.isVisible():
+            self.disconnected_table_model.sort_current_column()
+            self.disconnected_table_view.adjust_username_column_width()
+        else:
+            self.disconnected_expand_button.setText(f"▲  Show Disconnected Players ({disconnected_num})")
 
     def open_project_repo(self):
         from modules.constants.standalone import GITHUB_REPO_URL

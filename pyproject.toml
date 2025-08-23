@@ -1,6 +1,6 @@
 [project]
 name = "session_sniffer"
-version = "1.4.0.pre1+20250823.0743"
+version = "1.4.0.rc2+20250823.0814"
 dependencies = [
     "colorama==0.4.6",
     "dnspython==2.7.0",
