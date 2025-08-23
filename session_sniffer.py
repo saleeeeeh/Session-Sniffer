@@ -5896,6 +5896,10 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+        # Initialize tracking variables for text updates optimization
+        self._last_connected_count = -1
+        self._last_disconnected_count = -1
+
         # Create the worker thread for table updates
         self.worker_thread = GUIWorkerThread(
             self.connected_table_view,
@@ -5973,8 +5977,12 @@ class MainWindow(QMainWindow):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
-        # Always update the header text
-        self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
+        connected_count_changed = self._last_connected_count != connected_num
+        disconnected_count_changed = self._last_disconnected_count != disconnected_num
+
+        if connected_count_changed:
+            self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
+            self._last_connected_count = connected_num
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
@@ -5996,11 +6004,12 @@ class MainWindow(QMainWindow):
         if self.connected_table_view.isVisible():
             self.connected_table_model.sort_current_column()
             self.connected_table_view.adjust_username_column_width()
-        else:
+        elif connected_count_changed:
             self.connected_expand_button.setText(f"▲  Show Connected Players ({connected_num})")
 
-        # Always update the header text
-        self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
+        if disconnected_count_changed:
+            self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
+            self._last_disconnected_count = disconnected_num
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
@@ -6022,7 +6031,7 @@ class MainWindow(QMainWindow):
         if self.disconnected_table_view.isVisible():
             self.disconnected_table_model.sort_current_column()
             self.disconnected_table_view.adjust_username_column_width()
-        else:
+        elif disconnected_count_changed:
             self.disconnected_expand_button.setText(f"▲  Show Disconnected Players ({disconnected_num})")
 
     def open_project_repo(self):
