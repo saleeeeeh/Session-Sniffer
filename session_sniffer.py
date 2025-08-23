@@ -5973,7 +5973,7 @@ class MainWindow(QMainWindow):
         """Update header text and table data for connected and disconnected players."""
         self.header_text.setText(header_text)
 
-        # Always update the header text (even when collapsed, users can still see the count)
+        # Always update the header text
         self.session_connected_header.setText(f"Players connected in your session ({connected_num}):")
 
         # Process connected players data
@@ -5999,6 +5999,7 @@ class MainWindow(QMainWindow):
         else:
             self.connected_expand_button.setText(f"▲  Show Connected Players ({connected_num})")
 
+        # Always update the header text
         self.session_disconnected_header.setText(f"Players who've left your session ({disconnected_num}):")
 
         # Process disconnected players data
@@ -6017,6 +6018,7 @@ class MainWindow(QMainWindow):
             else:
                 self.disconnected_table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
 
+        # Only perform expensive UI operations if tables are visible
         if self.disconnected_table_view.isVisible():
             self.disconnected_table_model.sort_current_column()
             self.disconnected_table_view.adjust_username_column_width()
