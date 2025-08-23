@@ -4451,7 +4451,7 @@ class SessionTableModel(QAbstractTableModel):
     def ip_column_index(self):
         """Returns the index of the 'IP Address' column in this table model.
 
-        This value is computed during initialization based on the headers provided.<br>
+        This value is computed during initialization based on the `headers` provided.<br>
         It is read-only and specific to this instance.
         """
         return self._ip_column_index
