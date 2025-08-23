@@ -5,6 +5,127 @@ Centralizing stylesheets here makes them easier to maintain and modify.
 """
 
 # =============================================================================
+# CONTAINER HEADER STYLES
+# =============================================================================
+
+CONNECTED_HEADER_CONTAINER_STYLESHEET = "background-color: green;"
+
+DISCONNECTED_HEADER_CONTAINER_STYLESHEET = "background-color: red;"
+
+
+# =============================================================================
+# HEADER STYLES
+# =============================================================================
+
+CONNECTED_HEADER_TEXT_STYLESHEET = """
+background-color: green;
+color: white;
+font-size: 16px;
+font-weight: bold;
+padding: 5px;
+background: transparent;
+""".strip()
+
+
+DISCONNECTED_HEADER_TEXT_STYLESHEET = """
+background-color: red;
+color: white;
+font-size: 16px;
+font-weight: bold;
+padding: 5px;
+background: transparent;
+""".strip()
+
+
+# =============================================================================
+# COMMON STYLES
+# =============================================================================
+
+COMMON_COLLAPSE_BUTTON_STYLESHEET = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 rgba(236, 240, 241, 0.1), stop:1 rgba(189, 195, 199, 0.2));
+    color: #ecf0f1;
+    border: 1px solid rgba(52, 73, 94, 0.6);
+    border-radius: 6px;
+    padding: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    margin-left: 5px;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 rgba(52, 152, 219, 0.3), stop:1 rgba(41, 128, 185, 0.4));
+    border: 1px solid rgba(52, 152, 219, 0.8);
+    color: white;
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 rgba(41, 128, 185, 0.5), stop:1 rgba(52, 152, 219, 0.6));
+    border: 1px solid rgba(41, 128, 185, 1.0);
+    padding-top: 4px;
+    padding-left: 4px;
+}
+""".strip()
+
+# =============================================================================
+# BUTTON STYLES
+# =============================================================================
+
+CONNECTED_EXPAND_BUTTON_STYLESHEET = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2e7d32, stop:1 #1b5e20);
+    color: white;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 5px;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #388e3c, stop:1 #2e7d32);
+    border-color: #666;
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1b5e20, stop:1 #0d47a1);
+    border-color: #333;
+}
+""".strip()
+
+DISCONNECTED_EXPAND_BUTTON_STYLESHEET = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8B0000, stop:1 #660000);
+    color: white;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: bold;
+    margin: 5px;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #A52A2A, stop:1 #8B0000);
+    border-color: #666;
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #660000, stop:1 #4A0000);
+    border-color: #333;
+}
+""".strip()
+
+
+# =============================================================================
 # CONTEXT MENU STYLES
 # =============================================================================
 
@@ -59,15 +180,6 @@ QMenu::separator {
     margin: 4px 0;
 }
 """.strip()
-
-
-# =============================================================================
-# HEADER STYLES
-# =============================================================================
-
-SESSION_CONNECTED_HEADER_STYLESHEET = "background-color: green; color: white; font-size: 16px; font-weight: bold; padding: 5px;"
-
-SESSION_DISCONNECTED_HEADER_STYLESHEET = "background-color: red; color: white; font-size: 16px; font-weight: bold; padding: 5px;"
 
 
 # =============================================================================

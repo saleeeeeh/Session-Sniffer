@@ -120,12 +120,17 @@ from modules.guis.exceptions import (
     UnsupportedSortColumnError,
 )
 from modules.guis.stylesheets import (
+    COMMON_COLLAPSE_BUTTON_STYLESHEET,
+    CONNECTED_EXPAND_BUTTON_STYLESHEET,
+    CONNECTED_HEADER_CONTAINER_STYLESHEET,
+    CONNECTED_HEADER_TEXT_STYLESHEET,
     CUSTOM_CONTEXT_MENU_STYLESHEET,
+    DISCONNECTED_EXPAND_BUTTON_STYLESHEET,
+    DISCONNECTED_HEADER_CONTAINER_STYLESHEET,
+    DISCONNECTED_HEADER_TEXT_STYLESHEET,
     DISCORD_POPUP_EXIT_BUTTON_STYLESHEET,
     DISCORD_POPUP_JOIN_BUTTON_STYLESHEET,
     DISCORD_POPUP_MAIN_STYLESHEET,
-    SESSION_CONNECTED_HEADER_STYLESHEET,
-    SESSION_DISCONNECTED_HEADER_STYLESHEET,
 )
 from modules.guis.utils import get_screen_size
 from modules.launcher.package_checker import (
@@ -5796,12 +5801,28 @@ class MainWindow(QMainWindow):
         self.header_text.setWordWrap(True)
         self.header_text.setFont(QFont("Courier", 10, QFont.Weight.Bold))
 
+        # Create container for connected header and controls
+        self.connected_header_container = QWidget()
+        self.connected_header_container.setStyleSheet(CONNECTED_HEADER_CONTAINER_STYLESHEET)
+        self.connected_header_layout = QHBoxLayout(self.connected_header_container)
+        self.connected_header_layout.setContentsMargins(0, 0, 0, 0)
+
         # Custom header for the Session Connected table with matching background as first column
         self.session_connected_header = QLabel("Players connected in your session (0):")
         self.session_connected_header.setTextFormat(Qt.TextFormat.RichText)
-        self.session_connected_header.setStyleSheet(SESSION_CONNECTED_HEADER_STYLESHEET)
+        self.session_connected_header.setStyleSheet(CONNECTED_HEADER_TEXT_STYLESHEET)
         self.session_connected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.session_connected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
+
+        # Add connected header to container with stretch to fill available space
+        self.connected_header_layout.addWidget(self.session_connected_header, 1)
+
+        # Add sleek collapse icon button for connected table
+        self.connected_collapse_button = QPushButton("▼")
+        self.connected_collapse_button.setToolTip("Hide connected players table")
+        self.connected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
+        self.connected_collapse_button.clicked.connect(self.minimize_connected_section)
+        self.connected_header_layout.addWidget(self.connected_collapse_button)
 
         # Create the table model and view
         while not GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
@@ -5817,12 +5838,40 @@ class MainWindow(QMainWindow):
         self.tables_separator.setFrameShape(QFrame.Shape.HLine)
         self.tables_separator.setFrameShadow(QFrame.Shadow.Sunken)  # Optional shadow effect
 
+        # Create container for disconnected header and controls
+        self.disconnected_header_container = QWidget()
+        self.disconnected_header_container.setStyleSheet(DISCONNECTED_HEADER_CONTAINER_STYLESHEET)
+        self.disconnected_header_layout = QHBoxLayout(self.disconnected_header_container)
+        self.disconnected_header_layout.setContentsMargins(0, 0, 0, 0)
+
         # Custom header for the Session Disconnected table with matching background as first column
         self.session_disconnected_header = QLabel("Players who've left your session (0):")
         self.session_disconnected_header.setTextFormat(Qt.TextFormat.RichText)
-        self.session_disconnected_header.setStyleSheet(SESSION_DISCONNECTED_HEADER_STYLESHEET)
+        self.session_disconnected_header.setStyleSheet(DISCONNECTED_HEADER_TEXT_STYLESHEET)
         self.session_disconnected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.session_disconnected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
+
+        # Add disconnected header to container with stretch to fill available space
+        self.disconnected_header_layout.addWidget(self.session_disconnected_header, 1)
+
+        # Add sleek collapse icon button for disconnected table
+        self.disconnected_collapse_button = QPushButton("▼")
+        self.disconnected_collapse_button.setToolTip("Hide disconnected players table")
+        self.disconnected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
+        self.disconnected_collapse_button.clicked.connect(self.minimize_disconnected_section)
+        self.disconnected_header_layout.addWidget(self.disconnected_collapse_button)
+
+        # Create expand button for when connected section is hidden
+        self.connected_expand_button = QPushButton("▲  Show Connected Players")
+        self.connected_expand_button.setStyleSheet(CONNECTED_EXPAND_BUTTON_STYLESHEET)
+        self.connected_expand_button.clicked.connect(self.expand_connected_section)
+        self.connected_expand_button.setVisible(False)
+
+        # Create expand button for when disconnected section is hidden
+        self.disconnected_expand_button = QPushButton("▲  Show Disconnected Players")
+        self.disconnected_expand_button.setStyleSheet(DISCONNECTED_EXPAND_BUTTON_STYLESHEET)
+        self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)
+        self.disconnected_expand_button.setVisible(False)
 
         # Create the table model and view
         while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
@@ -5835,11 +5884,13 @@ class MainWindow(QMainWindow):
 
         # Layout to organize the widgets
         self.main_layout.addWidget(self.header_text)
-        self.main_layout.addWidget(self.session_connected_header)
+        self.main_layout.addWidget(self.connected_header_container)
         self.main_layout.addWidget(self.connected_table_view)
         self.main_layout.addWidget(self.tables_separator)
-        self.main_layout.addWidget(self.session_disconnected_header)
+        self.main_layout.addWidget(self.disconnected_header_container)
         self.main_layout.addWidget(self.disconnected_table_view)
+        self.main_layout.addWidget(self.connected_expand_button)
+        self.main_layout.addWidget(self.disconnected_expand_button)
 
         # Raise and activate window to ensure it gets focus
         self.raise_()
@@ -5864,6 +5915,46 @@ class MainWindow(QMainWindow):
         terminate_script("EXIT")
 
     # Custom Methods:
+
+    def _update_separator_visibility(self):
+        """Update the separator visibility based on whether both tables are visible."""
+        both_tables_visible = (
+            self.connected_table_view.isVisible()
+            and self.disconnected_table_view.isVisible()
+        )
+        self.tables_separator.setVisible(both_tables_visible)
+
+    def expand_connected_section(self):
+        """Handle the expand button click to show the connected section."""
+        self.connected_expand_button.setVisible(False)
+        self.connected_header_container.setVisible(True)
+        self.connected_table_view.setVisible(True)
+        self._update_separator_visibility()
+        self.connected_collapse_button.setVisible(True)
+
+    def expand_disconnected_section(self):
+        """Handle the expand button click to show the disconnected section."""
+        self.disconnected_expand_button.setVisible(False)
+        self.disconnected_header_container.setVisible(True)
+        self.disconnected_table_view.setVisible(True)
+        self._update_separator_visibility()
+        self.disconnected_collapse_button.setVisible(True)
+
+    def minimize_connected_section(self):
+        """Minimize the connected table completely."""
+        self.connected_collapse_button.setVisible(False)
+        self.connected_header_container.setVisible(False)
+        self.connected_table_view.setVisible(False)
+        self.tables_separator.setVisible(False)
+        self.connected_expand_button.setVisible(True)
+
+    def minimize_disconnected_section(self):
+        """Minimize the disconnected table completely."""
+        self.disconnected_collapse_button.setVisible(False)
+        self.disconnected_header_container.setVisible(False)
+        self.disconnected_table_view.setVisible(False)
+        self.tables_separator.setVisible(False)
+        self.disconnected_expand_button.setVisible(True)
 
     def update_gui(
         self,
