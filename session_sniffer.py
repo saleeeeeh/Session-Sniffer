@@ -4664,7 +4664,6 @@ class SessionTableModel(QAbstractTableModel):
     # Custom / internal management methods
     # --------------------------------------------------------------------------
 
-
     def get_column_index_by_name(self, column_name: str, /):
         """Get the table index of a specified column.
 
@@ -4735,7 +4734,7 @@ class SessionTableModel(QAbstractTableModel):
             row_index: The index of the row to delete.
         """
         if 0 <= row_index < self.rowCount():
-            view = self.get_view()
+            view = self.view
             selection_model = view.selectionModel()
 
             # Adjust selection for the deleted row
@@ -6073,7 +6072,7 @@ class MainWindow(QMainWindow):
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
-            ip = processed_data[self.connected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
+            ip = processed_data[self.connected_table_model.ip_column_index].removesuffix(" 👑")
 
             # Remove from disconnected table (maintain data consistency)
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
@@ -6100,7 +6099,7 @@ class MainWindow(QMainWindow):
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
-            ip = processed_data[self.disconnected_table_model.IP_COLUMN_INDEX].removesuffix(" 👑")
+            ip = processed_data[self.disconnected_table_model.ip_column_index].removesuffix(" 👑")
 
             # Remove from connected table (maintain data consistency)
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
