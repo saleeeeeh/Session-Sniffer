@@ -12,14 +12,12 @@ PYPROJECT_PATH = resource_path(Path("pyproject.toml"))
 REQUIREMENTS_PATH = resource_path(Path("requirements.txt"))
 RESOURCES_FOLDER_PATH = resource_path(Path("resources/"))
 SCRIPTS_FOLDER_PATH = resource_path(Path("scripts/"))
-SETUP_FOLDER_PATH = resource_path(Path("setup/"))
 TTS_FOLDER_PATH = resource_path(Path("TTS/"))
 
 PAPING_PATH = BIN_FOLDER_PATH / "paping.exe"
 TSHARK_PATH = BIN_FOLDER_PATH / "WiresharkPortable64/App/Wireshark/tshark.exe"
 COUNTRY_FLAGS_FOLDER_PATH = IMAGES_FOLDER_PATH / "country_flags"
 MANUF_FILE_PATH = RESOURCES_FOLDER_PATH / "manuf"
-NPCAP_SETUP_PATH = SETUP_FOLDER_PATH / "npcap-1.78.exe"
 
 PYPROJECT_DATA = toml.load(PYPROJECT_PATH)
 CURRENT_VERSION = Version(PYPROJECT_DATA["project"]["version"])

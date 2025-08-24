@@ -27,7 +27,6 @@ Grab the latest stable release and get started instantly!
 
 ### 🔑 Key Features
 
-- **Free & Open Source**: Completely free to use and modify, unlike other similar software.
 - **No Mods Required**: Works without mods, no risk of banning.
 - **Advanced Options**: Configuration files for deep customization.
 - **Game Server Scanning**: Includes a setting to scan for game servers.
