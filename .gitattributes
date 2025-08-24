@@ -1,1 +1,2 @@
 bin/** linguist-vendored
+code-quality-checks.ps1 linguist-vendored
