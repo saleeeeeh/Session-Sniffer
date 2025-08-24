@@ -17,7 +17,6 @@
         "images": true,
         "resources": true,
         "Session_Sniffer.exe": true,
-        "setup": true,
         "TTS": true,
         "scripts": true
     },

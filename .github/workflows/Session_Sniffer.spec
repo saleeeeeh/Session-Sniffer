@@ -12,7 +12,6 @@ a = Analysis(
         ('..\\..\\images', 'images'),
         ('..\\..\\resources', 'resources'),
         ('..\\..\\scripts', 'scripts'),
-        ('..\\..\\setup', 'setup'),
         ('..\\..\\TTS', 'TTS')
     ],
     hiddenimports=[],

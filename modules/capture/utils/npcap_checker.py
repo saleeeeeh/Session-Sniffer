@@ -1,20 +1,19 @@
-"""NPCap Checker Module.
+"""Npcap Checker Module.
 
-This module provides a utility function to check whether NPCap is installed on the system.
-NPCap is required for network packet capturing in Windows environments.
+This module provides a utility function to check whether Npcap is installed on the system.
+Npcap is required for network packet capturing in Windows environments.
 """
 import subprocess
 import webbrowser
 from contextlib import suppress
 
-from modules.constants.local import NPCAP_SETUP_PATH
 from modules.constants.standalone import TITLE
 from modules.constants.standard import SC_EXE
 from modules.msgbox import MsgBox
 from modules.utils import format_triple_quoted_text
 
 NPCAP_SERVICE_QUERY_CMD = (SC_EXE, "query", "npcap")
-NPCAP_INSTALLER_CMD = (NPCAP_SETUP_PATH,)
+NPCAP_DOWNLOAD_URL = "https://npcap.com/#download"
 
 
 def is_npcap_installed():
@@ -25,48 +24,74 @@ def is_npcap_installed():
     return False
 
 
-def run_npcap_installer():
-    """Attempt to run the Npcap installer."""
-    with suppress(subprocess.CalledProcessError):
-        subprocess.run(NPCAP_INSTALLER_CMD, shell=True, check=True)
-        return True
-    return False
-
-
-def open_npcap_installer_in_browser():
-    """Open the Npcap installer in the web browser for manual installation."""
-    webbrowser.open("https://nmap.org/npcap/")
+def open_npcap_download_page():
+    """Open the official Npcap download page in the web browser."""
+    webbrowser.open(NPCAP_DOWNLOAD_URL)
 
 
 def ensure_npcap_installed():
-    """Ensure that the Npcap driver is installed. If not, try to run the installer as admin or open it in a browser."""
+    """Ensure that the Npcap driver is installed. If not, show instructions and wait for user to install manually."""
     if is_npcap_installed():
         return
 
+    # Open the official download page immediately
+    open_npcap_download_page()
+
+    # Show initial notification
     MsgBox.show(
         title=TITLE,
         text=format_triple_quoted_text("""
-            ERROR:
-                Could not detect "Npcap" driver installed on your system.
+            NPCAP REQUIRED:
+                Npcap is required for network packet capturing.
 
-            Opening the "Npcap" setup installer for you.
+            ACTION REQUIRED:
+                1. Npcap download page opened in your browser
+                2. Download and install Npcap from:
+                    https://npcap.com/#download
+                3. Follow the installation instructions on the website
+                4. Click OK after installation is complete
+
+            IMPORTANT:
+                Waiting for installation to complete...
+                Please do not close this dialog until Npcap is installed.
         """),
-        style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+        style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONINFORMATION | MsgBox.Style.MB_SETFOREGROUND,
     )
 
-    run_npcap_installer()
-
+    # Keep checking until Npcap is installed
     while not is_npcap_installed():
-        open_npcap_installer_in_browser()
+        result = MsgBox.show(
+            title=TITLE,
+            text=format_triple_quoted_text("""
+                NPCAP INSTALLATION CHECK:
+                    Npcap is still not detected on your system.
 
+                OPTIONS:
+                    • Click "Retry" if you have completed the installation
+                    • Click "Cancel" to exit the application
+            """),
+            style=MsgBox.Style.MB_RETRYCANCEL | MsgBox.Style.MB_ICONWARNING | MsgBox.Style.MB_SETFOREGROUND | MsgBox.Style.MB_DEFBUTTON1,
+        )
+
+        if result == MsgBox.ReturnValues.IDCANCEL:
+            import sys
+            sys.exit(1)
+        elif result == MsgBox.ReturnValues.IDRETRY:
+            continue
+
+    # Success message in a separate thread so the app can continue running
+    from threading import Thread
+
+    def show_success_message():
         MsgBox.show(
             title=TITLE,
             text=format_triple_quoted_text("""
-                ERROR:
-                    Failed to run the Npcap installer as admin.
+                SUCCESS:
+                    Npcap has been successfully detected!
 
-                The Npcap installer has been opened in your web browser.
-                Please ensure you have administrator privileges and run the installer manually.
+                The application will now continue normally.
             """),
-            style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+            style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONINFORMATION | MsgBox.Style.MB_SETFOREGROUND,
         )
+
+    Thread(target=show_success_message, name="NpcapSuccessMessage", daemon=True).start()
