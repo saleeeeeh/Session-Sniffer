@@ -5758,6 +5758,7 @@ class MainWindow(QMainWindow):
 
         # ----- Open Project Repository Button -----
         open_project_repo_action = QAction("Project Repository", self)
+        open_project_repo_action.setToolTip("Open the Session Sniffer GitHub repository in your default web browser")
         open_project_repo_action.triggered.connect(self.open_project_repo)
         toolbar.addAction(open_project_repo_action)
 
@@ -5765,6 +5766,7 @@ class MainWindow(QMainWindow):
 
         # ----- Open Documentation Button -----
         open_documentation_action = QAction("Documentation", self)
+        open_documentation_action.setToolTip("View the complete documentation and user guide for Session Sniffer")
         open_documentation_action.triggered.connect(self.open_documentation)
         toolbar.addAction(open_documentation_action)
 
@@ -5772,6 +5774,7 @@ class MainWindow(QMainWindow):
 
         # ----- Join Discord Button -----
         discord_action = QAction("Discord Server", self)
+        discord_action.setToolTip("Join the official Session Sniffer Discord community for support and updates")
         discord_action.triggered.connect(self.join_discord)
         toolbar.addAction(discord_action)
 
@@ -5779,12 +5782,13 @@ class MainWindow(QMainWindow):
 
         # ----- Detection Menu -----
         detection_menu_button = QPushButton(" Detection Settings ", self)
-        detection_menu_button.setToolTip("Be notified when new connected players join based on specific detection flags or general connection events.\n\nNOTE: Detection notifications are shown only once per IP address during the IP lookup process.\nPlayer join/leave notifications are shown for each connection event.")
+        detection_menu_button.setToolTip("Be notified when players join based on specific detection flags or general connection events.")
 
         detection_menu = PersistentMenu(self)
 
         # Mobile Detection action
         self.mobile_detection_action = QAction("Mobile (cellular) connection", self)
+        self.mobile_detection_action.tooltip_text = "Get notified when a player joins using a mobile/cellular internet connection"  # type: ignore[attr-defined]
         self.mobile_detection_action.setCheckable(True)
         self.mobile_detection_action.setChecked(GUIDetectionSettings.mobile_detection_enabled)
         self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)
@@ -5792,6 +5796,7 @@ class MainWindow(QMainWindow):
 
         # VPN Detection action
         self.vpn_detection_action = QAction("Proxy, VPN or Tor exit address", self)
+        self.vpn_detection_action.tooltip_text = "Get notified when a player joins using a VPN, proxy, or Tor exit node"  # type: ignore[attr-defined]
         self.vpn_detection_action.setCheckable(True)
         self.vpn_detection_action.setChecked(GUIDetectionSettings.vpn_detection_enabled)
         self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)
@@ -5799,6 +5804,7 @@ class MainWindow(QMainWindow):
 
         # Hosting Detection action
         self.hosting_detection_action = QAction("Hosting, colocated or data center", self)
+        self.hosting_detection_action.tooltip_text = "Get notified when a player joins from a hosting provider or data center"  # type: ignore[attr-defined]
         self.hosting_detection_action.setCheckable(True)
         self.hosting_detection_action.setChecked(GUIDetectionSettings.hosting_detection_enabled)
         self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)
@@ -5808,6 +5814,7 @@ class MainWindow(QMainWindow):
 
         # Player Join Notification action
         self.player_join_notification_action = QAction("Player join notifications", self)
+        self.player_join_notification_action.tooltip_text = "Get notified whenever any player joins your session"  # type: ignore[attr-defined]
         self.player_join_notification_action.setCheckable(True)
         self.player_join_notification_action.setChecked(GUIDetectionSettings.player_join_notifications_enabled)
         self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)
@@ -5815,6 +5822,7 @@ class MainWindow(QMainWindow):
 
         # Player Leave Notification action
         self.player_leave_notification_action = QAction("Player leave notifications", self)
+        self.player_leave_notification_action.tooltip_text = "Get notified whenever any player leaves your session"  # type: ignore[attr-defined]
         self.player_leave_notification_action.setCheckable(True)
         self.player_leave_notification_action.setChecked(GUIDetectionSettings.player_leave_notifications_enabled)
         self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)
@@ -5892,12 +5900,14 @@ class MainWindow(QMainWindow):
 
         # Create expand button for when connected section is hidden
         self.connected_expand_button = QPushButton("▲  Show Connected Players (0)")
+        self.connected_expand_button.setToolTip("Show the connected players table")
         self.connected_expand_button.setStyleSheet(CONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.connected_expand_button.clicked.connect(self.expand_connected_section)
         self.connected_expand_button.setVisible(False)
 
         # Create expand button for when disconnected section is hidden
         self.disconnected_expand_button = QPushButton("▲  Show Disconnected Players (0)")
+        self.disconnected_expand_button.setToolTip("Show the disconnected players table")
         self.disconnected_expand_button.setStyleSheet(DISCONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)
         self.disconnected_expand_button.setVisible(False)
@@ -6200,6 +6210,7 @@ class DiscordIntro(QDialog):
         # Exit button in the top right corner
         self.exit_button = QPushButton("x", self)
         self.exit_button.setFixedSize(16, 16)  # Make the width and height equal
+        self.exit_button.setToolTip("Close this popup")
         self.exit_button.setStyleSheet(DISCORD_POPUP_EXIT_BUTTON_STYLESHEET)
         self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.exit_button.clicked.connect(self.close_popup)
@@ -6225,6 +6236,7 @@ class DiscordIntro(QDialog):
 
         # Join button container
         self.join_button = QPushButton("🔥 Join Now - Session Sniffer Discord! 🔥", self)
+        self.join_button.setToolTip("Open Discord and join the Session Sniffer community server")
         self.join_button.setStyleSheet(DISCORD_POPUP_JOIN_BUTTON_STYLESHEET)
         self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.join_button.clicked.connect(self.open_discord)
@@ -6243,6 +6255,7 @@ class DiscordIntro(QDialog):
         # Clickable text "Don't remind me again"
         self.dont_remind_me_label = ClickableLabel("<font size='3' color='#B0B0B0'><u>Don't remind me again</u></font>", self)
         self.dont_remind_me_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.dont_remind_me_label.setToolTip("Disable Discord popup notifications permanently")
         self.dont_remind_me_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dont_remind_me_label.clicked.connect(self.dont_remind_me)
 
