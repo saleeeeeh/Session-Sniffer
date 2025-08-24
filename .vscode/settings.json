@@ -13,12 +13,13 @@
         "**/build": true,
         "**/dist": true,
         "bin": true,
+        "COPYING": true,
         "GeoLite2 Databases": true,
         "images": true,
         "resources": true,
+        "scripts": true,
         "Session_Sniffer.exe": true,
-        "TTS": true,
-        "scripts": true
+        "TTS": true
     },
     "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
     "python.terminal.activateEnvironment": true,
