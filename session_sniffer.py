@@ -5785,10 +5785,11 @@ class MainWindow(QMainWindow):
         detection_menu_button.setToolTip("Be notified when players join based on specific detection flags or general connection events.")
 
         detection_menu = PersistentMenu(self)
+        detection_menu.setToolTipsVisible(True)
 
         # Mobile Detection action
         self.mobile_detection_action = QAction("Mobile (cellular) connection", self)
-        self.mobile_detection_action.tooltip_text = "Get notified when a player joins using a mobile/cellular internet connection"  # type: ignore[attr-defined]
+        self.mobile_detection_action.setToolTip("Get notified when a player joins using a mobile/cellular internet connection")
         self.mobile_detection_action.setCheckable(True)
         self.mobile_detection_action.setChecked(GUIDetectionSettings.mobile_detection_enabled)
         self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)
@@ -5796,7 +5797,7 @@ class MainWindow(QMainWindow):
 
         # VPN Detection action
         self.vpn_detection_action = QAction("Proxy, VPN or Tor exit address", self)
-        self.vpn_detection_action.tooltip_text = "Get notified when a player joins using a VPN, proxy, or Tor exit node"  # type: ignore[attr-defined]
+        self.vpn_detection_action.setToolTip("Get notified when a player joins using a VPN, proxy, or Tor exit node")
         self.vpn_detection_action.setCheckable(True)
         self.vpn_detection_action.setChecked(GUIDetectionSettings.vpn_detection_enabled)
         self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)
@@ -5804,7 +5805,7 @@ class MainWindow(QMainWindow):
 
         # Hosting Detection action
         self.hosting_detection_action = QAction("Hosting, colocated or data center", self)
-        self.hosting_detection_action.tooltip_text = "Get notified when a player joins from a hosting provider or data center"  # type: ignore[attr-defined]
+        self.hosting_detection_action.setToolTip("Get notified when a player joins from a hosting provider or data center")
         self.hosting_detection_action.setCheckable(True)
         self.hosting_detection_action.setChecked(GUIDetectionSettings.hosting_detection_enabled)
         self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)
@@ -5814,7 +5815,7 @@ class MainWindow(QMainWindow):
 
         # Player Join Notification action
         self.player_join_notification_action = QAction("Player join notifications", self)
-        self.player_join_notification_action.tooltip_text = "Get notified whenever any player joins your session"  # type: ignore[attr-defined]
+        self.player_join_notification_action.setToolTip("Get notified whenever any player joins your session")
         self.player_join_notification_action.setCheckable(True)
         self.player_join_notification_action.setChecked(GUIDetectionSettings.player_join_notifications_enabled)
         self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)
@@ -5822,7 +5823,7 @@ class MainWindow(QMainWindow):
 
         # Player Leave Notification action
         self.player_leave_notification_action = QAction("Player leave notifications", self)
-        self.player_leave_notification_action.tooltip_text = "Get notified whenever any player leaves your session"  # type: ignore[attr-defined]
+        self.player_leave_notification_action.setToolTip("Get notified whenever any player leaves your session")
         self.player_leave_notification_action.setCheckable(True)
         self.player_leave_notification_action.setChecked(GUIDetectionSettings.player_leave_notifications_enabled)
         self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)
