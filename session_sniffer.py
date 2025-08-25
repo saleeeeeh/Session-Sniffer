@@ -5983,8 +5983,7 @@ class MainWindow(QMainWindow):
         else:
             combined_text = base_text
 
-        if self.session_connected_header.text() != combined_text:
-            self.session_connected_header.setText(combined_text)
+        self.session_connected_header.setText(combined_text)
 
     def _update_disconnected_header_with_selection(self):
         """Update the disconnected table header to include selection information."""
@@ -5995,8 +5994,7 @@ class MainWindow(QMainWindow):
         else:
             combined_text = base_text
 
-        if self.session_disconnected_header.text() != combined_text:
-            self.session_disconnected_header.setText(combined_text)
+        self.session_disconnected_header.setText(combined_text)
 
     def _update_selection_count(self, table_view: SessionTableView, table_type: str):
         """Update the selection count for the specified table and refresh table headers."""
@@ -6069,9 +6067,8 @@ class MainWindow(QMainWindow):
         disconnected_num: int,
     ):
         """Update header text and table data for connected and disconnected players."""
-        # Update the main header text only if it has changed
-        if self.header_text.text() != header_text:
-            self.header_text.setText(header_text)
+        # Update the main header text
+        self.header_text.setText(header_text)
 
         # Check if counts changed to optimize text updates
         connected_count_changed = self._last_connected_count != connected_num
