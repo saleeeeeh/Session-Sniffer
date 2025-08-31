@@ -5794,7 +5794,7 @@ class MainWindow(QMainWindow):
 
         # ----- Detection Menu -----
         detection_menu_button = QPushButton(" Detection Settings ", self)
-        detection_menu_button.setToolTip("Be notified when players join based on specific detection flags or general connection events.")
+        detection_menu_button.setToolTip("Configure notification settings for various player detection scenarios")
 
         detection_menu = PersistentMenu(self)
         detection_menu.setToolTipsVisible(True)
@@ -5869,7 +5869,7 @@ class MainWindow(QMainWindow):
 
         # Add sleek collapse icon button for connected table
         self.connected_collapse_button = QPushButton("▼")
-        self.connected_collapse_button.setToolTip("Hide connected players table")
+        self.connected_collapse_button.setToolTip("Hide the connected players table")
         self.connected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
         self.connected_collapse_button.clicked.connect(self.minimize_connected_section)
         self.connected_header_layout.addWidget(self.connected_collapse_button)
@@ -5906,7 +5906,7 @@ class MainWindow(QMainWindow):
 
         # Add sleek collapse icon button for disconnected table
         self.disconnected_collapse_button = QPushButton("▼")
-        self.disconnected_collapse_button.setToolTip("Hide disconnected players table")
+        self.disconnected_collapse_button.setToolTip("Hide the disconnected players table")
         self.disconnected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
         self.disconnected_collapse_button.clicked.connect(self.minimize_disconnected_section)
         self.disconnected_header_layout.addWidget(self.disconnected_collapse_button)
