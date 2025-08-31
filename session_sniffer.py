@@ -4197,10 +4197,10 @@ def rendering_core():
             header = f"""
             <div style="background: linear-gradient(90deg, #2e3440, #4c566a); color: white; padding: 20px; border: 2px solid #88c0d0; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);">
                 <div>
-                    <span style="font-size: 24px; color: #88c0d0">Welcome to {TITLE}</span>&nbsp;&nbsp;<span style="font-size: 14px; color: #aaa">{VERSION}</span>
+                    <span style="font-size: 24px; color: #88c0d0">{TITLE}</span>&nbsp;&nbsp;<span style="font-size: 14px; color: #aaa">{VERSION}</span>
                 </div>
                 <p style="font-size: 16px; margin: 5px 0;">
-                    The best FREE and Open-Source packet sniffer, aka IP puller, works WITHOUT mods.
+                    The best FREE and Open-Source packet sniffer, aka IP puller.
                 </p>
                 <p style="font-size: 14px; margin: 5px 0;">
                     Scanning on interface <span style="color: yellow;">{capture.interface}</span> | IP:<span style="color: yellow;">{displayed_capture_ip_address}</span> | ARP:<span style="color: yellow;">{is_arp_enabled}</span> | VPN:<span style="color: yellow;">{is_vpn_mode_enabled}</span> | Preset:<span style="color: yellow;">{Settings.CAPTURE_PROGRAM_PRESET}</span>
