@@ -4189,7 +4189,6 @@ def rendering_core():
             else:
                 rpc_message = ""
 
-            num_of_userip_files = len(UserIPDatabases.get_userip_database_filepaths())
             invalid_ip_count = len(UserIPDatabases.notified_ip_invalid)
             conflict_ip_count = len(UserIPDatabases.notified_ip_conflicts)
             corrupted_settings_count = len(UserIPDatabases.notified_settings_corrupted)
@@ -4212,6 +4211,8 @@ def rendering_core():
             """
 
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
+                num_of_userip_files = len(UserIPDatabases.get_userip_database_filepaths())
+
                 header += "───────────────────────────────────────────────────────────────────────────────────────────────────<br>"
                 if invalid_ip_count:
                     header += f'Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{invalid_ip_count}</span><br>'
