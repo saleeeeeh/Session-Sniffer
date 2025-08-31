@@ -5749,7 +5749,6 @@ class MainWindow(QMainWindow):
 
         # Set up the window
         self.setWindowTitle(f"{TITLE}")
-        # Set a minimum size for the window
         self.setMinimumSize(800, 600)
         resize_window_for_screen(self, screen_width, screen_height)
 
@@ -6205,6 +6204,7 @@ class DiscordIntro(QDialog):
 
         WINDOW_TITLE = "🏆 Join our Discord Community! 🤝"
 
+        # Set up the window
         self.setWindowTitle(WINDOW_TITLE)
         self.setMinimumSize(460, 160)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.Dialog)  # | Qt.WindowType.WindowStaysOnTopHint
