@@ -5579,6 +5579,10 @@ class SessionTableView(QTableView):
         selected_model = self.model()
         selection_model = self.selectionModel()
 
+        # Early return if no rows exist in the table
+        if not selected_model.rowCount():
+            return
+
         # Get the top-left and bottom-right QModelIndex for the entire table
         top_left = selected_model.createIndex(0, 0)  # Top-left item (first row, first column)
         bottom_right = selected_model.createIndex(
@@ -5592,14 +5596,6 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def select_all_cells(self):
-        """Select all cells in the table."""
-        self._select_all_cells_helper(select=True)
-
-    def unselect_all_cells(self):
-        """Unselect all cells in the table."""
-        self._select_all_cells_helper(select=False)
-
     def _select_row_cells_helper(self, row: int, *, select: bool):
         """Helper function to select or unselect all cells in a specific row.
 
@@ -5609,6 +5605,10 @@ class SessionTableView(QTableView):
         """
         selected_model = self.model()
         selection_model = self.selectionModel()
+
+        # Early return if no rows exist in the table
+        if not selected_model.rowCount():
+            return
 
         top_index = selected_model.createIndex(row, 0)  # First column of the specified row
         bottom_index = selected_model.createIndex(row, selected_model.columnCount() - 1)  # Last column of the specified row
@@ -5620,14 +5620,6 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def select_row_cells(self, row: int):
-        """Select all cells in the specified row."""
-        self._select_row_cells_helper(row, select=True)
-
-    def unselect_row_cells(self, row: int):
-        """Unselect all cells in the specified row."""
-        self._select_row_cells_helper(row, select=False)
-
     def _select_column_cells_helper(self, column: int, *, select: bool):
         """Helper function to select or unselect all cells in a given column.
 
@@ -5638,6 +5630,10 @@ class SessionTableView(QTableView):
         selected_model = self.model()
         selection_model = self.selectionModel()
 
+        # Early return if no rows exist in the table
+        if not selected_model.rowCount():
+            return
+
         top_index = selected_model.createIndex(0, column)  # First row of the specified column
         bottom_index = selected_model.createIndex(selected_model.rowCount() - 1, column)  # Last row of the specified column
 
@@ -5647,6 +5643,22 @@ class SessionTableView(QTableView):
         # Use the appropriate selection flag based on the `select` argument
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
+
+    def select_all_cells(self):
+        """Select all cells in the table."""
+        self._select_all_cells_helper(select=True)
+
+    def unselect_all_cells(self):
+        """Unselect all cells in the table."""
+        self._select_all_cells_helper(select=False)
+
+    def select_row_cells(self, row: int):
+        """Select all cells in the specified row."""
+        self._select_row_cells_helper(row, select=True)
+
+    def unselect_row_cells(self, row: int):
+        """Unselect all cells in the specified row."""
+        self._select_row_cells_helper(row, select=False)
 
     def select_column_cells(self, column: int):
         """Select all cells in the specified column."""
