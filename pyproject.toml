@@ -55,6 +55,7 @@ disable_error_code = [
 ]
 check_untyped_defs = true
 ignore_missing_imports = true
+strict = true
 
 
 [tool.pydocstyle]
@@ -107,6 +108,7 @@ disable = [
 
 [tool.pyright]
 pythonVersion = "3.13"
+typeCheckingMode = "strict"
 
 
 [tool.ruff]
