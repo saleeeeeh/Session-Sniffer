@@ -108,6 +108,30 @@
             }
         },
         {
+            "label": "🦅 Vulture - Dead Code Detector",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; vulture . --config pyproject.toml"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "📚 Pydocstyle - Docstring Conventions",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; pydocstyle ."],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "🔐 Pip Audit - Vulnerability Scanner",
             "type": "shell",
             "command": "powershell.exe",

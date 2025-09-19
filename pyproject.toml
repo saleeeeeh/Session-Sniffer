@@ -107,6 +107,24 @@ check_untyped_defs = true
 ignore_missing_imports = true
 
 
+[tool.pydocstyle]
+ignore = [
+    "D101",
+    "D102",
+    "D103",
+    "D107",
+    "D203",
+    "D204",
+    "D213",
+    "D300",
+    "D401",
+    "D404",
+    "D407",
+    "D406",
+    "D413",
+]
+
+
 [tool.pylint.master]
 enable = "all"
 extension-pkg-whitelist = "PyQt6"
@@ -139,3 +157,11 @@ disable = [
 
 [tool.pyright]
 pythonVersion = "3.13"
+
+
+[tool.vulture]
+exclude = [
+    ".venv",
+    ".history",
+]
+min_confidence = 61

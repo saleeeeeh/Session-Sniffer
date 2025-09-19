@@ -88,6 +88,20 @@ $QualityTools = @(
         Category = "LINTING"
     },
     @{
+        ToolName = "vulture"
+        Command = "vulture . --config pyproject.toml"
+        InstallCommand = "pip install vulture"
+        Description = "Dead code detection and analysis"
+        Category = "CODE QUALITY"
+    },
+    @{
+        ToolName = "pydocstyle"
+        Command = "pydocstyle ."
+        InstallCommand = "pip install pydocstyle"
+        Description = "Python docstring conventions checker"
+        Category = "DOCUMENTATION"
+    },
+    @{
         ToolName = "pip-audit"
         Command = "pip-audit --local --skip-editable"
         InstallCommand = "pip install pip-audit"
