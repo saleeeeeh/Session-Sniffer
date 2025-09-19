@@ -43,56 +43,6 @@ Issues = "https://github.com/BUZZARDGTA/Session-Sniffer/issues"
 Discord = "https://discord.gg/hMZ7MsPX7G"
 
 
-[tool.ruff]
-target-version = "py313"
-
-[tool.ruff.lint]
-ignore = [
-    "ANN201",  # missing-return-type-undocumented-public-function
-    "ANN202",  # missing-return-type-private-function
-    "ANN204",  # missing-return-type-special-method
-    "ANN205",  # missing-return-type-static-method
-    "ANN206",  # missing-return-type-class-method
-    "C901",    # complex-structure
-    "D101",    # undocumented-public-class
-    "D102",    # undocumented-public-method
-    "D103",    # undocumented-public-function
-    "D105",    # undocumented-magic-method
-    "D107",    # undocumented-public-init
-    "E501",    # line-too-long
-    "ERA001",  # commented-out-code
-    "FIX002",  # line-contains-todo
-    "N806",    # non-lowercase-variable-in-function
-    "PLC0415", # import-outside-top-level
-    "PLR0911", # too-many-return-statements
-    "PLR0912", # too-many-branches
-    "PLR0913", # too-many-arguments
-    "PLR0915", # too-many-statements
-    "PLW0603", # global-statement
-    "S602",    # subprocess-popen-with-shell-equals-true
-    "S603",    # subprocess-without-shell-equals-true
-    "T201",    # print
-    "TD003",   # missing-todo-link
-    "TD005",   # missing-todo-description
-]
-select = ["ALL"]
-
-[tool.ruff.lint.isort]
-known-first-party = [
-    "modules",
-]
-section-order = [
-    "future",
-    "standard-library",
-    "third-party",
-    "first-party",
-    "local-folder",
-]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-
 [tool.mypy]
 python_version = "3.13"
 exclude = [
@@ -157,6 +107,59 @@ disable = [
 
 [tool.pyright]
 pythonVersion = "3.13"
+
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN201",  # missing-return-type-undocumented-public-function
+    "ANN202",  # missing-return-type-private-function
+    "ANN204",  # missing-return-type-special-method
+    "ANN205",  # missing-return-type-static-method
+    "ANN206",  # missing-return-type-class-method
+    "C901",    # complex-structure
+    "D101",    # undocumented-public-class
+    "D102",    # undocumented-public-method
+    "D103",    # undocumented-public-function
+    "D105",    # undocumented-magic-method
+    "D107",    # undocumented-public-init
+    "E501",    # line-too-long
+    "ERA001",  # commented-out-code
+    "FIX002",  # line-contains-todo
+    "N806",    # non-lowercase-variable-in-function
+    "PLC0415", # import-outside-top-level
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "PLW0603", # global-statement
+    "S602",    # subprocess-popen-with-shell-equals-true
+    "S603",    # subprocess-without-shell-equals-true
+    "T201",    # print
+    "TD003",   # missing-todo-link
+    "TD005",   # missing-todo-description
+]
+select = ["ALL"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "modules",
+]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 
 [tool.vulture]
