@@ -50,8 +50,8 @@
         {
             "label": "⚡ Ruff - Fast Python Linter",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/ruff",
-            "args": ["check", ".", "--config", "pyproject.toml"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; ruff check . --config pyproject.toml"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -62,8 +62,8 @@
         {
             "label": "🔬 MyPy - Static Type Checker",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/mypy",
-            "args": [".", "--config-file", "pyproject.toml"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; mypy . --config-file pyproject.toml"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -74,8 +74,8 @@
         {
             "label": "📝 Flake8 - Style Guide Enforcer",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/flake8",
-            "args": [".", "--config", ".flake8"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; flake8 . --config .flake8"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -86,8 +86,8 @@
         {
             "label": "🎯 Pyright - Microsoft Type Checker",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/pyright",
-            "args": [".", "--project", "pyproject.toml"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; pyright . --project pyproject.toml"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -98,8 +98,8 @@
         {
             "label": "🧹 Pylint - Code Quality Analyzer",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/pylint",
-            "args": [".", "--rcfile", "pyproject.toml"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; pylint . --rcfile pyproject.toml"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -110,8 +110,8 @@
         {
             "label": "🔐 Pip Audit - Vulnerability Scanner",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/pip-audit",
-            "args": ["--local", "--skip-editable"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; pip-audit --local --skip-editable"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -122,8 +122,8 @@
         {
             "label": "🛡️ Safety - Security Vulnerability Check",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/safety",
-            "args": ["scan"],
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; safety scan"],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -134,7 +134,8 @@
         {
             "label": "🐍 Snyk - Developer Security Platform",
             "type": "shell",
-            "command": "${workspaceFolder}/.venv/Scripts/Activate.ps1; snyk test",
+            "command": "powershell.exe",
+            "args": ["-Command", "& '${workspaceFolder}/.venv/Scripts/Activate.ps1'; snyk test"],
             "group": "test",
             "presentation": {
                 "echo": true,
