@@ -109,6 +109,7 @@ disable = [
 [tool.pyright]
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
+reportMissingTypeStubs = "none"  # Ignore missing type stubs for third-party libraries that don't provide them
 
 
 [tool.ruff]
