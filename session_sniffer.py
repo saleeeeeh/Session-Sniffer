@@ -4609,8 +4609,10 @@ class SessionTableModel(QAbstractTableModel):
                 if datetime_attribute is None:
                     raise TypeError(format_type_error(datetime_attribute, str))
 
-                # Safely retrieve the attribute using `getattr`
-                return getattr(player.datetime, datetime_attribute)
+                player_datetime = getattr(player.datetime, datetime_attribute, None)
+                if not isinstance(player_datetime, datetime):
+                    raise TypeError(format_type_error(player_datetime, datetime))
+                return player_datetime
 
             combined.sort(
                 key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(' 👑')),
