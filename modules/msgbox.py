@@ -73,7 +73,7 @@ class MsgBox:
         IDYES       = 6   # The Yes       button was selected.
 
     @staticmethod
-    def show(title: str, text: str, style: Style):
+    def show(title: str, text: str, style: Style) -> int:
         """Display a message box with the specified title, text, and style.
 
         Args:

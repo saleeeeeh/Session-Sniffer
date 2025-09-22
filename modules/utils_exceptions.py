@@ -6,7 +6,7 @@ from pathlib import Path
 class InvalidFileError(Exception):
     """Exception raised when a file is not valid."""
 
-    def __init__(self, file_path: Path):
+    def __init__(self, file_path: Path) -> None:
         """Initialize the exception with a default error message.
 
         Args:
@@ -18,7 +18,7 @@ class InvalidFileError(Exception):
 class InvalidBooleanValueError(Exception):
     """Exception raised when a value is not a valid boolean."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the exception with a default error message."""
         super().__init__('Input is not a valid boolean value')
 
@@ -26,7 +26,7 @@ class InvalidBooleanValueError(Exception):
 class MismatchedBooleanValueError(Exception):
     """Exception raised when the resolved value does not match the expected boolean value."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the exception with a default error message."""
         super().__init__('Input does not match the specified boolean value')
 
@@ -34,7 +34,7 @@ class MismatchedBooleanValueError(Exception):
 class InvalidNoneTypeValueError(Exception):
     """Exception raised when a string is not a valid NoneType value."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the exception with a default error message."""
         super().__init__('Input is not a valid NoneType value')
 
@@ -42,7 +42,7 @@ class InvalidNoneTypeValueError(Exception):
 class NoMatchFoundError(Exception):
     """Exception raised when no case-insensitive match is found."""
 
-    def __init__(self, input_value: str):
+    def __init__(self, input_value: str) -> None:
         """Initialize the exception with the input value and an optional custom message.
 
         Args:
@@ -54,7 +54,7 @@ class NoMatchFoundError(Exception):
 class ParenthesisMismatchError(Exception):
     """Exception raised when parentheses are mismatched in an expression."""
 
-    def __init__(self, expr: str, unmatched_opening: list[int], unmatched_closing: list[int]):
+    def __init__(self, expr: str, unmatched_opening: list[int], unmatched_closing: list[int]) -> None:
         """Initialize the exception with unmatched parentheses positions.
 
         Args:
@@ -63,7 +63,7 @@ class ParenthesisMismatchError(Exception):
             unmatched_closing (list[int]): Positions of unmatched closing parentheses.
         """
 
-        def pluralize(count: int, singular: str = '', plural: str = 's'):
+        def pluralize(count: int, singular: str = '', plural: str = 's') -> str:
             """Return the appropriate plural form based on count."""
             return singular if count == 1 else plural
 

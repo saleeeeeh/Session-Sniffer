@@ -35,7 +35,7 @@ class CustomSSLContextHTTPAdapter(HTTPAdapter):
         )
 
 
-def create_unsafe_https_session(headers: dict[str, str] | None = None):
+def create_unsafe_https_session(headers: dict[str, str] | None = None) -> requests.Session:
     context = create_urllib3_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE

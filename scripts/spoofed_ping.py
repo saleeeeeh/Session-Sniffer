@@ -37,7 +37,7 @@ class Colors(Enum):
     RED = 'c50f1f'
     RED_LIGHT = 'e74856'
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Automatically returns the color with a '#' prefix."""
         return f'#{self.value}'
 
@@ -50,10 +50,10 @@ PING_COLOR_MAP = {
 }
 
 
-def ping_loop(target_ip: str, s: requests.Session):
+def ping_loop(target_ip: str, s: requests.Session) -> None:
     """Continuously pings the target IP until the user closes the script."""
 
-    def send_ping_request(ip: str):
+    def send_ping_request(ip: str) -> tuple[str | None, dict[str, object] | None]:
         """Send a ping request to the Check-Host API."""
         response = s.get(f'{CHECK_HOST_API}/check-ping?host={ip}', headers={'Accept': 'application/json'})
         response.raise_for_status()
@@ -70,7 +70,7 @@ def ping_loop(target_ip: str, s: requests.Session):
             raise TypeError(error_msg)
         return request_id, nodes
 
-    def get_ping_results(request_id: str, delay: int = 10):
+    def get_ping_results(request_id: str, delay: int = 10) -> PingCheckResults:
         """Fetch the results using the request ID."""
         for i in range(delay, 0, -1):
             rprint(f'[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} for ping request to complete...  ', end='\r')
@@ -95,14 +95,14 @@ def ping_loop(target_ip: str, s: requests.Session):
 
         return results
 
-    def pluralize(variable: int):
+    def pluralize(variable: int) -> str:
         return 's' if variable > 1 else ''
 
-    def get_rtt_gradient_color(val: int):
+    def get_rtt_gradient_color(val: int) -> str:
         val = min(max(val, 0), 3000) * 0xFF // 3000
         return f'#{val:02X}{(0xFF - val):02X}00'
 
-    def color_ping_result(successful_pings: int):
+    def color_ping_result(successful_pings: int) -> str:
         """Return a color-coded string based on successful pings."""
         color = PING_COLOR_MAP.get(successful_pings, Colors.RED)
         return f'[{color}]{successful_pings}[/{color}]'
@@ -234,7 +234,7 @@ def ping_loop(target_ip: str, s: requests.Session):
         rprint(' ' * 50, end='\r')
 
 
-def is_ipv4_address(ip_address: str, /):
+def is_ipv4_address(ip_address: str, /) -> bool:
     """Check if the given IP address is a valid IPv4 address."""
     with suppress(AddressValueError):
         IPv4Address(ip_address)
@@ -242,7 +242,7 @@ def is_ipv4_address(ip_address: str, /):
     return False
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Ping an IP using Check-Host API.')
     parser.add_argument('ip', metavar='<ip>', type=str, help='Target IP to ping')
     args = parser.parse_args()

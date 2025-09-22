@@ -2,6 +2,8 @@
 
 It uses two WMI namespaces: 'root/StandardCimv2' for modern CIM-based network data and 'root/Cimv2' for legacy management data.
 """
+from collections.abc import Generator
+
 import wmi
 from wmi import _wmi_namespace
 
@@ -20,7 +22,7 @@ if not isinstance(cimv2_namespace, _wmi_namespace):
     raise TypeError(format_type_error(cimv2_namespace, _wmi_namespace))
 
 
-def iterate_project_network_neighbor_details():
+def iterate_project_network_neighbor_details() -> Generator[tuple[int, str | None, str | None]]:
     """Iterate project required network neighbor details from MSFT_NetNeighbor (standard CIMv2-based).
 
     Yields:
@@ -42,7 +44,7 @@ def iterate_project_network_neighbor_details():
         yield net_neighbor.InterfaceIndex, net_neighbor.IPAddress, net_neighbor.LinkLayerAddress
 
 
-def iterate_project_network_adapter_details():
+def iterate_project_network_adapter_details() -> Generator[tuple[int, str, str | None, int | None]]:
     """Iterate project required network adapter details from MSFT_NetAdapter (standard CIMv2-based).
 
     Yields:
@@ -67,7 +69,7 @@ def iterate_project_network_adapter_details():
         yield net_adapter.InterfaceIndex, net_adapter.Name, net_adapter.InterfaceDescription, net_adapter.state
 
 
-def iterate_project_legacy_network_adapter_details():
+def iterate_project_legacy_network_adapter_details() -> Generator[tuple[int, str, str | None, str | None, str | None]]:
     """Iterate project required network adapter details from Win32_NetworkAdapter (legacy CIMv2-based).
 
     Yields:
@@ -95,7 +97,7 @@ def iterate_project_legacy_network_adapter_details():
         yield net_adapter.InterfaceIndex, net_adapter.NetConnectionID, net_adapter.Description, net_adapter.MACAddress, net_adapter.Manufacturer
 
 
-def iterate_project_network_ip_details():
+def iterate_project_network_ip_details() -> Generator[tuple[int, str, str | None]]:
     """Yield project required network adapter IP configuration details from MSFT_NetIPAddress (standard CIMv2-based).
 
     Yields:
@@ -117,7 +119,7 @@ def iterate_project_network_ip_details():
         yield net_ip.InterfaceIndex, net_ip.InterfaceAlias, net_ip.IPv4Address
 
 
-def iterate_project_legacy_network_ip_details():
+def iterate_project_legacy_network_ip_details() -> Generator[tuple[int, str | None, str | None, tuple[str, ...] | None, bool | None]]:
     """Yield project required legacy network adapter IP configuration details from Win32_NetworkAdapterConfiguration (legacy CIMv2-based).
 
     Yields:

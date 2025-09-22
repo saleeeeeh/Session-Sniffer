@@ -6,7 +6,7 @@ from pathlib import Path
 from packaging.version import Version
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Update "release_versions.json" with updated version info.')
     parser.add_argument('tag', action='store', help='The release tag (e.g., 1.3.7+20250405.1644)')
     parser.add_argument('--prerelease', action='store_true', help='Mark the release as a prerelease')

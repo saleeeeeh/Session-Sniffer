@@ -20,7 +20,7 @@ LOGS_PATHS = (
 )
 
 
-def _snapshot_file_mod_times():
+def _snapshot_file_mod_times() -> dict[Path, float]:
     """Return current modification times of all existing log files."""
     return {
         path.resolve(): path.stat().st_mtime
@@ -29,7 +29,7 @@ def _snapshot_file_mod_times():
     }
 
 
-def _parse_log_file(log_path: Path):
+def _parse_log_file(log_path: Path) -> defaultdict[str, list[str]]:
     """Read and parse a single log file and return IP-to-usernames mapping."""
     ip_usernames: defaultdict[str, list[str]] = defaultdict(list)
 
@@ -62,12 +62,12 @@ class ModMenuLogsParser:
     _ip_to_usernames_map: ClassVar[defaultdict[str, list[str]]] = defaultdict(list)
 
     @classmethod
-    def _has_log_files_changed(cls, current_log_files_mod_times: dict[Path, float]):
+    def _has_log_files_changed(cls, current_log_files_mod_times: dict[Path, float]) -> bool:
         """Determine if any file was added, removed, or modified."""
         return current_log_files_mod_times != cls._last_known_log_files_mod_times
 
     @classmethod
-    def refresh(cls):
+    def refresh(cls) -> None:
         """If any file changed or was deleted, re-parse all logs."""
         with cls._lock:
             current_log_files_mod_times = _snapshot_file_mod_times()
@@ -89,13 +89,13 @@ class ModMenuLogsParser:
             cls._last_known_log_files_mod_times = current_log_files_mod_times
 
     @classmethod
-    def has_ip(cls, ip: str):
+    def has_ip(cls, ip: str) -> bool:
         """Thread-safe check if the given IP exists in any parsed log."""
         with cls._lock:
             return ip in cls._ip_to_usernames_map
 
     @classmethod
-    def get_usernames_by_ip(cls, ip: str):
+    def get_usernames_by_ip(cls, ip: str) -> list[str]:
         """Thread-safe retrieval of usernames associated with a given IP."""
         with cls._lock:
             return cls._ip_to_usernames_map.get(ip, []).copy()

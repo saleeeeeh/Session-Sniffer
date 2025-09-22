@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 
-def check_broadcast_multicast_support(tshark_path: Path, interface: str):
+def check_broadcast_multicast_support(tshark_path: Path, interface: str) -> tuple[bool, bool]:
     """Check if the given network interface supports 'broadcast' and 'multicast' capture filters using tshark.
 
     Args:
@@ -15,7 +15,7 @@ def check_broadcast_multicast_support(tshark_path: Path, interface: str):
                and the second indicates support for 'multicast' capture filters.
     """
 
-    def run_capture_filter_test(capture_filter: str):
+    def run_capture_filter_test(capture_filter: str) -> bool:
         """Run tshark with a given capture filter and return whether it was successful.
 
         Args:

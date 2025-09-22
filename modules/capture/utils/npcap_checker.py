@@ -16,7 +16,7 @@ NPCAP_SERVICE_QUERY_CMD = (SC_EXE, 'query', 'npcap')
 NPCAP_DOWNLOAD_URL = 'https://npcap.com/#download'
 
 
-def is_npcap_installed():
+def is_npcap_installed() -> bool:
     """Check if the Npcap driver is installed on the system."""
     with suppress(subprocess.CalledProcessError):
         subprocess.run(NPCAP_SERVICE_QUERY_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
@@ -24,12 +24,12 @@ def is_npcap_installed():
     return False
 
 
-def open_npcap_download_page():
+def open_npcap_download_page() -> None:
     """Open the official Npcap download page in the web browser."""
     webbrowser.open(NPCAP_DOWNLOAD_URL)
 
 
-def ensure_npcap_installed():
+def ensure_npcap_installed() -> None:
     """Ensure that the Npcap driver is installed. If not, show instructions and wait for user to install manually."""
     if is_npcap_installed():
         return
@@ -82,7 +82,7 @@ def ensure_npcap_installed():
     # Success message in a separate thread so the app can continue running
     from threading import Thread
 
-    def show_success_message():
+    def show_success_message() -> None:
         MsgBox.show(
             title=TITLE,
             text=format_triple_quoted_text("""

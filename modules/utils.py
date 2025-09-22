@@ -60,7 +60,7 @@ __all__ = [
 ]
 
 
-def format_attribute_error(cls: type, name: str):
+def format_attribute_error(cls: type, name: str) -> str:
     """Format an attribute error message.
 
     Args:
@@ -77,7 +77,7 @@ def format_type_error(
     obj: object,
     expected_types: type[Any] | tuple[type[Any], ...],
     suffix: str = '',
-):
+) -> str:
     """Generate a formatted error message for a type mismatch.
 
     Args:
@@ -103,7 +103,7 @@ def format_type_error(
     return f'Expected type{pluralize(expected_type_count)} {expected_types_names}, got {actual_type} instead.{suffix}'
 
 
-def format_file_not_found_error(file_path: Path):
+def format_file_not_found_error(file_path: Path) -> str:
     """Format the file not found error message.
 
     Args:
@@ -112,24 +112,24 @@ def format_file_not_found_error(file_path: Path):
     return f'File not found: {file_path.absolute()}'
 
 
-def is_pyinstaller_compiled():
+def is_pyinstaller_compiled() -> bool:
     """Check if the script is running as a PyInstaller compiled executable."""
     return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')  # https://pyinstaller.org/en/stable/runtime-information.html
 
 
-def get_working_directory_to_script_location():
+def get_working_directory_to_script_location() -> Path:
     """Get the working directory to the script or executable location."""
     if is_pyinstaller_compiled():
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
 
-def set_working_directory_to_script_location():
+def set_working_directory_to_script_location() -> None:
     """Set the current working directory to the script or executable location."""
     os.chdir(get_working_directory_to_script_location())
 
 
-def resource_path(relative_path: Path):
+def resource_path(relative_path: Path) -> Path:
     """Get absolute path to resource, works for dev and for PyInstaller."""
     base_path = getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
     if isinstance(base_path, str):
@@ -139,7 +139,7 @@ def resource_path(relative_path: Path):
     raise TypeError(format_type_error(base_path, (str, Path)))
 
 
-def get_documents_folder(*, use_alternative_method: bool = False):
+def get_documents_folder(*, use_alternative_method: bool = False) -> Path:
     """Retrieve the Path object to the current user's "Documents" folder by querying the Windows registry.
 
     Args:
@@ -168,19 +168,19 @@ def get_documents_folder(*, use_alternative_method: bool = False):
     return Path(documents_path)
 
 
-def set_window_title(title: str):
+def set_window_title(title: str) -> None:
     print(f'\033]0;{title}\007', end='')
 
 
-def clear_screen():
+def clear_screen() -> None:
     print('\033c', end='')
 
 
-def pluralize(count: int, singular: str = '', plural: str = 's'):
+def pluralize(count: int, singular: str = '', plural: str = 's') -> str:
     return singular if count == 1 else plural
 
 
-def validate_file(file_path: Path):
+def validate_file(file_path: Path) -> Path:
     """Validate if the given file path exists and is a file.
 
     Raises:
@@ -198,7 +198,7 @@ def validate_file(file_path: Path):
     return file_path
 
 
-def format_project_version(version: Version):
+def format_project_version(version: Version) -> str:
     """Format the project version for display."""
     if version.local:
         date_time = datetime.strptime(version.local, '%Y%m%d.%H%M').replace(tzinfo=UTC).strftime('%Y/%m/%d (%H:%M)')
@@ -226,14 +226,14 @@ def dedup_preserve_order[T](*iterables: Iterable[T]) -> list[T]:
     return unique
 
 
-def is_file_need_newline_ending(file: Path):
+def is_file_need_newline_ending(file: Path) -> bool:
     if not file.exists() or not file.stat().st_size:
         return False
 
     return not file.read_bytes().endswith(b'\n')
 
 
-def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[str]):
+def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[str]) -> None:
     """Writes or appends a list of lines to a file, ensuring proper newline handling.
 
     Args:
@@ -261,7 +261,7 @@ def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[st
         f.writelines(content)
 
 
-def get_pid_by_path(filepath: Path, /):
+def get_pid_by_path(filepath: Path, /) -> int | None:
     """Get the process ID (PID) of a running process by its executable path."""
     for process in psutil.process_iter(['pid', 'exe']):
         if process.info['exe'] == str(filepath.absolute()):
@@ -269,7 +269,7 @@ def get_pid_by_path(filepath: Path, /):
     return None
 
 
-def terminate_process_tree(pid: int | None = None):
+def terminate_process_tree(pid: int | None = None) -> None:
     """Terminates the process with the given PID and all its child processes.
 
     Defaults to the current process if no PID is specified.
@@ -325,7 +325,7 @@ def format_triple_quoted_text(
     return formatted_text
 
 
-def check_case_insensitive_and_exact_match(input_value: str, custom_values_tuple: tuple[str, ...]):
+def check_case_insensitive_and_exact_match(input_value: str, custom_values_tuple: tuple[str, ...]) -> tuple[bool, str]:
     """Check if the input value matches any string in the tuple case-insensitively, and whether it also matches exactly (case-sensitive).
 
     It also returns the correctly capitalized version of the matched value from the tuple if a case-insensitive match is found.
@@ -350,7 +350,7 @@ def check_case_insensitive_and_exact_match(input_value: str, custom_values_tuple
     raise NoMatchFoundError(input_value)
 
 
-def custom_str_to_bool(string: str, *, only_match_against: bool | None = None):
+def custom_str_to_bool(string: str, *, only_match_against: bool | None = None) -> tuple[bool, bool]:
     """Return the boolean value represented by the string, regardless of case.
 
     Raise:
@@ -386,7 +386,7 @@ def custom_str_to_bool(string: str, *, only_match_against: bool | None = None):
     return resolved_value, need_rewrite_current_setting
 
 
-def custom_str_to_nonetype(string: str):
+def custom_str_to_nonetype(string: str) -> tuple[None, bool]:
     """Return the NoneType value represented by the string for lowercase or any case variation.
 
     Raise:
@@ -405,7 +405,7 @@ def custom_str_to_nonetype(string: str):
     return None, need_rewrite_current_setting
 
 
-def validate_and_strip_balanced_outer_parens(expr: str):
+def validate_and_strip_balanced_outer_parens(expr: str) -> str:
     """Validate and strip balanced outer parentheses from a string.
 
     This function checks for balanced parentheses in the input string and removes
@@ -414,7 +414,7 @@ def validate_and_strip_balanced_outer_parens(expr: str):
     with the positions of the unmatched parentheses.
     """
 
-    def strip_n_times(s: str, *, times: int):
+    def strip_n_times(s: str, *, times: int) -> str:
         """Strip outer parentheses from a string n times."""
         for _ in range(times):
             s = s.removeprefix('(').removesuffix(')')
@@ -456,14 +456,14 @@ def validate_and_strip_balanced_outer_parens(expr: str):
     return expr
 
 
-def resolve_lnk(shortcut_path: Path):
+def resolve_lnk(shortcut_path: Path) -> Path:
     """Resolves a Windows shortcut (.lnk) to its target path."""
     winshell = Dispatch('WScript.Shell')
     shortcut = winshell.CreateShortcut(str(shortcut_path))
     return Path(shortcut.Targetpath)
 
 
-def run_cmd_script(script: Path, args: list[str] | None = None):
+def run_cmd_script(script: Path, args: list[str] | None = None) -> None:
     """Executes a script with the given arguments in a new CMD terminal window."""
     from modules.constants.standard import CMD_EXE
 
@@ -486,7 +486,7 @@ def run_cmd_script(script: Path, args: list[str] | None = None):
     subprocess.Popen(full_command, creationflags=subprocess.CREATE_NEW_CONSOLE)  # pylint: disable=consider-using-with
 
 
-def run_cmd_command(command: str, args: list[str] | None = None):
+def run_cmd_command(command: str, args: list[str] | None = None) -> None:
     """Executes a command with the given arguments in a new CMD terminal window."""
     from modules.constants.standard import CMD_EXE
 

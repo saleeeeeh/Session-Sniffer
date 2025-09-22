@@ -43,25 +43,25 @@ class ManufEntry:
     organization_name: str
 
 
-def _mac_str_to_int(mac: str):
+def _mac_str_to_int(mac: str) -> int:
     """Convert a MAC address string (with colons or dashes) to an integer."""
     return int(mac.translate(str.maketrans('', '', ':-')), 16)
 
 
-def _mac_prefix_str_to_int(prefix: str, cidr: int):
+def _mac_prefix_str_to_int(prefix: str, cidr: int) -> int:
     """Convert the MAC prefix string to an integer, shifted to the top bits per CIDR."""
     raw_int = _mac_str_to_int(prefix)
     shift_amount = 48 - cidr
     return raw_int << shift_amount
 
 
-def _matches_prefix(mac_int: int, prefix_int: int, cidr: int):
+def _matches_prefix(mac_int: int, prefix_int: int, cidr: int) -> bool:
     """Return True if mac_int matches the prefix_int on the first cidr bits."""
     shift = 48 - cidr  # MAC addresses are 48 bits long
     return (mac_int >> shift) == (prefix_int >> shift)
 
 
-def _parse_and_load_manuf_database():
+def _parse_and_load_manuf_database() -> 'ManufDatabaseType':
     """Parse the manuf file and return a database dict of prefix -> ManufEntry list."""
     manuf_database: ManufDatabaseType = {}
 
@@ -103,7 +103,7 @@ def _parse_and_load_manuf_database():
 
 
 class MacLookup:
-    def __init__(self, *, load_on_init: bool = False):
+    def __init__(self, *, load_on_init: bool = False) -> None:
         """Initialize the MacLookup instance.
 
         :param load_on_init: If True, fetches and loads the manuf database immediately.
@@ -112,11 +112,11 @@ class MacLookup:
         if load_on_init:
             self._refresh_manuf_database()
 
-    def _refresh_manuf_database(self):
+    def _refresh_manuf_database(self) -> None:
         """Parse and load the manuf database."""
         self.manuf_database = _parse_and_load_manuf_database()
 
-    def _find_best_match(self, mac_address: str):
+    def _find_best_match(self, mac_address: str) -> 'ManufEntry | None':
         """Find the best matching ManufEntry for the given MAC address using CIDR longest prefix match."""
         if self.manuf_database is None:
             self._refresh_manuf_database()
@@ -139,7 +139,7 @@ class MacLookup:
 
         return best_entry
 
-    def lookup(self, mac_address: str):
+    def lookup(self, mac_address: str) -> 'ManufEntry | None':
         """Lookup the MAC address in the manuf database.
 
         :param mac_address: MAC address to lookup (string)
@@ -149,7 +149,7 @@ class MacLookup:
 
         return self._find_best_match(mac_address)
 
-    def get_mac_address_organization_name(self, mac_address: str):
+    def get_mac_address_organization_name(self, mac_address: str) -> str | None:
         """Return the organization name for a given MAC address, if available."""
         entry = self.lookup(mac_address)
         if entry is None:

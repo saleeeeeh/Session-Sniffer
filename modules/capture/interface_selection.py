@@ -40,21 +40,21 @@ class SafeQTableWidget(QTableWidget):
     """A subclass of QTableWidget that ensures the selection model is of the correct type."""
 
     # pylint: disable=invalid-name
-    def selectionModel(self):  # noqa: N802
+    def selectionModel(self) -> QItemSelectionModel:  # noqa: N802
         """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
         selection_model = super().selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
             raise TypeError(format_type_error(selection_model, QItemSelectionModel))
         return selection_model
 
-    def verticalHeader(self):  # noqa: N802
+    def verticalHeader(self) -> QHeaderView:  # noqa: N802
         """Override the verticalHeader method to ensure it returns a QHeaderView."""
         header = super().verticalHeader()
         if not isinstance(header, QHeaderView):
             raise TypeError(format_type_error(header, QHeaderView))
         return header
 
-    def horizontalHeader(self):  # noqa: N802
+    def horizontalHeader(self) -> QHeaderView:  # noqa: N802
         """Override the horizontalHeader method to ensure it returns a QHeaderView."""
         header = super().horizontalHeader()
         if not isinstance(header, QHeaderView):
@@ -64,7 +64,7 @@ class SafeQTableWidget(QTableWidget):
 
 
 class InterfaceSelectionDialog(QDialog):
-    def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
+    def __init__(self, screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]) -> None:
         super().__init__()
 
         from modules.guis.utils import resize_window_for_screen
@@ -177,10 +177,10 @@ class InterfaceSelectionDialog(QDialog):
         selection_model.selectionChanged.connect(self.update_select_button_state)
 
     # Custom Methods:
-    def show_tooltip_if_elided(self, row: int, column: int):
+    def show_tooltip_if_elided(self, row: int, column: int) -> None:
         """Show tooltip if the text in the cell is elided."""
 
-        def is_elided(item: QTableWidgetItem, displayed_text: str):
+        def is_elided(item: QTableWidgetItem, displayed_text: str) -> bool:
             """Check if the text in the item is elided (truncated)."""
             fm = self.table.fontMetrics()
             rect = self.table.visualItemRect(item)  # Get the cell's rectangle
@@ -202,7 +202,7 @@ class InterfaceSelectionDialog(QDialog):
         QToolTip.showText(QCursor.pos(), '', self.table)  # <-- force refresh tooltip position (see: https://doc.qt.io/qt-6/qtooltip.html#showText)
         QToolTip.showText(QCursor.pos(), displayed_text, self.table)
 
-    def update_select_button_state(self):
+    def update_select_button_state(self) -> None:
         # Check if any row is selected
         selected_row = self.table.currentRow()
         if selected_row != -1:
@@ -210,7 +210,7 @@ class InterfaceSelectionDialog(QDialog):
         else:
             self.select_button.setEnabled(False)
 
-    def select_interface(self):
+    def select_interface(self) -> None:
         selected_row = self.table.currentRow()
         if selected_row != -1:
             # Retrieve the selected interface data
@@ -218,7 +218,7 @@ class InterfaceSelectionDialog(QDialog):
             self.accept()  # Close the dialog and set its result to QDialog.Accepted
 
 
-def show_interface_selection_dialog(screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]):
+def show_interface_selection_dialog(screen_width: int, screen_height: int, interfaces: list[InterfaceSelectionData]) -> InterfaceSelectionData | None:
     # Create and show the interface selection dialog
     dialog = InterfaceSelectionDialog(screen_width, screen_height, interfaces)
     if dialog.exec() == QDialog.DialogCode.Accepted:  # Blocks until the dialog is accepted or rejected

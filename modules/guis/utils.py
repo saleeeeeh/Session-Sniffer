@@ -9,7 +9,7 @@ from .app import app
 from .exceptions import PrimaryScreenNotFoundError
 
 
-def get_screen_size():
+def get_screen_size() -> tuple[int, int]:
     screen = app.primaryScreen()
     if screen is None:
         raise PrimaryScreenNotFoundError
@@ -18,7 +18,7 @@ def get_screen_size():
     return size.width(), size.height()
 
 
-def resize_window_for_screen(window: QMainWindow | QDialog, screen_width: int, screen_height: int):
+def resize_window_for_screen(window: QMainWindow | QDialog, screen_width: int, screen_height: int) -> None:
     """Resize a window based on the screen resolution.
 
     Args:

@@ -1,6 +1,6 @@
 """Module for packet capture using TShark, including packet processing and handling of TShark crashes."""
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,7 +21,7 @@ from modules.networking.utils import is_ipv4_address
 _EXPECTED_TSHARK_PACKET_FIELD_COUNT = 5
 
 
-def _parse_and_validate_port(port_str: str, /):
+def _parse_and_validate_port(port_str: str, /) -> int:
     if not port_str.isascii() or not port_str.isdecimal():
         raise InvalidPortFormatError(port_str)
     port = int(port_str)
@@ -30,13 +30,13 @@ def _parse_and_validate_port(port_str: str, /):
     return port
 
 
-def _parse_and_validate_ip(ip: str, /):
+def _parse_and_validate_ip(ip: str, /) -> str:
     if not is_ipv4_address(ip):
         raise InvalidIPv4AddressInCaptureError(ip)
     return ip
 
 
-def _convert_epoch_time_to_datetime(time_epoch: float, /):
+def _convert_epoch_time_to_datetime(time_epoch: float, /) -> datetime:
     dt_utc = datetime.fromtimestamp(time_epoch, tz=UTC)
     return dt_utc.astimezone(LOCAL_TZ)
 
@@ -69,7 +69,7 @@ class Packet:
     port: Port
 
     @classmethod
-    def from_fields(cls, fields: PacketFields):
+    def from_fields(cls, fields: PacketFields) -> 'Packet':
         """"Create a Packet object from TShark output fields.
 
         Args:
@@ -136,19 +136,19 @@ class PacketCapture:
         )
         self._tshark_process: subprocess.Popen[str] | None = None
 
-    def apply_on_packets(self, callback: Callable[[Packet], None]):
+    def apply_on_packets(self, callback: Callable[[Packet], None]) -> None:
         """Apply a callback function to each captured packet."""
         for packet in self._capture_packets():
             callback(packet)
 
-    def _capture_packets(self):
+    def _capture_packets(self) -> Generator[Packet]:
         """Capture packets using TShark and process the output.
 
         Yields:
             Packet: A packet object containing the captured packet data.
         """
 
-        def process_tshark_stdout(line: str):
+        def process_tshark_stdout(line: str) -> PacketFields | None:
             """Process a line of TShark output and return a PacketFields object.
 
             Args:

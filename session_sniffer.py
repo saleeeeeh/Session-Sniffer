@@ -14,7 +14,7 @@ import tempfile
 import time
 import webbrowser
 import winsound
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from datetime import datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
@@ -195,7 +195,7 @@ def terminate_script(
 ):
     from modules.utils import terminate_process_tree
 
-    def should_terminate_gracefully():
+    def should_terminate_gracefully() -> bool:
         if terminate_gracefully is False:
             return False
 
@@ -258,7 +258,7 @@ def terminate_script(
     terminate_process_tree()
 
 
-def handle_exception(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None):
+def handle_exception(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None) -> None:
     """Handle exceptions for the main script (not threads)."""
     if issubclass(exc_type, KeyboardInterrupt):
         return
@@ -267,7 +267,7 @@ def handle_exception(exc_type: type[BaseException], exc_value: BaseException, ex
     terminate_script('EXIT', 'An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues', exception_info=exception_info)
 
 
-def handle_sigint(_sig: int, _frame: FrameType | None):
+def handle_sigint(_sig: int, _frame: FrameType | None) -> None:
     if not ScriptControl.has_crashed():
         # Block CTRL+C if script is already crashing under control
         print(f'\n{Fore.YELLOW}Ctrl+C pressed. Exiting script ...{Fore.RESET}')
@@ -284,24 +284,24 @@ class ScriptControl:
     _message: ClassVar[str | None] = None
 
     @classmethod
-    def set_crashed(cls, message: str | None = None):
+    def set_crashed(cls, message: str | None = None) -> None:
         with cls._lock:
             cls._crashed = True
             cls._message = message
 
     @classmethod
-    def reset_crashed(cls):
+    def reset_crashed(cls) -> None:
         with cls._lock:
             cls._crashed = False
             cls._message = None
 
     @classmethod
-    def has_crashed(cls):
+    def has_crashed(cls) -> bool:
         with cls._lock:
             return cls._crashed
 
     @classmethod
-    def get_message(cls):
+    def get_message(cls) -> str | None:
         with cls._lock:
             return cls._message
 
@@ -322,10 +322,10 @@ class ThreadsExceptionHandler:
     raising_exc_value:     ClassVar[BaseException       | None] = None
     raising_exc_traceback: ClassVar[TracebackType       | None] = None
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """Enter the runtime context related to this object."""
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_traceback: TracebackType | None):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, exc_traceback: TracebackType | None) -> bool:
         """Exit method called upon exiting the 'with' block.
 
         Args:
@@ -468,23 +468,23 @@ class Settings(DefaultSettings):
     GUI_ALL_DISCONNECTED_FIELDS: ClassVar = ('Usernames', 'First Seen', 'Last Rejoin', 'Last Seen', 'Rejoins', 'T. Packets', 'Packets',               'IP Address', 'Hostname', 'Last Port', 'Middle Ports', 'First Port', 'Continent', 'Country', 'Region', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'ISP', 'ASN / ISP', 'AS', 'ASN', 'Mobile', 'VPN', 'Hosting', 'Pinging')
 
     @classmethod
-    def iterate_over_settings(cls):
+    def iterate_over_settings(cls) -> Iterator[tuple[str, Any]]:
         """Iterate over all settings and their current values."""
         for setting_name in cls.ALL_SETTINGS:
             yield setting_name, getattr(cls, setting_name)
 
     @classmethod
-    def get_settings_length(cls):
+    def get_settings_length(cls) -> int:
         """Get the total number of settings."""
         return len(cls.ALL_SETTINGS)
 
     @classmethod
-    def has_setting(cls, setting_name: str):
+    def has_setting(cls, setting_name: str) -> bool:
         """Check if a setting exists."""
         return setting_name in cls._ALL_SETTINGS_SET
 
     @classmethod
-    def reconstruct_settings(cls):
+    def reconstruct_settings(cls) -> None:
         print('\nCorrect reconstruction of "Settings.ini" ...')
         text = format_triple_quoted_text(f"""
             ;;-----------------------------------------------------------------------------
@@ -501,10 +501,10 @@ class Settings(DefaultSettings):
         SETTINGS_PATH.write_text(text, encoding='utf-8')
 
     @staticmethod
-    def parse_settings_ini_file(ini_path: Path):
+    def parse_settings_ini_file(ini_path: Path) -> tuple[dict[str, str], bool]:
         from modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN
 
-        def process_ini_line_output(line: str):
+        def process_ini_line_output(line: str) -> str:
             return line.rstrip('\n')
 
         validate_file(ini_path)
@@ -553,7 +553,7 @@ class Settings(DefaultSettings):
         return ini_database, need_rewrite_ini
 
     @classmethod
-    def load_from_settings_file(cls, settings_path: Path):
+    def load_from_settings_file(cls, settings_path: Path) -> None:
         from modules.utils import (
             check_case_insensitive_and_exact_match,
             custom_str_to_bool,
@@ -802,7 +802,7 @@ class Interface:
     ip_addresses: list[str]      = dataclasses.field(default_factory=list)
     arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)
 
-    def add_arp_entry(self, arp_entry: ARPEntry):
+    def add_arp_entry(self, arp_entry: ARPEntry) -> bool:
         """Add an ARP entry for the given interface."""
         if arp_entry in self.arp_entries:
             return False
@@ -810,11 +810,11 @@ class Interface:
         self.arp_entries.append(arp_entry)
         return True
 
-    def get_arp_entries(self):
+    def get_arp_entries(self) -> list[ARPEntry]:
         """Get ARP entries for the given interface."""
         return self.arp_entries
 
-    def is_interface_inactive(self):
+    def is_interface_inactive(self) -> bool:
         """Determine if an interface is inactive based on lack of traffic, IP addresses, and identifying details."""
         # Check if interface is disabled
         if self.ip_enabled is False or self.state == NETWORK_ADAPTER_DISABLED:
@@ -834,7 +834,7 @@ class Interface:
     # Update/Add Methods
     # ─────────────────────────────────────────────────────────────
 
-    def update_ip_enabled(self, *, new_value: bool | None):
+    def update_ip_enabled(self, *, new_value: bool | None) -> bool:
         if new_value is None:
             return False
 
@@ -843,7 +843,7 @@ class Interface:
         self.ip_enabled = new_value
         return True
 
-    def update_state(self, new_value: int | None):
+    def update_state(self, new_value: int | None) -> bool:
         if new_value is None:
             return False
 
@@ -852,7 +852,7 @@ class Interface:
         self.state = new_value
         return True
 
-    def update_name(self, new_value: str | None):
+    def update_name(self, new_value: str | None) -> bool:
         if new_value is None:
             return False
 
@@ -861,7 +861,7 @@ class Interface:
         self.name = new_value
         return True
 
-    def update_mac_address(self, new_value: str | None):
+    def update_mac_address(self, new_value: str | None) -> bool:
         if new_value is None:
             return False
 
@@ -870,7 +870,7 @@ class Interface:
         self.mac_address = new_value
         return True
 
-    def update_manufacturer(self, new_value: str | None):
+    def update_manufacturer(self, new_value: str | None) -> bool:
         if new_value is None:
             return False
 
@@ -879,7 +879,7 @@ class Interface:
         self.manufacturer = new_value
         return True
 
-    def update_packets_sent(self, new_value: int | None):
+    def update_packets_sent(self, new_value: int | None) -> bool:
         if new_value is None:
             return False
 
@@ -888,7 +888,7 @@ class Interface:
         self.packets_sent = new_value
         return True
 
-    def update_packets_recv(self, new_value: int | None):
+    def update_packets_recv(self, new_value: int | None) -> bool:
         if new_value is None:
             return False
 
@@ -897,7 +897,7 @@ class Interface:
         self.packets_recv = new_value
         return True
 
-    def add_description(self, new_value: str | None):
+    def add_description(self, new_value: str | None) -> bool:
         if new_value is None:
             return False
 
@@ -908,7 +908,7 @@ class Interface:
 
         return False
 
-    def add_ip_address(self, new_value: str | None):
+    def add_ip_address(self, new_value: str | None) -> bool:
         if new_value is None:
             return False
 
@@ -924,7 +924,7 @@ class AllInterfaces:
     _name_map: ClassVar[dict[str, int]] = {}
 
     @classmethod
-    def iterate(cls):
+    def iterate(cls) -> Iterator[Interface]:
         """Yield each interface from `all_interfaces`.
 
         This is an iterator that will provide all interfaces stored in the dictionary.
@@ -936,7 +936,7 @@ class AllInterfaces:
         yield from cls.all_interfaces.values()
 
     @classmethod
-    def get_interface(cls, index: int):
+    def get_interface(cls, index: int) -> Interface | None:
         """Retrieve an interface by its `index`.
 
         Args:
@@ -948,7 +948,7 @@ class AllInterfaces:
         return cls.all_interfaces.get(index)
 
     @classmethod
-    def get_interface_by_name(cls, name: str):
+    def get_interface_by_name(cls, name: str) -> Interface | None:
         """Retrieve an interface by its `name`, case-insensitively.
 
         Args:
@@ -964,7 +964,7 @@ class AllInterfaces:
         return None
 
     @classmethod
-    def add_interface(cls, new_interface: Interface):
+    def add_interface(cls, new_interface: Interface) -> bool:
         """Add a new interface to the dictionary if it doesn't already exist.
 
         Args:
@@ -981,7 +981,7 @@ class AllInterfaces:
         return False
 
     @classmethod
-    def delete_interface(cls, index: int):
+    def delete_interface(cls, index: int) -> bool:
         """Delete an interface by its `index`.
 
         Args:
@@ -1016,7 +1016,7 @@ class ThirdPartyServers(enum.Enum):
     MINECRAFTBEDROCKEDITION_PC_PS4_MICROSOFT = ('20.202.0.0/24', '20.224.0.0/16', '168.61.142.128/25', '168.61.143.0/24', '168.61.144.0/20', '168.61.160.0/19')
 
     @classmethod
-    def get_all_ip_ranges(cls):
+    def get_all_ip_ranges(cls) -> list[str]:
         """Return a flat list of all IP ranges from the Enum."""
         return [ip_range for server in cls for ip_range in server.value]
 
@@ -1036,14 +1036,14 @@ class PlayerPPS:
     counter: int = 0
     rate: int = 0
 
-    def update_rate(self, counter: int):
+    def update_rate(self, counter: int) -> None:
         """Update the current rate."""
         self.is_first_calculation = False
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = counter
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the PlayerPPS to its initial state."""
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
@@ -1059,14 +1059,14 @@ class PlayerPPM:
     counter: int = 0
     rate: int = 0
 
-    def update_rate(self, counter: int):
+    def update_rate(self, counter: int) -> None:
         """Update the current rate."""
         self.is_first_calculation = False
         self.last_update_time = time.monotonic()
         self.counter = 0
         self.rate = counter
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the PlayerPPS to its initial state."""
         self.is_first_calculation = True
         self.last_update_time = time.monotonic()
@@ -1082,7 +1082,7 @@ class PlayerPorts:
     last: int
 
     @classmethod
-    def from_packet_port(cls, port: int):
+    def from_packet_port(cls, port: int) -> 'PlayerPorts':
         return cls(
             all=[port],
             first=port,
@@ -1090,7 +1090,7 @@ class PlayerPorts:
             last=port,
         )
 
-    def reset(self, port: int):
+    def reset(self, port: int) -> None:
         self.all.clear()
         self.all.append(port)
         self.first = port
@@ -1105,7 +1105,7 @@ class PlayerDateTime:
     last_seen: datetime
 
     @classmethod
-    def from_packet_datetime(cls, packet_datetime: datetime):
+    def from_packet_datetime(cls, packet_datetime: datetime) -> 'PlayerDateTime':
         return cls(
             first_seen=packet_datetime,
             last_rejoin=packet_datetime,
@@ -1193,7 +1193,7 @@ class PlayerModMenus:
 
 
 class Player:  # pylint: disable=too-many-instance-attributes
-    def __init__(self, *, ip: str, port: int, packet_datetime: datetime):
+    def __init__(self, *, ip: str, port: int, packet_datetime: datetime) -> None:
         self.left_event = Event()
 
         self.ip = ip
@@ -1215,7 +1215,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
         self.userip_detection: PlayerUserIPDetection | None = None
         self.mod_menus: PlayerModMenus | None = None
 
-    def mark_as_seen(self, *, port: int, packet_datetime: datetime):
+    def mark_as_seen(self, *, port: int, packet_datetime: datetime) -> None:
         self.datetime.last_seen = packet_datetime
         self.total_packets += 1
         self.packets += 1
@@ -1234,7 +1234,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
 
             self.ports.last = port
 
-    def mark_as_rejoined(self, *, port: int, packet_datetime: datetime):
+    def mark_as_rejoined(self, *, port: int, packet_datetime: datetime) -> None:
         self.left_event.clear()
         self.datetime.last_rejoin = packet_datetime
         self.packets = 1
@@ -1246,7 +1246,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
         if Settings.GUI_RESET_PORTS_ON_REJOINS:
             self.ports.reset(port)
 
-    def mark_as_left(self):
+    def mark_as_left(self) -> None:
         self.left_event.set()
         self.pps.reset()
         self.ppm.reset()
@@ -1280,14 +1280,14 @@ class PlayersRegistry:
     _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
 
     @classmethod
-    def _get_sorted_connected_players(cls):
+    def _get_sorted_connected_players(cls) -> list[Player]:
         return sorted(
             cls._connected_players_registry.values(),
             key=attrgetter(cls._DEFAULT_CONNECTED_SORT_ORDER),
         )
 
     @classmethod
-    def _get_sorted_disconnected_players(cls):
+    def _get_sorted_disconnected_players(cls) -> list[Player]:
         return sorted(
             cls._disconnected_players_registry.values(),
             key=attrgetter(cls._DEFAULT_DISCONNECTED_SORT_ORDER),
@@ -1295,7 +1295,7 @@ class PlayersRegistry:
         )
 
     @classmethod
-    def add_connected_player(cls, player: Player):
+    def add_connected_player(cls, player: Player) -> Player:
         """Add a connected player to the registry.
 
         Args:
@@ -1315,7 +1315,7 @@ class PlayersRegistry:
             return player
 
     @classmethod
-    def move_player_to_connected(cls, player: Player):
+    def move_player_to_connected(cls, player: Player) -> None:
         """Move a player from the disconnected registry to the connected registry.
 
         Args:
@@ -1331,7 +1331,7 @@ class PlayersRegistry:
             cls._connected_players_registry[player.ip] = cls._disconnected_players_registry.pop(player.ip)
 
     @classmethod
-    def move_player_to_disconnected(cls, player: Player):
+    def move_player_to_disconnected(cls, player: Player) -> None:
         """Move a player from the connected registry to the disconnected registry.
 
         Args:
@@ -1347,7 +1347,7 @@ class PlayersRegistry:
             cls._disconnected_players_registry[player.ip] = cls._connected_players_registry.pop(player.ip)
 
     @classmethod
-    def get_player_by_ip(cls, ip: str, /):
+    def get_player_by_ip(cls, ip: str, /) -> Player | None:
         """Get a player by their IP address.
 
         Args:
@@ -1360,7 +1360,7 @@ class PlayersRegistry:
             return cls._connected_players_registry.get(ip) or cls._disconnected_players_registry.get(ip)
 
     @classmethod
-    def require_player_by_ip(cls, ip: str, /):
+    def require_player_by_ip(cls, ip: str, /) -> Player:
         """Get a player by IP, raise if not found.
 
         Args:
@@ -1383,7 +1383,7 @@ class PlayersRegistry:
         *,
         include_connected: bool = True,
         include_disconnected: bool = True,
-    ):
+    ) -> list[Player]:
         """Return a snapshot of players sorted by default criteria.
 
         Connected players are sorted by last rejoin (ascending),
@@ -1398,7 +1398,7 @@ class PlayersRegistry:
             return players
 
     @classmethod
-    def get_default_sorted_connected_and_disconnected_players(cls):
+    def get_default_sorted_connected_and_disconnected_players(cls) -> tuple[list[Player], list[Player]]:
         """Return connected and disconnected players, each sorted by their default criteria."""
         with cls._registry_lock:
             return (
@@ -1413,7 +1413,7 @@ class SessionHost:
     players_pending_for_disconnection: ClassVar[list[Player]] = []
 
     @staticmethod
-    def get_host_player(session_connected: list[Player]):
+    def get_host_player(session_connected: list[Player]) -> Player | None:
         from modules.constants.standalone import MINIMUM_PACKETS_FOR_SESSION_HOST
         from modules.utils import take
 
@@ -1517,7 +1517,7 @@ class UserIPDatabases:
         ).start()
 
     @classmethod
-    def populate(cls, database_entries: list[tuple[Path, UserIPSettings, dict[str, list[str]]]]):
+    def populate(cls, database_entries: list[tuple[Path, UserIPSettings, dict[str, list[str]]]]) -> None:
         """Replace `cls.userip_databases` with a new set of databases.
 
         Args:
@@ -1531,7 +1531,7 @@ class UserIPDatabases:
             ]
 
     @classmethod
-    def build(cls):
+    def build(cls) -> None:
         """Build the userip_infos_by_ip dictionary dynamically from the current databases.
 
         This method updates the dictionaries without clearing their content entirely and avoids duplicates.
@@ -1584,7 +1584,7 @@ class UserIPDatabases:
             cls.ips_set = ips_set
 
     @classmethod
-    def get_userip_database_filepaths(cls):
+    def get_userip_database_filepaths(cls) -> list[Path]:
         with cls._update_userip_database_lock:
             return [database_path for database_path, _, _ in cls.userip_databases]
 
@@ -1595,7 +1595,7 @@ class MobileWarnings:
     notified_mobile_ips: ClassVar[set[str]] = set()
 
     @classmethod
-    def add_notified_ip(cls, ip: str):
+    def add_notified_ip(cls, ip: str) -> bool:
         """Add an IP to the notified mobile IPs set in a thread-safe manner.
 
         Args:
@@ -1611,7 +1611,7 @@ class MobileWarnings:
             return True
 
     @classmethod
-    def is_ip_notified(cls, ip: str):
+    def is_ip_notified(cls, ip: str) -> bool:
         """Check if an IP has already been notified for mobile detection.
 
         Args:
@@ -1624,7 +1624,7 @@ class MobileWarnings:
             return ip in cls.notified_mobile_ips
 
     @classmethod
-    def remove_notified_ip(cls, ip: str):
+    def remove_notified_ip(cls, ip: str) -> bool:
         """Remove an IP from the notified mobile IPs set in a thread-safe manner.
 
         Args:
@@ -1640,13 +1640,13 @@ class MobileWarnings:
             return False
 
     @classmethod
-    def clear_all_notified_ips(cls):
+    def clear_all_notified_ips(cls) -> None:
         """Clear all notified mobile IPs in a thread-safe manner."""
         with cls.lock:
             cls.notified_mobile_ips.clear()
 
     @classmethod
-    def get_notified_ips_count(cls):
+    def get_notified_ips_count(cls) -> int:
         """Get the count of notified mobile IPs in a thread-safe manner.
 
         Returns:
@@ -1656,7 +1656,7 @@ class MobileWarnings:
             return len(cls.notified_mobile_ips)
 
     @classmethod
-    def get_notified_ips_copy(cls):
+    def get_notified_ips_copy(cls) -> set[str]:
         """Get a copy of the notified mobile IPs set in a thread-safe manner.
 
         Returns:
@@ -1671,7 +1671,7 @@ class VPNWarnings:
     notified_vpn_ips: ClassVar[set[str]] = set()
 
     @classmethod
-    def add_notified_ip(cls, ip: str):
+    def add_notified_ip(cls, ip: str) -> bool:
         """Add an IP to the notified VPN IPs set in a thread-safe manner.
 
         Args:
@@ -1687,7 +1687,7 @@ class VPNWarnings:
             return True
 
     @classmethod
-    def is_ip_notified(cls, ip: str):
+    def is_ip_notified(cls, ip: str) -> bool:
         """Check if an IP has already been notified for VPN detection.
 
         Args:
@@ -1700,7 +1700,7 @@ class VPNWarnings:
             return ip in cls.notified_vpn_ips
 
     @classmethod
-    def remove_notified_ip(cls, ip: str):
+    def remove_notified_ip(cls, ip: str) -> bool:
         """Remove an IP from the notified VPN IPs set in a thread-safe manner.
 
         Args:
@@ -1716,13 +1716,13 @@ class VPNWarnings:
             return False
 
     @classmethod
-    def clear_all_notified_ips(cls):
+    def clear_all_notified_ips(cls) -> None:
         """Clear all notified VPN IPs in a thread-safe manner."""
         with cls.lock:
             cls.notified_vpn_ips.clear()
 
     @classmethod
-    def get_notified_ips_count(cls):
+    def get_notified_ips_count(cls) -> int:
         """Get the count of notified VPN IPs in a thread-safe manner.
 
         Returns:
@@ -1732,7 +1732,7 @@ class VPNWarnings:
             return len(cls.notified_vpn_ips)
 
     @classmethod
-    def get_notified_ips_copy(cls):
+    def get_notified_ips_copy(cls) -> set[str]:
         """Get a copy of the notified VPN IPs set in a thread-safe manner.
 
         Returns:
@@ -1747,7 +1747,7 @@ class HostingWarnings:
     notified_hosting_ips: ClassVar[set[str]] = set()
 
     @classmethod
-    def add_notified_ip(cls, ip: str):
+    def add_notified_ip(cls, ip: str) -> bool:
         """Add an IP to the notified hosting IPs set in a thread-safe manner.
 
         Args:
@@ -1763,7 +1763,7 @@ class HostingWarnings:
             return True
 
     @classmethod
-    def is_ip_notified(cls, ip: str):
+    def is_ip_notified(cls, ip: str) -> bool:
         """Check if an IP has already been notified for hosting detection.
 
         Args:
@@ -1776,7 +1776,7 @@ class HostingWarnings:
             return ip in cls.notified_hosting_ips
 
     @classmethod
-    def remove_notified_ip(cls, ip: str):
+    def remove_notified_ip(cls, ip: str) -> bool:
         """Remove an IP from the notified hosting IPs set in a thread-safe manner.
 
         Args:
@@ -1792,13 +1792,13 @@ class HostingWarnings:
             return False
 
     @classmethod
-    def clear_all_notified_ips(cls):
+    def clear_all_notified_ips(cls) -> None:
         """Clear all notified hosting IPs in a thread-safe manner."""
         with cls.lock:
             cls.notified_hosting_ips.clear()
 
     @classmethod
-    def get_notified_ips_count(cls):
+    def get_notified_ips_count(cls) -> int:
         """Get the count of notified hosting IPs in a thread-safe manner.
 
         Returns:
@@ -1808,7 +1808,7 @@ class HostingWarnings:
             return len(cls.notified_hosting_ips)
 
     @classmethod
-    def get_notified_ips_copy(cls):
+    def get_notified_ips_copy(cls) -> set[str]:
         """Get a copy of the notified hosting IPs set in a thread-safe manner.
 
         Returns:
@@ -1827,10 +1827,10 @@ class GUIDetectionSettings:
     player_leave_notifications_enabled: ClassVar[bool] = False
 
 
-def check_for_updates():
+def check_for_updates() -> None:
     from modules.utils import format_project_version
 
-    def get_updater_json_response():
+    def get_updater_json_response() -> dict[str, Any] | None:
         from modules.constants.standalone import GITHUB_VERSIONS_URL
 
         while True:
@@ -1907,7 +1907,7 @@ def check_for_updates():
             sys.exit(0)
 
 
-def populate_network_interfaces_info():
+def populate_network_interfaces_info() -> None:
     """Populate the AllInterfaces collection with network interface details."""
     from modules.networking.wmi_utils import (
         iterate_project_legacy_network_adapter_details,
@@ -1917,7 +1917,7 @@ def populate_network_interfaces_info():
         iterate_project_network_neighbor_details,
     )
 
-    def validate_and_format_mac_address(mac_address: str | None):
+    def validate_and_format_mac_address(mac_address: str | None) -> str | None:
         """Validate the MAC address, ensuring it is in the correct format."""
         if mac_address in (None, ''):
             return None
@@ -1939,7 +1939,7 @@ def populate_network_interfaces_info():
 
         return formatted_mac_address
 
-    def validate_ip_address(ip_address: str | None):
+    def validate_ip_address(ip_address: str | None) -> str | None:
         """Validate the IP address, ensuring it is a valid IPv4 address."""
         if ip_address in (None, ''):
             return None
@@ -1959,7 +1959,7 @@ def populate_network_interfaces_info():
 
         return ip_address
 
-    def _populate_network_adapter_details():
+    def _populate_network_adapter_details() -> None:
         """Populate AllInterfaces collection with network adapter details from MSFT_NetAdapter."""
         for interface_index, name, interface_description, state in iterate_project_network_adapter_details():
             interface = AllInterfaces.get_interface(interface_index)
@@ -1976,7 +1976,7 @@ def populate_network_interfaces_info():
             interface.update_name(name)
             interface.add_description(interface_description)
 
-    def _populate_legacy_network_adapter_details():
+    def _populate_legacy_network_adapter_details() -> None:
         """Populate AllInterfaces collection with legacy network adapter details."""
         for interface_index, net_connection_id, description, mac_address, manufacturer in iterate_project_legacy_network_adapter_details():
             validated_and_formatted_mac_address = validate_and_format_mac_address(mac_address)
@@ -1997,7 +1997,7 @@ def populate_network_interfaces_info():
             interface.update_manufacturer(manufacturer)
             interface.add_description(description)
 
-    def _populate_network_ip_details():
+    def _populate_network_ip_details() -> None:
         """Populate AllInterfaces collection with network IP address details."""
         for interface_index, interface_alias, ipv4_address in iterate_project_network_ip_details():
             validated_ip_address = validate_ip_address(ipv4_address)
@@ -2014,7 +2014,7 @@ def populate_network_interfaces_info():
             interface.update_name(interface_alias)
             interface.add_ip_address(validated_ip_address)
 
-    def _populate_legacy_network_ip_details():
+    def _populate_legacy_network_ip_details() -> None:
         """Populate AllInterfaces collection with legacy network IP address details."""
         for interface_index, description, mac_address, ip_address, ip_enabled in iterate_project_legacy_network_ip_details():
             validated_ip_addresses = [
@@ -2044,7 +2044,7 @@ def populate_network_interfaces_info():
             for ip in validated_ip_addresses:
                 interface.add_ip_address(ip)
 
-    def _update_network_io_stats():
+    def _update_network_io_stats() -> None:
         """Update network interface statistics like packets sent and received."""
         net_io_stats = psutil.net_io_counters(pernic=True)
         for interface_name, interface_stats in net_io_stats.items():
@@ -2055,7 +2055,7 @@ def populate_network_interfaces_info():
             interface.update_packets_sent(interface_stats.packets_sent)
             interface.update_packets_recv(interface_stats.packets_recv)
 
-    def _populate_arp_cache_details():
+    def _populate_arp_cache_details() -> None:
         """Populate ARP cache information for each interface."""
         for interface_index, ip_address, mac_address in iterate_project_network_neighbor_details():
             interface = AllInterfaces.get_interface(interface_index)
@@ -2088,7 +2088,7 @@ def populate_network_interfaces_info():
         _populate_arp_cache_details()
 
 
-def get_filtered_tshark_interfaces():
+def get_filtered_tshark_interfaces() -> list[tuple[int, str, str]]:
     """Retrieve a list of available TShark interfaces, excluding a list of exclusions.
 
     Returns:
@@ -2102,7 +2102,7 @@ def get_filtered_tshark_interfaces():
         INTERFACE_PARTS_LENGTH,
     )
 
-    def process_stdout(stdout_line: str):
+    def process_stdout(stdout_line: str) -> tuple[int, str, str]:
         parts = stdout_line.strip().split(' ', maxsplit=INTERFACE_PARTS_LENGTH - 1)
 
         if len(parts) != INTERFACE_PARTS_LENGTH:
@@ -2123,19 +2123,19 @@ def get_filtered_tshark_interfaces():
     ]
 
 
-def select_interface(interfaces_selection_data: list[InterfaceSelectionData], screen_width: int, screen_height: int):
+def select_interface(interfaces_selection_data: list[InterfaceSelectionData], screen_width: int, screen_height: int) -> InterfaceSelectionData:
     """Select the best matching interface based on given settings.
 
     If no interface matches, show the selection dialog to prompt the user.
     """
 
-    def select_best_settings_matching_interface():
+    def select_best_settings_matching_interface() -> InterfaceSelectionData | None:
         """Select the interface with the highest priority based on the given settings.
 
         Returns None if no interface matches.
         """
 
-        def calculate_interface_priority(interface: InterfaceSelectionData):
+        def calculate_interface_priority(interface: InterfaceSelectionData) -> int:
             """Calculate the priority of an interface based on the given settings.
 
             Priority increases for each matching setting.
@@ -2188,8 +2188,8 @@ def select_interface(interfaces_selection_data: list[InterfaceSelectionData], sc
     return selected_interface
 
 
-def update_and_initialize_geolite2_readers():
-    def update_geolite2_databases():
+def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Reader | None, geoip2.database.Reader | None, geoip2.database.Reader | None]:
+    def update_geolite2_databases() -> dict[str, requests.exceptions.RequestException | str | int | None]:
         from modules.constants.standalone import (  # TODO(BUZZARDGTA): Implement adding: `, GITHUB_RELEASE_API__GEOLITE2__BACKUP__URL` in case the first one fails.
             ERROR_USER_MAPPED_FILE,
             GITHUB_RELEASE_API__GEOLITE2__URL,
@@ -2334,7 +2334,7 @@ def update_and_initialize_geolite2_readers():
             'http_code': None,
         }
 
-    def initialize_geolite2_readers():
+    def initialize_geolite2_readers() -> tuple[geoip2.errors.GeoIP2Error | None, geoip2.database.Reader | None, geoip2.database.Reader | None, geoip2.database.Reader | None]:
         from modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         try:
@@ -2590,7 +2590,7 @@ gui_closed__event = Event()
 _userip_logging_file_write_lock = Lock()
 
 
-def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal['userip.usernames', 'reverse_dns.hostname', 'iplookup.geolite2', 'iplookup.ipapi'], ...], timeout: float):
+def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal['userip.usernames', 'reverse_dns.hostname', 'iplookup.geolite2', 'iplookup.ipapi'], ...], timeout: float) -> bool:
     """Wait for specific player data fields to be ready for display.
 
     Args:
@@ -2601,19 +2601,19 @@ def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal['us
     Returns:
         bool: `True` if all specified data is ready, `False` if timeout occurred
     """
-    def check_userip_usernames(player: Player):
+    def check_userip_usernames(player: Player) -> bool:
         """Check if player has usernames in userip data."""
         return isinstance(player.userip, UserIP) and len(player.userip.usernames) > 0
 
-    def check_reverse_dns_hostname(player: Player):
+    def check_reverse_dns_hostname(player: Player) -> bool:
         """Check if player reverse DNS is initialized."""
         return player.reverse_dns.is_initialized
 
-    def check_iplookup_geolite2(player: Player):
+    def check_iplookup_geolite2(player: Player) -> bool:
         """Check if player GeoLite2 data is initialized."""
         return player.iplookup.geolite2.is_initialized
 
-    def check_iplookup_ipapi(player: Player):
+    def check_iplookup_ipapi(player: Player) -> bool:
         """Check if player IP API data is initialized."""
         return player.iplookup.ipapi.is_initialized
 
@@ -2636,14 +2636,14 @@ def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal['us
 def show_detection_warning_popup(
     player: Player,
     notification_type: Literal['mobile', 'vpn', 'hosting', 'player_joined', 'player_left'],
-):
+) -> None:
     """Show a notification popup for detections or player connection events.
 
     Args:
         player: The player object with detection data
         notification_type: Type of notification - `mobile`, `vpn`, `hosting`, `player_joined`, or `player_left`
     """
-    def show_popup_thread():
+    def show_popup_thread() -> None:
         """Thread function to show popup after ensuring data is ready."""
         notification_configs: dict[Literal['mobile', 'vpn', 'hosting', 'player_joined', 'player_left'], dict[Literal['emoji', 'title', 'description', 'icon', 'thread_name'], str | MsgBox.Style]] = {
             'mobile': {
@@ -2746,7 +2746,7 @@ def show_detection_warning_popup(
 def process_userip_task(
     player: Player,
     connection_type: Literal['connected', 'disconnected'],
-):
+) -> None:
     with ThreadsExceptionHandler():
         from modules.constants.local import TTS_FOLDER_PATH
         from modules.constants.standard import SHUTDOWN_EXE, USERIP_LOGGING_PATH
@@ -2767,7 +2767,7 @@ def process_userip_task(
                 raise TypeError(format_type_error(player.userip, UserIP))
             time.sleep(0.01)  # Sleep to prevent high CPU usage
 
-        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal['Auto', 'Manual']):
+        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal['Auto', 'Manual']) -> None:
             """Suspends the specified process for a given duration or until a specified condition is met.
 
             Args:
@@ -2884,9 +2884,9 @@ def process_userip_task(
                 ).start()
 
 
-def iplookup_core():
+def iplookup_core() -> None:
     with ThreadsExceptionHandler():
-        def throttle_until(requests_remaining: int, throttle_time: int):
+        def throttle_until(requests_remaining: int, throttle_time: int) -> None:
             # Calculate sleep time only if there are remaining requests
             sleep_time = throttle_time / requests_remaining if requests_remaining > 0 else throttle_time
 
@@ -2927,7 +2927,7 @@ def iplookup_core():
             iplookup: dict[str, Any],
             json_key: str,
             expected_types: tuple[type[Any], ...],
-        ):
+        ) -> str | float | int | bool:
             """Retrieve a field from a dictionary and validate its type."""
             field_value = iplookup.get(json_key)
             if field_value is None:
@@ -2997,7 +2997,7 @@ def iplookup_core():
             throttle_until(int(response.headers['X-Rl']), int(response.headers['X-Ttl']))
 
 
-def hostname_core():
+def hostname_core() -> None:
     with ThreadsExceptionHandler():
         from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -3038,7 +3038,7 @@ def hostname_core():
                 gui_closed__event.wait(0.1)
 
 
-def pinger_core():
+def pinger_core() -> None:
     with ThreadsExceptionHandler():
         from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -3100,9 +3100,9 @@ tshark_packets_latencies: list[tuple[datetime, timedelta]] = []
 tshark_restarted_times: int = 0
 
 
-def capture_core():
+def capture_core() -> None:
     with ThreadsExceptionHandler():
-        def packet_callback(packet: Packet):
+        def packet_callback(packet: Packet) -> None:
             from modules.networking.utils import is_private_device_ipv4
 
             global tshark_restarted_times
@@ -3204,7 +3204,7 @@ class ThreadSafeMeta(type):
     # Define a lock for the metaclass itself to be shared across all instances of classes using this metaclass.
     _rlock: ClassVar = RLock()
 
-    def __getattr__(cls, name: str):
+    def __getattr__(cls, name: str) -> object:
         """Get an attribute from the class in a thread-safe manner."""
         with cls._rlock:
             try:
@@ -3212,7 +3212,7 @@ class ThreadSafeMeta(type):
             except AttributeError:
                 raise AttributeError(format_attribute_error(cls, name)) from None
 
-    def __setattr__(cls, name: str, value: object):
+    def __setattr__(cls, name: str, value: object) -> None:
         """Set an attribute on the class in a thread-safe manner."""
         with cls._rlock:
             super().__setattr__(name, value)
@@ -3243,9 +3243,9 @@ class GUIrenderingData(AbstractGUIRenderingData, metaclass=ThreadSafeMeta):
     gui_rendering_ready_event: ClassVar = Event()
 
 
-def rendering_core():
+def rendering_core() -> None:
     with ThreadsExceptionHandler():
-        def compile_tables_header_field_names():
+        def compile_tables_header_field_names() -> tuple[list[Any], list[Any], list[Any], list[Any]]:
             gui_connected_players_table__field_names = [
                 field_name
                 for field_name in Settings.GUI_ALL_CONNECTED_FIELDS
@@ -3266,8 +3266,8 @@ def rendering_core():
                 logging_disconnected_players_table__field_names,
             )
 
-        def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]):
-            def process_ini_line_output(line: str):
+        def parse_userip_ini_file(ini_path: Path, unresolved_ip_invalid: set[str]) -> tuple[UserIPSettings | None, dict[str, list[str]] | None]:
+            def process_ini_line_output(line: str) -> str:
                 return line.strip()
 
             from modules.constants.standalone import USERIP_INI_SETTINGS
@@ -3573,7 +3573,7 @@ def rendering_core():
                 settings['PROTECTION_SUSPEND_PROCESS_MODE'],
             ), userip
 
-        def update_userip_databases():
+        def update_userip_databases() -> float:
             from modules.constants.standard import USERIP_DATABASES_PATH
 
             DEFAULT_USERIP_FILE_HEADER = format_triple_quoted_text(f"""
@@ -3687,7 +3687,7 @@ def rendering_core():
 
             return time.monotonic()
 
-        def get_country_info(ip_address: str):
+        def get_country_info(ip_address: str) -> tuple[str, str]:
             country_name = 'N/A'
             country_code = 'N/A'
 
@@ -3702,7 +3702,7 @@ def rendering_core():
 
             return country_name, country_code
 
-        def get_city_info(ip_address: str):
+        def get_city_info(ip_address: str) -> str:
             city = 'N/A'
 
             if geoip2_enabled and geolite2_city_reader is not None:
@@ -3715,7 +3715,7 @@ def rendering_core():
 
             return city
 
-        def get_asn_info(ip_address: str):
+        def get_asn_info(ip_address: str) -> str:
             asn = 'N/A'
 
             if geoip2_enabled and geolite2_asn_reader is not None:
@@ -3728,31 +3728,31 @@ def rendering_core():
 
             return asn
 
-        def process_session_logging():
-            def format_player_logging_datetime(datetime_object: datetime):
+        def process_session_logging() -> None:
+            def format_player_logging_datetime(datetime_object: datetime) -> str:
                 return datetime_object.strftime('%m/%d/%Y %H:%M:%S.%f')[:-3]
 
-            def format_player_logging_usernames(player: Player):
+            def format_player_logging_usernames(player: Player) -> str:
                 return ', '.join(player.usernames) if player.usernames else ''
 
-            def format_player_logging_ip(player_ip: str):
+            def format_player_logging_ip(player_ip: str) -> str:
                 if SessionHost.player and SessionHost.player.ip == player_ip:
                     return f'{player_ip} 👑'
                 return player_ip
 
-            def format_player_logging_middle_ports(player: Player):
+            def format_player_logging_middle_ports(player: Player) -> str:
                 if player.ports.middle:
                     return ', '.join(map(str, reversed(player.ports.middle)))
                 return ''
 
-            def add_sort_arrow_char_to_sorted_logging_table_field(field_names: Sequence[str], sorted_field: str, sort_order: Qt.SortOrder):
+            def add_sort_arrow_char_to_sorted_logging_table_field(field_names: Sequence[str], sorted_field: str, sort_order: Qt.SortOrder) -> list[str]:
                 arrow = ' \u2193' if sort_order == Qt.SortOrder.DescendingOrder else ' \u2191'  # Down arrow for descending, up arrow for ascending
                 return [
                     field + arrow if field == sorted_field else field
                     for field in field_names
                 ]
 
-            def calculate_table_padding(connected_players: list[Player], disconnected_players: list[Player]):
+            def calculate_table_padding(connected_players: list[Player], disconnected_players: list[Player]) -> tuple[int, int, int, int]:
                 """Calculate optimal padding for table columns based on player data."""
                 connected_country_padding = 0
                 connected_continent_padding = 0
@@ -3893,8 +3893,8 @@ def rendering_core():
 
             SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + '\n' + logging_disconnected_players_table.get_string(), encoding='utf-8')
 
-        def process_gui_session_tables_rendering():
-            def format_player_gui_datetime(datetime_object: datetime):
+        def process_gui_session_tables_rendering() -> tuple[int, list[list[str]], list[list[CellColor]], int, list[list[str]], list[list[CellColor]]]:
+            def format_player_gui_datetime(datetime_object: datetime) -> str:
                 formatted_elapsed = None
 
                 if Settings.GUI_DATE_FIELDS_SHOW_ELAPSED:
@@ -3934,20 +3934,20 @@ def rendering_core():
 
                 return formatted_datetime
 
-            def format_player_gui_usernames(player: Player):
+            def format_player_gui_usernames(player: Player) -> str:
                 return ', '.join(player.usernames) if player.usernames else ''
 
-            def format_player_gui_ip(player_ip: str):
+            def format_player_gui_ip(player_ip: str) -> str:
                 if SessionHost.player and SessionHost.player.ip == player_ip:
                     return f'{player_ip} 👑'
                 return player_ip
 
-            def format_player_gui_middle_ports(player: Player):
+            def format_player_gui_middle_ports(player: Player) -> str:
                 if player.ports.middle:
                     return ', '.join(map(str, reversed(player.ports.middle)))
                 return ''
 
-            def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
+            def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool) -> QColor:
                 """Determine the color for player rates based on given thresholds."""
                 from modules.constants.standalone import RATE_LOW, RATE_MAX, RATE_ZERO
 
@@ -4145,7 +4145,7 @@ def rendering_core():
                 session_disconnected_table__compiled_colors,
             )
 
-        def generate_gui_header_text(global_pps_rate: int):
+        def generate_gui_header_text(global_pps_rate: int) -> str:
             from modules.constants.standalone import (
                 PPS_THRESHOLD_CRITICAL,
                 PPS_THRESHOLD_WARNING,
@@ -4424,7 +4424,7 @@ capture_core__thread.start()
 class SessionTableModel(QAbstractTableModel):
     TABLE_CELL_TOOLTIP_MARGIN = 8  # Margin in pixels for determining when to show tooltips for truncated text
 
-    def __init__(self, headers: list[str]):
+    def __init__(self, headers: list[str]) -> None:
         super().__init__()
 
         self._view: SessionTableView | None = None  # Initially, no view is attached
@@ -4439,14 +4439,14 @@ class SessionTableModel(QAbstractTableModel):
     # --------------------------------------------------------------------------
 
     @property
-    def view(self):
+    def view(self) -> 'SessionTableView':
         """Get or attach a `SessionTableView` to this model."""
         if self._view is None:
             raise TypeError(format_type_error(self._view, SessionTableView))
         return self._view
 
     @view.setter
-    def view(self, new_view: 'SessionTableView'):
+    def view(self, new_view: 'SessionTableView') -> None:
         """Attach a `SessionTableView` to this model."""
         self._view = new_view
 
@@ -4455,7 +4455,7 @@ class SessionTableModel(QAbstractTableModel):
     # --------------------------------------------------------------------------
 
     @property
-    def ip_column_index(self):
+    def ip_column_index(self) -> int:
         """Returns the index of the 'IP Address' column in this table model.
 
         This value is computed during initialization based on the `headers` provided.<br>
@@ -4464,7 +4464,7 @@ class SessionTableModel(QAbstractTableModel):
         return self._ip_column_index
 
     @property
-    def username_column_index(self):
+    def username_column_index(self) -> int:
         """Returns the index of the 'Usernames' column in this table model.
 
         This value is computed during initialization based on the `headers` provided.<br>
@@ -4477,18 +4477,18 @@ class SessionTableModel(QAbstractTableModel):
     # --------------------------------------------------------------------------
 
     # pylint: disable=invalid-name
-    def rowCount(self, parent: QModelIndex | None = None):  # noqa: N802
+    def rowCount(self, parent: QModelIndex | None = None) -> int:  # noqa: N802
         if parent is None:
             parent = QModelIndex()
         return len(self._data)
 
-    def columnCount(self, parent: QModelIndex | None = None):  # noqa: N802
+    def columnCount(self, parent: QModelIndex | None = None) -> int:  # noqa: N802
         if parent is None:
             parent = QModelIndex()
         return len(self._headers)
     # pylint: enable=invalid-name
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QBrush | QIcon | None:
         """Override data method to customize data retrieval and alignment."""
         if not index.isValid():
             return None
@@ -4547,7 +4547,7 @@ class SessionTableModel(QAbstractTableModel):
         return None
 
     # pylint: disable=invalid-name
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole):  # noqa: N802
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> str | None:  # noqa: N802
         from modules.constants.standalone import GUI_COLUMN_HEADERS_TOOLTIPS
 
         if orientation == Qt.Orientation.Horizontal:
@@ -4561,13 +4561,13 @@ class SessionTableModel(QAbstractTableModel):
         return None
     # pylint enable=invalid-name
 
-    def flags(self, index: QModelIndex):
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
-    def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder):
+    def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
         """Sort the table by a specific column.
 
         Args:
@@ -4599,7 +4599,7 @@ class SessionTableModel(QAbstractTableModel):
             )
         elif sorted_column_name in {'First Seen', 'Last Rejoin', 'Last Seen'}:
             # Retrieve the player datetime object from the IP column
-            def extract_datetime_for_ip(ip: str):
+            def extract_datetime_for_ip(ip: str) -> datetime:
                 """Extract a datetime object for a given IP address."""
                 player = PlayersRegistry.require_player_by_ip(ip)
 
@@ -4673,7 +4673,7 @@ class SessionTableModel(QAbstractTableModel):
     # Custom / internal management methods
     # --------------------------------------------------------------------------
 
-    def get_column_index_by_name(self, column_name: str, /):
+    def get_column_index_by_name(self, column_name: str, /) -> int:
         """Get the table index of a specified column.
 
         Args:
@@ -4684,7 +4684,7 @@ class SessionTableModel(QAbstractTableModel):
         """
         return self._headers.index(column_name)
 
-    def get_row_index_by_ip(self, ip: str, /):
+    def get_row_index_by_ip(self, ip: str, /) -> int | None:
         """Find the row index for the given IP address.
 
         Args:
@@ -4698,7 +4698,7 @@ class SessionTableModel(QAbstractTableModel):
                 return row_index
         return None
 
-    def sort_current_column(self):
+    def sort_current_column(self) -> None:
         """Call the sort method with the current column index and order.
 
         Ensures sorting reflects the current state of the header.
@@ -4711,7 +4711,7 @@ class SessionTableModel(QAbstractTableModel):
         # Call the sort function with the retrieved arguments
         self.sort(sort_column, sort_order)
 
-    def add_row_without_refresh(self, row_data: list[str], row_colors: list[CellColor]):
+    def add_row_without_refresh(self, row_data: list[str], row_colors: list[CellColor]) -> None:
         """Add a new row to the model without notifying the view in real time.
 
         Args:
@@ -4722,7 +4722,7 @@ class SessionTableModel(QAbstractTableModel):
         self._data.append(row_data)
         self._compiled_colors.append(row_colors)
 
-    def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]):
+    def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]) -> None:
         """Update an existing row in the model with new data and colors without notifying the view in real time.
 
         Args:
@@ -4734,7 +4734,7 @@ class SessionTableModel(QAbstractTableModel):
             self._data[row_index] = row_data
             self._compiled_colors[row_index] = row_colors
 
-    def delete_row(self, row_index: int):
+    def delete_row(self, row_index: int) -> None:
         """Delete a row from the model along with its associated colors.
 
         If any items are selected under this row, their selection moves one row up.
@@ -4797,14 +4797,14 @@ class SessionTableModel(QAbstractTableModel):
             #view.resizeRowsToContents()
             #view.viewport().update()
 
-    def refresh_view(self):
+    def refresh_view(self) -> None:
         """Notifies the view to refresh and reflect all changes made to the model."""
         self.layoutAboutToBeChanged.emit()
         self.layoutChanged.emit()
 
 
 class SessionTableView(QTableView):
-    def __init__(self, model: SessionTableModel, sort_column: int, sort_order: Qt.SortOrder):
+    def __init__(self, model: SessionTableModel, sort_column: int, sort_order: Qt.SortOrder) -> None:
         super().__init__()
 
         self._drag_selecting: bool = False  # Track if the mouse is being dragged with Ctrl key
@@ -4838,48 +4838,48 @@ class SessionTableView(QTableView):
         self.customContextMenuRequested.connect(self.show_context_menu)
 
     # pylint: disable=invalid-name
-    def setModel(self, model: QAbstractItemModel | None):  # noqa: N802
+    def setModel(self, model: QAbstractItemModel | None) -> None:  # noqa: N802
         """Override the setModel method to ensure the model is of type SessionTableModel."""
         if not isinstance(model, SessionTableModel):
             raise TypeError(format_type_error(model, SessionTableModel))
         super().setModel(model)
 
-    def model(self):
+    def model(self) -> SessionTableModel:
         """Override the model method to ensure it returns a SessionTableModel."""
         model = super().model()
         if not isinstance(model, SessionTableModel):
             raise TypeError(format_type_error(model, SessionTableModel))
         return model
 
-    def selectionModel(self):  # noqa: N802
+    def selectionModel(self) -> QItemSelectionModel:  # noqa: N802
         """Override the selectionModel method to ensure it returns a QItemSelectionModel."""
         selection_model = super().selectionModel()
         if not isinstance(selection_model, QItemSelectionModel):
             raise TypeError(format_type_error(selection_model, QItemSelectionModel))
         return selection_model
 
-    def viewport(self):
+    def viewport(self) -> QWidget:
         """Override the viewport method to ensure it returns a QWidget."""
         viewport = super().viewport()
         if not isinstance(viewport, QWidget):
             raise TypeError(format_type_error(viewport, QWidget))
         return viewport
 
-    def verticalHeader(self):  # noqa: N802
+    def verticalHeader(self) -> QHeaderView:  # noqa: N802
         """Override the verticalHeader method to ensure it returns a QHeaderView."""
         header = super().verticalHeader()
         if not isinstance(header, QHeaderView):
             raise TypeError(format_type_error(header, QHeaderView))
         return header
 
-    def horizontalHeader(self):  # noqa: N802
+    def horizontalHeader(self) -> QHeaderView:  # noqa: N802
         """Override the horizontalHeader method to ensure it returns a QHeaderView."""
         header = super().horizontalHeader()
         if not isinstance(header, QHeaderView):
             raise TypeError(format_type_error(header, QHeaderView))
         return header
 
-    def eventFilter(self, object: QObject | None, event: QEvent | None):  # pylint: disable=redefined-builtin  # noqa: A002, N802
+    def eventFilter(self, object: QObject | None, event: QEvent | None) -> bool:  # pylint: disable=redefined-builtin  # noqa: A002, N802
         if isinstance(object, QWidget) and isinstance(event, QHoverEvent):
             index = self.indexAt(event.position().toPoint())  # Get hovered cell
             if index.isValid():
@@ -4898,7 +4898,7 @@ class SessionTableView(QTableView):
 
         return super().eventFilter(object, event)
 
-    def keyPressEvent(self, e: QKeyEvent | None):  # noqa: N802
+    def keyPressEvent(self, e: QKeyEvent | None) -> None:  # noqa: N802
         """Handle key press events to capture Ctrl+A for selecting all and Ctrl+C for copying selected data to the clipboard.
 
         Fall back to default behavior for other key presses.
@@ -4914,7 +4914,7 @@ class SessionTableView(QTableView):
         # Fall back to default behavior
         super().keyPressEvent(e)
 
-    def mousePressEvent(self, e: QMouseEvent | None):  # noqa: N802
+    def mousePressEvent(self, e: QMouseEvent | None) -> None:  # noqa: N802
         """Handle mouse press events for selecting multiple items with Ctrl or single items otherwise.
 
         Fall back to default behavior for non-cell areas.
@@ -4953,7 +4953,7 @@ class SessionTableView(QTableView):
         # Fall back to default behavior
         super().mousePressEvent(e)
 
-    def mouseMoveEvent(self, e: QMouseEvent | None):  # noqa: N802
+    def mouseMoveEvent(self, e: QMouseEvent | None) -> None:  # noqa: N802
         """Handle mouse movement during Ctrl + Left-Click drag to toggle the selection of multiple cells."""
         if isinstance(e, QMouseEvent):
             index = self.indexAt(e.pos())  # Get the index under the cursor
@@ -4973,7 +4973,7 @@ class SessionTableView(QTableView):
 
         super().mouseMoveEvent(e)
 
-    def mouseReleaseEvent(self, e: QMouseEvent | None):  # noqa: N802
+    def mouseReleaseEvent(self, e: QMouseEvent | None) -> None:  # noqa: N802
         """Reset dragging state when the mouse button is released."""
         if isinstance(e, QMouseEvent):  # noqa: SIM102
             if e.button() == Qt.MouseButton.LeftButton:
@@ -4987,7 +4987,7 @@ class SessionTableView(QTableView):
     # Custom / internal management methods
     # --------------------------------------------------------------------------
 
-    def setup_static_column_resizing(self):
+    def setup_static_column_resizing(self) -> None:
         """Set up static column resizing for the table."""
         model = self.model()
         horizontal_header = self.horizontalHeader()
@@ -5002,7 +5002,7 @@ class SessionTableView(QTableView):
             else:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
 
-    def adjust_username_column_width(self):
+    def adjust_username_column_width(self) -> None:
         """Adjust the 'Usernames' column width based on whether any username is non-empty."""
         model = self.model()
         header = self.horizontalHeader()
@@ -5020,7 +5020,7 @@ class SessionTableView(QTableView):
         else:
             header.setSectionResizeMode(model.username_column_index, QHeaderView.ResizeMode.ResizeToContents)
 
-    def get_sorted_column(self):
+    def get_sorted_column(self) -> tuple[str, Qt.SortOrder]:
         """Get the currently sorted column and its order for this table view."""
         model = self.model()
         horizontal_header = self.horizontalHeader()
@@ -5038,13 +5038,13 @@ class SessionTableView(QTableView):
 
         return sorted_column_name, sort_order
 
-    def handle_menu_hovered(self, action: QAction):
+    def handle_menu_hovered(self, action: QAction) -> None:
         # Fixes: https://stackoverflow.com/questions/21725119/why-wont-qtooltips-appear-on-qactions-within-a-qmenu
         action_parent = action.parent()
         if isinstance(action_parent, QMenu):
             action_parent.setToolTip(action.toolTip())
 
-    def on_section_clicked(self, section_index: int):
+    def on_section_clicked(self, section_index: int) -> None:
         model = self.model()
         horizontal_header = self.horizontalHeader()
         selection_model = self.selectionModel()
@@ -5060,7 +5060,7 @@ class SessionTableView(QTableView):
         model.sort(section_index, horizontal_header.sortIndicatorOrder())
         self._previous_sort_section_index = section_index
 
-    def show_flag_tooltip(self, event: QHoverEvent, index: QModelIndex, player: Player):
+    def show_flag_tooltip(self, event: QHoverEvent, index: QModelIndex, player: Player) -> None:
         """Show tooltip only if hovering exactly over the flag."""
         # TODO(BUZZARDGTA): Make the tooltip appear precisely when hovering over the flag, using the pixmap or QIcon object if possible.
         cell_rect = self.visualRect(index)   # Get cell rectangle
@@ -5074,7 +5074,7 @@ class SessionTableView(QTableView):
         else:
             QToolTip.hideText()
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QPoint) -> None:
         """Show the context menu at the specified position with options to interact with the table's content."""
         from modules.constants.standard import (
             USERIP_DATABASES_PATH,
@@ -5105,7 +5105,7 @@ class SessionTableView(QTableView):
 
             return action
 
-        def add_menu(parent_menu: QMenu, label: str, tooltip: str | None = None):
+        def add_menu(parent_menu: QMenu, label: str, tooltip: str | None = None) -> QMenu:
             """Helper to create and configure a QMenu."""
             menu = parent_menu.addMenu(label)
             if not isinstance(menu, QMenu):
@@ -5324,7 +5324,7 @@ class SessionTableView(QTableView):
         # Execute the context menu at the right-click position
         context_menu.exec(self.mapToGlobal(pos))
 
-    def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: list[QModelIndex]):
+    def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: list[QModelIndex]) -> None:
         """Copy the selected cells data from the table to the clipboard."""
         # Access the system clipboard from the centralized app instance
         clipboard = app.clipboard()
@@ -5357,7 +5357,7 @@ class SessionTableView(QTableView):
         # Set the formatted text in the system clipboard
         clipboard.setText(clipboard_content)
 
-    def show_detailed_ip_lookup_player_cell(self, ip: str):
+    def show_detailed_ip_lookup_player_cell(self, ip: str) -> None:
         from modules.constants.standard import USERIP_DATABASES_PATH
 
         player = PlayersRegistry.require_player_by_ip(ip)
@@ -5408,14 +5408,14 @@ class SessionTableView(QTableView):
         """),
         )
 
-    def ping(self, ip: str):
+    def ping(self, ip: str) -> None:
         """Runs a continuous ping to a specified IP address in a new terminal window."""
         run_cmd_command('ping', [ip, '-t'])
 
-    def tcp_port_ping(self, ip: str):
+    def tcp_port_ping(self, ip: str) -> None:
         """Runs paping to check TCP connectivity to a host on a user-specified port indefinitely."""
 
-        def run_paping(host: str, port: int):
+        def run_paping(host: str, port: int) -> None:
             """Runs paping in a new terminal window to check TCP connectivity continuously."""
             from modules.constants.local import PAPING_PATH
 
@@ -5442,7 +5442,7 @@ class SessionTableView(QTableView):
 
         run_paping(ip, port)
 
-    def userip_manager__add(self, ip_addresses: list[str], selected_database: Path):
+    def userip_manager__add(self, ip_addresses: list[str], selected_database: Path) -> None:
         from modules.constants.standard import USERIP_DATABASES_PATH
         from modules.utils import write_lines_to_file
 
@@ -5463,7 +5463,7 @@ class SessionTableView(QTableView):
             # If the user canceled or left the input empty, show an error
             QMessageBox.warning(self, TITLE, 'ERROR:\nNo username was provided.')
 
-    def userip_manager__move(self, ip_addresses: list[str], selected_database: Path):
+    def userip_manager__move(self, ip_addresses: list[str], selected_database: Path) -> None:
         from modules.constants.standard import (
             RE_USERIP_INI_PARSER_PATTERN,
             USERIP_DATABASES_PATH,
@@ -5524,7 +5524,7 @@ class SessionTableView(QTableView):
 
             QMessageBox.information(self, TITLE, report)
 
-    def userip_manager__del(self, ip_addresses: list[str]):
+    def userip_manager__del(self, ip_addresses: list[str]) -> None:
         from modules.constants.standard import (
             RE_USERIP_INI_PARSER_PATTERN,
             USERIP_DATABASES_PATH,
@@ -5579,7 +5579,7 @@ class SessionTableView(QTableView):
 
             QMessageBox.information(self, TITLE, report)
 
-    def _select_all_cells_helper(self, *, select: bool):
+    def _select_all_cells_helper(self, *, select: bool) -> None:
         """Helper function to select or deselect all cells in the table.
 
         Args:
@@ -5605,7 +5605,7 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def _select_row_cells_helper(self, row: int, *, select: bool):
+    def _select_row_cells_helper(self, row: int, *, select: bool) -> None:
         """Helper function to select or unselect all cells in a specific row.
 
         Args:
@@ -5629,7 +5629,7 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def _select_column_cells_helper(self, column: int, *, select: bool):
+    def _select_column_cells_helper(self, column: int, *, select: bool) -> None:
         """Helper function to select or unselect all cells in a given column.
 
         Args:
@@ -5653,27 +5653,27 @@ class SessionTableView(QTableView):
         flag = QItemSelectionModel.SelectionFlag.Select if select else QItemSelectionModel.SelectionFlag.Deselect
         selection_model.select(selection, flag)
 
-    def select_all_cells(self):
+    def select_all_cells(self) -> None:
         """Select all cells in the table."""
         self._select_all_cells_helper(select=True)
 
-    def unselect_all_cells(self):
+    def unselect_all_cells(self) -> None:
         """Unselect all cells in the table."""
         self._select_all_cells_helper(select=False)
 
-    def select_row_cells(self, row: int):
+    def select_row_cells(self, row: int) -> None:
         """Select all cells in the specified row."""
         self._select_row_cells_helper(row, select=True)
 
-    def unselect_row_cells(self, row: int):
+    def unselect_row_cells(self, row: int) -> None:
         """Unselect all cells in the specified row."""
         self._select_row_cells_helper(row, select=False)
 
-    def select_column_cells(self, column: int):
+    def select_column_cells(self, column: int) -> None:
         """Select all cells in the specified column."""
         self._select_column_cells_helper(column, select=True)
 
-    def unselect_column_cells(self, column: int):
+    def unselect_column_cells(self, column: int) -> None:
         """Unselect all cells in the specified column."""
         self._select_column_cells_helper(column, select=False)
 
@@ -5697,7 +5697,7 @@ class GUIWorkerThread(QThread):
         self.connected_table_view = connected_table_view
         self.disconnected_table_view = disconnected_table_view
 
-    def run(self):
+    def run(self) -> None:
         while not gui_closed__event.is_set():
             GUIrenderingData.session_connected_sorted_column_name, GUIrenderingData.session_connected_sort_order = self.connected_table_view.get_sorted_column()
             GUIrenderingData.session_disconnected_sorted_column_name, GUIrenderingData.session_disconnected_sort_order = self.disconnected_table_view.get_sorted_column()
@@ -5731,10 +5731,10 @@ class GUIWorkerThread(QThread):
 class PersistentMenu(QMenu):
     """Custom QMenu that doesn't close when checkable actions are triggered."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         """Override mouse release event to prevent auto-closing on checkable actions."""
         if event is None:
             super().mouseReleaseEvent(event)
@@ -5751,7 +5751,7 @@ class PersistentMenu(QMenu):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, screen_width: int, screen_height: int):
+    def __init__(self, screen_width: int, screen_height: int) -> None:
         super().__init__()
 
         from modules.guis.utils import resize_window_for_screen
@@ -5980,7 +5980,7 @@ class MainWindow(QMainWindow):
         self.worker_thread.update_signal.connect(self.update_gui)
         self.worker_thread.start()
 
-    def closeEvent(self, event: QCloseEvent | None):    # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def closeEvent(self, event: QCloseEvent | None) -> None:    # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
@@ -5994,7 +5994,7 @@ class MainWindow(QMainWindow):
     # Custom / internal management methods
     # --------------------------------------------------------------------------
 
-    def _update_connected_header_with_selection(self):
+    def _update_connected_header_with_selection(self) -> None:
         """Update the connected table header to include selection information."""
         base_text = f'Players connected in your session ({self._last_connected_count}):'
         if self._connected_selected_count > 0:
@@ -6005,7 +6005,7 @@ class MainWindow(QMainWindow):
 
         self.session_connected_header.setText(combined_text)
 
-    def _update_disconnected_header_with_selection(self):
+    def _update_disconnected_header_with_selection(self) -> None:
         """Update the disconnected table header to include selection information."""
         base_text = f"Players who've left your session ({self._last_disconnected_count}):"
         if self._disconnected_selected_count > 0:
@@ -6016,7 +6016,7 @@ class MainWindow(QMainWindow):
 
         self.session_disconnected_header.setText(combined_text)
 
-    def _update_selection_count(self, table_view: SessionTableView, table_type: str):
+    def _update_selection_count(self, table_view: SessionTableView, table_type: str) -> None:
         """Update the selection count for the specified table and refresh table headers."""
         selection_model = table_view.selectionModel()
         selected_indexes = selection_model.selectedIndexes()
@@ -6032,7 +6032,7 @@ class MainWindow(QMainWindow):
             self._disconnected_selected_count = selected_count
             self._update_disconnected_header_with_selection()
 
-    def _update_separator_visibility(self):
+    def _update_separator_visibility(self) -> None:
         """Update the separator visibility based on whether both tables are visible."""
         both_tables_visible = (
             self.connected_table_view.isVisible()
@@ -6040,7 +6040,7 @@ class MainWindow(QMainWindow):
         )
         self.tables_separator.setVisible(both_tables_visible)
 
-    def expand_connected_section(self):
+    def expand_connected_section(self) -> None:
         """Handle the expand button click to show the connected section."""
         self.connected_expand_button.setVisible(False)
         self.connected_header_container.setVisible(True)
@@ -6050,7 +6050,7 @@ class MainWindow(QMainWindow):
 
         self.connected_table_model.refresh_view()  # Refresh the table view to ensure it's up to date after being hidden
 
-    def expand_disconnected_section(self):
+    def expand_disconnected_section(self) -> None:
         """Handle the expand button click to show the disconnected section."""
         self.disconnected_expand_button.setVisible(False)
         self.disconnected_header_container.setVisible(True)
@@ -6060,7 +6060,7 @@ class MainWindow(QMainWindow):
 
         self.disconnected_table_model.refresh_view()  # Refresh the table view to ensure it's up to date after being hidden
 
-    def minimize_connected_section(self):
+    def minimize_connected_section(self) -> None:
         """Minimize the connected table completely."""
         self.connected_collapse_button.setVisible(False)
         self.connected_header_container.setVisible(False)
@@ -6069,7 +6069,7 @@ class MainWindow(QMainWindow):
         self.connected_expand_button.setText(f'▲  Show Connected Players ({self.connected_table_model.rowCount()})')  # Set initial count on the expand button
         self.connected_expand_button.setVisible(True)
 
-    def minimize_disconnected_section(self):
+    def minimize_disconnected_section(self) -> None:
         """Minimize the disconnected table completely."""
         self.disconnected_collapse_button.setVisible(False)
         self.disconnected_header_container.setVisible(False)
@@ -6148,22 +6148,22 @@ class MainWindow(QMainWindow):
         elif disconnected_count_changed:
             self.disconnected_expand_button.setText(f'▲  Show Disconnected Players ({disconnected_num})')
 
-    def open_project_repo(self):
+    def open_project_repo(self) -> None:
         from modules.constants.standalone import GITHUB_REPO_URL
 
         webbrowser.open(GITHUB_REPO_URL)
 
-    def open_documentation(self):
+    def open_documentation(self) -> None:
         from modules.constants.standalone import DOCUMENTATION_URL
 
         webbrowser.open(DOCUMENTATION_URL)
 
-    def join_discord(self):
+    def join_discord(self) -> None:
         from modules.constants.standalone import DISCORD_INVITE_URL
 
         webbrowser.open(DISCORD_INVITE_URL)
 
-    def toggle_mobile_detection(self):
+    def toggle_mobile_detection(self) -> None:
         """Toggle Mobile detection on/off and save the setting."""
         GUIDetectionSettings.mobile_detection_enabled = self.mobile_detection_action.isChecked()
 
@@ -6171,7 +6171,7 @@ class MainWindow(QMainWindow):
         if not GUIDetectionSettings.mobile_detection_enabled:
             MobileWarnings.clear_all_notified_ips()
 
-    def toggle_vpn_detection(self):
+    def toggle_vpn_detection(self) -> None:
         """Toggle VPN detection on/off and save the setting."""
         GUIDetectionSettings.vpn_detection_enabled = self.vpn_detection_action.isChecked()
 
@@ -6179,7 +6179,7 @@ class MainWindow(QMainWindow):
         if not GUIDetectionSettings.vpn_detection_enabled:
             VPNWarnings.clear_all_notified_ips()
 
-    def toggle_hosting_detection(self):
+    def toggle_hosting_detection(self) -> None:
         """Toggle Hosting detection on/off and save the setting."""
         GUIDetectionSettings.hosting_detection_enabled = self.hosting_detection_action.isChecked()
 
@@ -6187,11 +6187,11 @@ class MainWindow(QMainWindow):
         if not GUIDetectionSettings.hosting_detection_enabled:
             HostingWarnings.clear_all_notified_ips()
 
-    def toggle_player_join_notifications(self):
+    def toggle_player_join_notifications(self) -> None:
         """Toggle player join notifications on/off."""
         GUIDetectionSettings.player_join_notifications_enabled = self.player_join_notification_action.isChecked()
 
-    def toggle_player_leave_notifications(self):
+    def toggle_player_leave_notifications(self) -> None:
         """Toggle player leave notifications on/off."""
         GUIDetectionSettings.player_leave_notifications_enabled = self.player_leave_notification_action.isChecked()
 
@@ -6199,13 +6199,13 @@ class MainWindow(QMainWindow):
 class ClickableLabel(QLabel):
     clicked = pyqtSignal()
 
-    def mousePressEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         if event is not None and event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
 
 
 class DiscordIntro(QDialog):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         # Ensure the dialog is modal, blocking interaction with the main window
@@ -6309,7 +6309,7 @@ class DiscordIntro(QDialog):
         self._drag_pos = None
 
     # pylint: disable=invalid-name
-    def mousePressEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         if (
             event is not None
             and event.button() == Qt.MouseButton.LeftButton
@@ -6319,7 +6319,7 @@ class DiscordIntro(QDialog):
 
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         if (
             event is not None
             and self._drag_pos is not None  # If mouse is pressed, move the window
@@ -6330,13 +6330,13 @@ class DiscordIntro(QDialog):
 
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None):  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         self._drag_pos = None  # Reset drag position when mouse is released
 
         super().mouseReleaseEvent(event)
     # pylint: enable=invalid-name
 
-    def center_window(self):
+    def center_window(self) -> None:
         screen = app.primaryScreen()
         if screen is None:
             raise PrimaryScreenNotFoundError
@@ -6346,7 +6346,7 @@ class DiscordIntro(QDialog):
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
 
-    def open_discord(self):
+    def open_discord(self) -> None:
         from modules.constants.standalone import DISCORD_INVITE_URL
 
         webbrowser.open(DISCORD_INVITE_URL)
@@ -6356,13 +6356,13 @@ class DiscordIntro(QDialog):
 
         self.close_popup()
 
-    def dont_remind_me(self):
+    def dont_remind_me(self) -> None:
         Settings.SHOW_DISCORD_POPUP = False
         Settings.reconstruct_settings()
 
         self.close_popup()
 
-    def close_popup(self):
+    def close_popup(self) -> None:
         # Smooth fade-out before closing
         self.fade_out.setDuration(500)
         self.fade_out.setStartValue(1)  # Start from fully opaque

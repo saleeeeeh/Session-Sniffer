@@ -45,7 +45,7 @@ class EndpointInfo:
     cooldown_until: float = 0.0
     failed_ips: dict[str, int] = dataclasses.field(default_factory=dict)
 
-    def update_success(self, duration: float, ip: str):
+    def update_success(self, duration: float, ip: str) -> None:
         self.calls += 1
         self.total_time += duration
         self.cooldown_until = 0.0
@@ -53,7 +53,7 @@ class EndpointInfo:
         if ip in self.failed_ips:
             del self.failed_ips[ip]  # Remove from failed URLs if previously failed
 
-    def update_failure(self, duration: float, cooldown: float, ip: str):
+    def update_failure(self, duration: float, cooldown: float, ip: str) -> None:
         self.calls += 1
         self.failures += 1
         self.total_time += duration
@@ -62,12 +62,12 @@ class EndpointInfo:
         # Increment failure count for this specific ip
         self.failed_ips[ip] = self.failed_ips.get(ip, 0) + 1
 
-    def average_time(self):
+    def average_time(self) -> float:
         if self.calls > 0:
             return self.total_time / self.calls
         return float('inf')
 
-    def score(self, now: float):
+    def score(self, now: float) -> float:
         # If still cooling down, assign an infinite score.
         if now < self.cooldown_until:
             return float('inf')
@@ -87,7 +87,7 @@ class PingResult:
     rtt_max:             float | None
     rtt_mdev:            float | None
 
-    def is_invalid(self, ping_response: str):
+    def is_invalid(self, ping_response: str) -> bool:
         """Return True if the ping data is invalid (missing critical information)."""
         return ping_response.strip() == 'null' or any(
             getattr(self, attr) is None for attr in ('packets_transmitted', 'packets_received', 'packet_loss', 'packet_errors')
@@ -115,7 +115,7 @@ endpoints_info: dict[str, EndpointInfo] = {
 }
 
 
-def get_host_semaphore(url: str):
+def get_host_semaphore(url: str) -> Semaphore:
     """Return a semaphore for the given endpoint host, ensuring at most 10 concurrent requests."""
     hostname = urlparse(url).netloc
     with _endpoints_lock:
@@ -124,7 +124,7 @@ def get_host_semaphore(url: str):
         return host_locks[hostname]
 
 
-def get_sorted_endpoints():
+def get_sorted_endpoints() -> list[EndpointInfo]:
     now = time.monotonic()
 
     with _endpoints_lock:
@@ -135,7 +135,7 @@ def get_sorted_endpoints():
         return sorted(endpoints_info.values(), key=lambda info: info.score(now))
 
 
-def parse_ping_response(ping_response: str):
+def parse_ping_response(ping_response: str) -> PingResult:
     # Extract individual ping times
     ping_times = [float(match.group('TIME_MS')) for match in RE_BYTES_PATTERN.finditer(ping_response)]
 
@@ -170,7 +170,7 @@ def parse_ping_response(ping_response: str):
     )
 
 
-def fetch_and_parse_ping(ip: str):
+def fetch_and_parse_ping(ip: str) -> PingResult:
     """Attempt to fetch and parse ping data for the given ip using the available endpoints.
 
     Limits to 10 concurrent requests per ip but prioritizes trying other available endpoints before waiting.

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
 
 
-def get_dependencies_from_pyproject():
+def get_dependencies_from_pyproject() -> dict[str, Requirement]:
     from modules.constants.local import PYPROJECT_DATA
 
     dependencies = PYPROJECT_DATA.get('project', {}).get('dependencies', [])
@@ -18,7 +18,7 @@ def get_dependencies_from_pyproject():
     }
 
 
-def get_dependencies_from_requirements():
+def get_dependencies_from_requirements() -> dict[str, Requirement]:
     from modules.constants.local import REQUIREMENTS_PATH
 
     dependencies: dict[str, Requirement] = {}
@@ -38,7 +38,7 @@ def get_dependencies_from_requirements():
     return dependencies
 
 
-def check_packages_version(required_packages: dict[str, Requirement]):
+def check_packages_version(required_packages: dict[str, Requirement]) -> list[tuple[str, 'SpecifierSet', str]]:
     outdated_packages: list[tuple[str, SpecifierSet, str | Literal['Not Installed']]] = []  # noqa: PYI051
     for package_name, requirement in required_packages.items():
         try:

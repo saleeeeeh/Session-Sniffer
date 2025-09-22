@@ -31,7 +31,7 @@ DISCORD_RPC_BUTTONS = [
 class DiscordRPC:
     """Manage Discord Rich Presence updates and connection."""
 
-    def __init__(self, client_id: int):
+    def __init__(self, client_id: int) -> None:
         """Initialize the DiscordRPC instance.
 
         Args:
@@ -52,7 +52,7 @@ class DiscordRPC:
 
         self.last_update_time: float | None = None
 
-    def update(self, state_message: str = ''):
+    def update(self, state_message: str = '') -> None:
         """Attempt to update the Discord Rich Presence.
 
         Args:
@@ -66,7 +66,7 @@ class DiscordRPC:
         if self._thread.is_alive():
             self._queue.put(state_message)
 
-    def close(self):
+    def close(self) -> None:
         """Remove the Discord Rich Presence."""
         if self._closed:
             return
@@ -76,7 +76,7 @@ class DiscordRPC:
         self._thread.join(timeout=3)
 
 
-def _run(rpc: Presence, queue: QueueType, connection_status: Event):
+def _run(rpc: Presence, queue: QueueType, connection_status: Event) -> None:
     """Run the Discord RPC update loop in a separate thread."""
     while True:
         queue_item = queue.get()

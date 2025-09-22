@@ -12,7 +12,7 @@ RE_MAC_ADDRESS_PATTERN = re.compile(r'^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$', re.I
 IPV4_LAST_OCTET_VALUE = 255
 
 
-def is_mac_address(mac_address: str, /, *, raise_exception: bool = False):
+def is_mac_address(mac_address: str, /, *, raise_exception: bool = False) -> bool:
     """Check if the given MAC address is valid.
 
     If `raise_exception` is True, raises an `InvalidMacAddressError` if the MAC address is invalid.
@@ -34,24 +34,24 @@ def is_mac_address(mac_address: str, /, *, raise_exception: bool = False):
     return False
 
 
-def sanitize_mac_address(mac_address: str, /):
+def sanitize_mac_address(mac_address: str, /) -> str:
     """Remove any separators from the MAC address and convert to uppercase."""
     return ''.join(c for c in mac_address if c.isalnum()).upper()
 
 
-def format_mac_address(mac_address: str, /, separator: str = ':'):
+def format_mac_address(mac_address: str, /, separator: str = ':') -> str:
     """Format the MAC address using the specified separator (default: XX:XX:XX:XX:XX:XX)."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, len(sanitized_mac), 2))
 
 
-def get_mac_oui(mac_address: str, /, separator: str = ''):
+def get_mac_oui(mac_address: str, /, separator: str = '') -> str:
     """Extract the OUI (first three hexadecimal pairs) from a MAC address and formats it with the specified separator."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, 6, 2))
 
 
-def is_ipv4_address(ipv4_address: str, /, *, raise_exception: bool = False):
+def is_ipv4_address(ipv4_address: str, /, *, raise_exception: bool = False) -> bool:
     """Check if the given IPv4 address is valid.
 
     If `raise_exception` is True, raises an `InvalidIPv4AddressError` if the IP address is invalid.
@@ -74,7 +74,7 @@ def is_ipv4_address(ipv4_address: str, /, *, raise_exception: bool = False):
     return False
 
 
-def is_private_device_ipv4(ip_address: str, /):
+def is_private_device_ipv4(ip_address: str, /) -> bool:
     try:
         ipv4_obj = IPv4Address(ip_address)
     except AddressValueError:
@@ -82,7 +82,7 @@ def is_private_device_ipv4(ip_address: str, /):
     return ipv4_obj.is_private
 
 
-def is_valid_non_special_ipv4(ip_address: str, /):
+def is_valid_non_special_ipv4(ip_address: str, /) -> bool:
     try:
         ipv4_obj = IPv4Address(ip_address)
     except AddressValueError:
