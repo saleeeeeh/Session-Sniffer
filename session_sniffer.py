@@ -220,11 +220,11 @@ def terminate_script(
 
         error_message = Text.from_markup(
             (
-                "\n\n\nAn unexpected (uncaught) error occurred. [bold]Please kindly report it to:[/bold]\n"
-                "[link=https://github.com/BUZZARDGTA/Session-Sniffer/issues]"
-                "https://github.com/BUZZARDGTA/Session-Sniffer/issues[/link].\n\n"
-                "DEBUG:\n"
-                f"VERSION={globals().get('VERSION', 'Unknown Version')}"  # Define a default value for VERSION if it's not defined
+                '\n\n\nAn unexpected (uncaught) error occurred. [bold]Please kindly report it to:[/bold]\n'
+                '[link=https://github.com/BUZZARDGTA/Session-Sniffer/issues]'
+                'https://github.com/BUZZARDGTA/Session-Sniffer/issues[/link].\n\n'
+                'DEBUG:\n'
+                f'VERSION={globals().get("VERSION", "Unknown Version")}'  # Define a default value for VERSION if it's not defined
             ),
             style='white',
         )
@@ -2841,11 +2841,11 @@ def process_userip_task(
 
             with _userip_logging_file_write_lock:
                 write_lines_to_file(USERIP_LOGGING_PATH, 'a', [(
-                    f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
-                    f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.all)))} | "
-                    f"Time:{player.userip_detection.date_time} | Country:{player.iplookup.geolite2.country} | "
-                    f"Detection Type: {player.userip_detection.type} | "
-                    f"Database:{relative_database_path}"
+                    f'User{pluralize(len(player.userip.usernames))}: {", ".join(player.userip.usernames)} | '
+                    f'IP:{player.ip} | Ports:{", ".join(map(str, reversed(player.ports.all)))} | '
+                    f'Time:{player.userip_detection.date_time} | Country:{player.iplookup.geolite2.country} | '
+                    f'Detection Type: {player.userip_detection.type} | '
+                    f'Database:{relative_database_path}'
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
