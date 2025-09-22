@@ -2929,12 +2929,16 @@ def iplookup_core():
             expected_types: tuple[type[Any], ...],
         ):
             """Retrieve a field from a dictionary and validate its type."""
-            result = iplookup.get(json_key, 'N/A')
+            field_value = iplookup.get(json_key)
+            if field_value is None:
+                return 'N/A'
 
-            if result != 'N/A' and not isinstance(result, expected_types):
-                raise TypeError(format_type_error(result, expected_types, f' in field "{json_key}" ({player_ip})'))
+            if not isinstance(field_value, expected_types):
+                raise TypeError(format_type_error(field_value, expected_types, f' in field "{json_key}" ({player_ip})'))
+            if not isinstance(field_value, (str, float, int, bool)):
+                raise TypeError(format_type_error(field_value, (str, float, int, bool), f' in field "{json_key}" ({player_ip})'))
 
-            return result
+            return field_value
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
