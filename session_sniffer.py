@@ -2898,7 +2898,7 @@ def iplookup_core():
         #MAX_THROTTLE_TIME = 60
         MAX_BATCH_IP_API_IPS = 100
         FIELDS_TO_LOOKUP = 'continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query'
-        FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[Any], ...]]] = {
+        FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[str | float | int | bool], ...]]] = {
             'continent': ('continent', (str,)),
             'continent_code': ('continentCode', (str,)),
             'country': ('country', (str,)),
