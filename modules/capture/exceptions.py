@@ -8,7 +8,7 @@ class PacketCaptureOverflowError(Exception):
     """Raised when packet capture time exceeds the configured overflow timer."""
 
     def __init__(self, timeout_seconds: float):
-        super().__init__(f"Packet capture time exceeded {timeout_seconds} seconds.")
+        super().__init__(f'Packet capture time exceeded {timeout_seconds} seconds.')
 
 
 class TSharkOutputParsingError(Exception):
@@ -32,7 +32,7 @@ class UnexpectedFieldCountError(TSharkProcessingError):
     def __init__(self, actual: int, fields: tuple[str, ...]):
         """Initialize the UnexpectedFieldCountError exception."""
         super().__init__(
-            f"Unexpected number of fields in TShark output. "
+            f'Unexpected number of fields in TShark output. '
             f'Expected "5", got "{actual}": "{fields}"',
         )
 
@@ -43,7 +43,7 @@ class MissingRequiredFieldsError(TSharkProcessingError):
     def __init__(self, fields: tuple[str, ...]):
         """Initialize the MissingRequiredFieldsError exception."""
         super().__init__(
-            f"One of the required first three fields is empty. Fields: {fields}",
+            f'One of the required first three fields is empty. Fields: {fields}',
         )
 
 
@@ -52,7 +52,7 @@ class InvalidIPv4AddressInCaptureError(TSharkProcessingError):
 
     def __init__(self, ip: str):
         """Initialize the InvalidIPv4AddressError exception."""
-        super().__init__(f"Invalid IPv4 address: {ip}. IP must be a valid IPv4 address.")
+        super().__init__(f'Invalid IPv4 address: {ip}. IP must be a valid IPv4 address.')
 
 
 class InvalidPortFormatError(TSharkProcessingError):
@@ -60,7 +60,7 @@ class InvalidPortFormatError(TSharkProcessingError):
 
     def __init__(self, port: str):
         """Initialize the InvalidPortFormatError exception."""
-        super().__init__(f"Invalid port format: {port}. Port must be a number.")
+        super().__init__(f'Invalid port format: {port}. Port must be a number.')
 
 
 class InvalidPortNumberError(TSharkProcessingError):
@@ -69,7 +69,7 @@ class InvalidPortNumberError(TSharkProcessingError):
     def __init__(self, port: int):
         """Initialize the InvalidPortNumberError exception."""
         from modules.constants.standalone import MAX_PORT, MIN_PORT
-        super().__init__(f"Invalid port number: {port}. Port must be a number between {MIN_PORT} and {MAX_PORT}.")
+        super().__init__(f'Invalid port number: {port}. Port must be a number between {MIN_PORT} and {MAX_PORT}.')
 
 
 class TSharkCrashExceptionError(Exception):
@@ -87,4 +87,4 @@ class TSharkCrashExceptionError(Exception):
             returncode (int): The return code of the TShark process.
             stderr_output (str): The standard error output from TShark.
         """
-        super().__init__(f"TShark crashed with return code {returncode}: {stderr_output}")
+        super().__init__(f'TShark crashed with return code {returncode}: {stderr_output}')

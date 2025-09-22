@@ -20,11 +20,11 @@ from modules.utils import format_type_error
 
 QueueType = SimpleQueue[str | object]
 
-SHUTDOWN_SIGNAL = sentinel.create("ShutdownSignal")
+SHUTDOWN_SIGNAL = sentinel.create('ShutdownSignal')
 DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
 START_TIME_INT = int(time.time())
 DISCORD_RPC_BUTTONS = [
-    {"label": "GitHub Repo", "url": "https://github.com/BUZZARDGTA/Session-Sniffer"},
+    {'label': 'GitHub Repo', 'url': 'https://github.com/BUZZARDGTA/Session-Sniffer'},
 ]
 
 
@@ -45,14 +45,14 @@ class DiscordRPC:
 
         self._thread = Thread(
             target=_run,
-            name="DiscordRPCThread",
+            name='DiscordRPCThread',
             args=(self._rpc, self._queue, self.connection_status),
         )
         self._thread.start()
 
         self.last_update_time: float | None = None
 
-    def update(self, state_message: str = ""):
+    def update(self, state_message: str = ''):
         """Attempt to update the Discord Rich Presence.
 
         Args:

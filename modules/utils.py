@@ -31,32 +31,32 @@ from modules.utils_exceptions import (
 )
 
 __all__ = [
-    "check_case_insensitive_and_exact_match",
-    "clear_screen",
-    "custom_str_to_bool",
-    "custom_str_to_nonetype",
-    "dedup_preserve_order",
-    "format_attribute_error",
-    "format_file_not_found_error",
-    "format_project_version",
-    "format_triple_quoted_text",
-    "format_type_error",
-    "get_documents_folder",
-    "get_pid_by_path",
-    "get_working_directory_to_script_location",
-    "is_file_need_newline_ending",
-    "is_pyinstaller_compiled",
-    "pluralize",
-    "resource_path",
-    "run_cmd_command",
-    "run_cmd_script",
-    "set_window_title",
-    "set_working_directory_to_script_location",
-    "take",
-    "terminate_process_tree",
-    "validate_and_strip_balanced_outer_parens",
-    "validate_file",
-    "write_lines_to_file",
+    'check_case_insensitive_and_exact_match',
+    'clear_screen',
+    'custom_str_to_bool',
+    'custom_str_to_nonetype',
+    'dedup_preserve_order',
+    'format_attribute_error',
+    'format_file_not_found_error',
+    'format_project_version',
+    'format_triple_quoted_text',
+    'format_type_error',
+    'get_documents_folder',
+    'get_pid_by_path',
+    'get_working_directory_to_script_location',
+    'is_file_need_newline_ending',
+    'is_pyinstaller_compiled',
+    'pluralize',
+    'resource_path',
+    'run_cmd_command',
+    'run_cmd_script',
+    'set_window_title',
+    'set_working_directory_to_script_location',
+    'take',
+    'terminate_process_tree',
+    'validate_and_strip_balanced_outer_parens',
+    'validate_file',
+    'write_lines_to_file',
 ]
 
 
@@ -76,7 +76,7 @@ def format_attribute_error(cls: type, name: str):
 def format_type_error(
     obj: object,
     expected_types: type[Any] | tuple[type[Any], ...],
-    suffix: str = "",
+    suffix: str = '',
 ):
     """Generate a formatted error message for a type mismatch.
 
@@ -93,14 +93,14 @@ def format_type_error(
 
     # Handle expected types, which could be a single type or a tuple of types
     if isinstance(expected_types, tuple):
-        expected_types_names = " | ".join(t.__name__ for t in expected_types)
+        expected_types_names = ' | '.join(t.__name__ for t in expected_types)
         expected_type_count = len(expected_types)
     else:
         expected_types_names = expected_types.__name__
         expected_type_count = 1
 
     # Format the error message
-    return f"Expected type{pluralize(expected_type_count)} {expected_types_names}, got {actual_type} instead.{suffix}"
+    return f'Expected type{pluralize(expected_type_count)} {expected_types_names}, got {actual_type} instead.{suffix}'
 
 
 def format_file_not_found_error(file_path: Path):
@@ -109,12 +109,12 @@ def format_file_not_found_error(file_path: Path):
     Args:
         file_path (Path): The path to the file that was not found.
     """
-    return f"File not found: {file_path.absolute()}"
+    return f'File not found: {file_path.absolute()}'
 
 
 def is_pyinstaller_compiled():
     """Check if the script is running as a PyInstaller compiled executable."""
-    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")  # https://pyinstaller.org/en/stable/runtime-information.html
+    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')  # https://pyinstaller.org/en/stable/runtime-information.html
 
 
 def get_working_directory_to_script_location():
@@ -131,7 +131,7 @@ def set_working_directory_to_script_location():
 
 def resource_path(relative_path: Path):
     """Get absolute path to resource, works for dev and for PyInstaller."""
-    base_path = getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
+    base_path = getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
     if not isinstance(base_path, Path):
         base_path = Path(base_path)
     return base_path / relative_path
@@ -158,7 +158,7 @@ def get_documents_folder(*, use_alternative_method: bool = False):
         from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
 
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
-            documents_path, _ = winreg.QueryValueEx(key, "Personal")
+            documents_path, _ = winreg.QueryValueEx(key, 'Personal')
 
     if not isinstance(documents_path, str):
         raise TypeError(format_type_error(documents_path, str))
@@ -167,14 +167,14 @@ def get_documents_folder(*, use_alternative_method: bool = False):
 
 
 def set_window_title(title: str):
-    print(f"\033]0;{title}\007", end="")
+    print(f'\033]0;{title}\007', end='')
 
 
 def clear_screen():
-    print("\033c", end="")
+    print('\033c', end='')
 
 
-def pluralize(count: int, singular: str = "", plural: str = "s"):
+def pluralize(count: int, singular: str = '', plural: str = 's'):
     return singular if count == 1 else plural
 
 
@@ -199,10 +199,10 @@ def validate_file(file_path: Path):
 def format_project_version(version: Version):
     """Format the project version for display."""
     if version.local:
-        date_time = datetime.strptime(version.local, "%Y%m%d.%H%M").replace(tzinfo=UTC).strftime("%Y/%m/%d (%H:%M)")
-        return f"v{version.public} - {date_time}"
+        date_time = datetime.strptime(version.local, '%Y%m%d.%H%M').replace(tzinfo=UTC).strftime('%Y/%m/%d (%H:%M)')
+        return f'v{version.public} - {date_time}'
 
-    return f"v{version.public}"
+    return f'v{version.public}'
 
 
 def take[T](n: int, iterable: Iterable[T]) -> list[T]:
@@ -228,10 +228,10 @@ def is_file_need_newline_ending(file: Path):
     if not file.exists() or not file.stat().st_size:
         return False
 
-    return not file.read_bytes().endswith(b"\n")
+    return not file.read_bytes().endswith(b'\n')
 
 
-def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[str]):
+def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[str]):
     """Writes or appends a list of lines to a file, ensuring proper newline handling.
 
     Args:
@@ -247,22 +247,22 @@ def write_lines_to_file(file: Path, mode: Literal["w", "x", "a"], lines: list[st
         return
 
     # If appending to a file, ensure a leading newline is added if the file exists, otherwise creates it.
-    if mode == "a" and is_file_need_newline_ending(file):
-        content.insert(0, "")
+    if mode == 'a' and is_file_need_newline_ending(file):
+        content.insert(0, '')
 
     # Ensure the last line ends with a newline character
-    if not content[-1].endswith("\n"):
-        content[-1] += "\n"
+    if not content[-1].endswith('\n'):
+        content[-1] += '\n'
 
     # Write content to the file
-    with file.open(mode, encoding="utf-8") as f:
+    with file.open(mode, encoding='utf-8') as f:
         f.writelines(content)
 
 
 def get_pid_by_path(filepath: Path, /):
     """Get the process ID (PID) of a running process by its executable path."""
-    for process in psutil.process_iter(["pid", "exe"]):
-        if process.info["exe"] == str(filepath.absolute()):
+    for process in psutil.process_iter(['pid', 'exe']):
+        if process.info['exe'] == str(filepath.absolute()):
             return process.pid
     return None
 
@@ -316,9 +316,9 @@ def format_triple_quoted_text(
     formatted_text = textwrap.dedent(text).strip()
 
     if add_leading_newline:
-        formatted_text = "\n" + formatted_text
+        formatted_text = '\n' + formatted_text
     if add_trailing_newline:
-        formatted_text += "\n"
+        formatted_text += '\n'
 
     return formatted_text
 
@@ -364,9 +364,9 @@ def custom_str_to_bool(string: str, *, only_match_against: bool | None = None):
 
     string_lower = string.lower()
 
-    if string_lower == "true":
+    if string_lower == 'true':
         resolved_value = True
-    elif string_lower == "false":
+    elif string_lower == 'false':
         resolved_value = False
 
     if resolved_value is None:
@@ -396,10 +396,10 @@ def custom_str_to_nonetype(string: str):
     Returns:
         tuple: A tuple containing the resolved NoneType value and a boolean indicating if the string was exactly matching "None".
     """
-    if not string.lower() == "none":
+    if not string.lower() == 'none':
         raise InvalidNoneTypeValueError
 
-    need_rewrite_current_setting = string != "None"
+    need_rewrite_current_setting = string != 'None'
     return None, need_rewrite_current_setting
 
 
@@ -415,21 +415,21 @@ def validate_and_strip_balanced_outer_parens(expr: str):
     def strip_n_times(s: str, *, times: int):
         """Strip outer parentheses from a string n times."""
         for _ in range(times):
-            s = s.removeprefix("(").removesuffix(")")
+            s = s.removeprefix('(').removesuffix(')')
         return s
 
     expr = expr.strip()
     if not expr:
-        return ""
+        return ''
 
     unmatched_opening = []
     unmatched_closing = []
     strip_outer_depth = 0
 
     for idx, char in enumerate(expr):
-        if char == "(":
+        if char == '(':
             unmatched_opening.append(idx)
-        elif char == ")":
+        elif char == ')':
             if unmatched_opening:
                 opening_index = unmatched_opening.pop()
 
@@ -437,8 +437,8 @@ def validate_and_strip_balanced_outer_parens(expr: str):
                 remaining_expr = expr[idx + 1:]
 
                 if (
-                    all(c == "(" for c in before_opening)
-                    and all(c == ")" for c in remaining_expr)
+                    all(c == '(' for c in before_opening)
+                    and all(c == ')' for c in remaining_expr)
                 ):
                     strip_outer_depth += 1
 
@@ -456,7 +456,7 @@ def validate_and_strip_balanced_outer_parens(expr: str):
 
 def resolve_lnk(shortcut_path: Path):
     """Resolves a Windows shortcut (.lnk) to its target path."""
-    winshell = Dispatch("WScript.Shell")
+    winshell = Dispatch('WScript.Shell')
     shortcut = winshell.CreateShortcut(str(shortcut_path))
     return Path(shortcut.Targetpath)
 
@@ -466,15 +466,15 @@ def run_cmd_script(script: Path, args: list[str] | None = None):
     from modules.constants.standard import CMD_EXE
 
     # Build the base command
-    full_command = [str(CMD_EXE), "/K"]
+    full_command = [str(CMD_EXE), '/K']
 
     # Check if the script is a Windows shortcut
-    if script.suffix.casefold() == ".lnk":
+    if script.suffix.casefold() == '.lnk':
         script = resolve_lnk(script)
 
     # Add the script to the command
-    if script.suffix.casefold() == ".py":
-        full_command.append("py")
+    if script.suffix.casefold() == '.py':
+        full_command.append('py')
     full_command.append(str(script))
 
     # Add the rest of the arguments
@@ -489,7 +489,7 @@ def run_cmd_command(command: str, args: list[str] | None = None):
     from modules.constants.standard import CMD_EXE
 
     # Build the base command
-    full_command = [str(CMD_EXE), "/K", command]
+    full_command = [str(CMD_EXE), '/K', command]
 
     # Add the rest of the arguments
     if args is not None:

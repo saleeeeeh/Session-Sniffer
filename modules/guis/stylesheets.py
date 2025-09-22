@@ -8,9 +8,9 @@ Centralizing stylesheets here makes them easier to maintain and modify.
 # CONTAINER HEADER STYLES
 # =============================================================================
 
-CONNECTED_HEADER_CONTAINER_STYLESHEET = "background-color: green;"
+CONNECTED_HEADER_CONTAINER_STYLESHEET = 'background-color: green;'
 
-DISCONNECTED_HEADER_CONTAINER_STYLESHEET = "background-color: red;"
+DISCONNECTED_HEADER_CONTAINER_STYLESHEET = 'background-color: red;'
 
 
 # =============================================================================

@@ -26,15 +26,15 @@ def check_broadcast_multicast_support(tshark_path: Path, interface: str):
         """
         cmd = (
             str(tshark_path),
-            "-i", interface,
-            "-f", capture_filter,
-            "-a", "duration:0",
-            "-Q",
+            '-i', interface,
+            '-f', capture_filter,
+            '-a', 'duration:0',
+            '-Q',
         )
         try:
-            subprocess.run(cmd, capture_output=True, check=True, encoding="utf-8", text=True)
+            subprocess.run(cmd, capture_output=True, check=True, encoding='utf-8', text=True)
         except subprocess.CalledProcessError:
             return False
         return True
 
-    return (run_capture_filter_test("broadcast"), run_capture_filter_test("multicast"))
+    return (run_capture_filter_test('broadcast'), run_capture_filter_test('multicast'))

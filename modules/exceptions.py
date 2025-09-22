@@ -23,7 +23,7 @@ class UnexpectedPlayerCountError(Exception):
     """Raised when an unexpected number of connected players is encountered in session host detection."""
 
     def __init__(self, player_count: int):
-        super().__init__(f"Unexpected number of connected players: {player_count}")
+        super().__init__(f'Unexpected number of connected players: {player_count}')
 
 
 class FunctionExecutionError(Exception):

@@ -11,11 +11,11 @@ from modules.utils import format_type_error
 # for legacy management, necessary to retrieve properties like "Manufacturer" and "NetEnabled" not available in the newer namespace.
 #
 # Both namespaces are required for complete network adapter information.
-standard_cimv2_namespace: _wmi_namespace = wmi.WMI(namespace="root/StandardCimv2")
+standard_cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/StandardCimv2')
 if not isinstance(standard_cimv2_namespace, _wmi_namespace):
     raise TypeError(format_type_error(standard_cimv2_namespace, _wmi_namespace))
 
-cimv2_namespace: _wmi_namespace = wmi.WMI(namespace="root/Cimv2")
+cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/Cimv2')
 if not isinstance(cimv2_namespace, _wmi_namespace):
     raise TypeError(format_type_error(cimv2_namespace, _wmi_namespace))
 
@@ -31,7 +31,7 @@ def iterate_project_network_neighbor_details():
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_neighbor in standard_cimv2_namespace.query("SELECT InterfaceIndex, IPAddress, LinkLayerAddress FROM MSFT_NetNeighbor WHERE AddressFamily = 2"):  # https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/nettcpipprov/msft-netneighbor
+    for net_neighbor in standard_cimv2_namespace.query('SELECT InterfaceIndex, IPAddress, LinkLayerAddress FROM MSFT_NetNeighbor WHERE AddressFamily = 2'):  # https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/nettcpipprov/msft-netneighbor
         if not isinstance(net_neighbor.InterfaceIndex, int):
             raise TypeError(format_type_error(net_neighbor.InterfaceIndex, int))
         if not isinstance(net_neighbor.IPAddress, (str, type(None))):
@@ -54,7 +54,7 @@ def iterate_project_network_adapter_details():
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_adapter in standard_cimv2_namespace.query("SELECT InterfaceIndex, Name, InterfaceDescription, State FROM MSFT_NetAdapter"):  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
+    for net_adapter in standard_cimv2_namespace.query('SELECT InterfaceIndex, Name, InterfaceDescription, State FROM MSFT_NetAdapter'):  # https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh968170(v=vs.85)
         if not isinstance(net_adapter.InterfaceIndex, int):
             raise TypeError(format_type_error(net_adapter.InterfaceIndex, int))
         if not isinstance(net_adapter.Name, str):
@@ -80,7 +80,7 @@ def iterate_project_legacy_network_adapter_details():
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_adapter in cimv2_namespace.query("SELECT InterfaceIndex, NetConnectionID, Description, MACAddress, Manufacturer FROM Win32_NetworkAdapter WHERE NetEnabled = True"):  # https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapter
+    for net_adapter in cimv2_namespace.query('SELECT InterfaceIndex, NetConnectionID, Description, MACAddress, Manufacturer FROM Win32_NetworkAdapter WHERE NetEnabled = True'):  # https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapter
         if not isinstance(net_adapter.InterfaceIndex, int):
             raise TypeError(format_type_error(net_adapter.InterfaceIndex, int))
         if not isinstance(net_adapter.NetConnectionID, str):
@@ -106,7 +106,7 @@ def iterate_project_network_ip_details():
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_ip in standard_cimv2_namespace.query("SELECT InterfaceIndex, InterfaceAlias, IPv4Address FROM MSFT_NetIPAddress WHERE AddressFamily = 2"):  # https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/nettcpipprov/msft-netipaddress
+    for net_ip in standard_cimv2_namespace.query('SELECT InterfaceIndex, InterfaceAlias, IPv4Address FROM MSFT_NetIPAddress WHERE AddressFamily = 2'):  # https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/nettcpipprov/msft-netipaddress
         if not isinstance(net_ip.InterfaceIndex, int):
             raise TypeError(format_type_error(net_ip.InterfaceIndex, int))
         if not isinstance(net_ip.InterfaceAlias, str):
@@ -130,7 +130,7 @@ def iterate_project_legacy_network_ip_details():
     Raises:
         TypeError: If any of the returned WMI object is of an unexpected type.
     """
-    for net_ip in cimv2_namespace.query("SELECT InterfaceIndex, Description, MACAddress, IPAddress, IPEnabled FROM Win32_NetworkAdapterConfiguration"):  # https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapterconfiguration
+    for net_ip in cimv2_namespace.query('SELECT InterfaceIndex, Description, MACAddress, IPAddress, IPEnabled FROM Win32_NetworkAdapterConfiguration'):  # https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapterconfiguration
         if not isinstance(net_ip.InterfaceIndex, int):
             raise TypeError(format_type_error(net_ip.InterfaceIndex, int))
         if not isinstance(net_ip.Description, (str, type(None))):

@@ -16,30 +16,30 @@ from rich import print as rprint
 from rich.table import Table
 
 PingCheckResults = dict[str, list[
-    list[list[str | float]] | list[None | dict[Literal["message"], str]]
+    list[list[str | float]] | list[None | dict[Literal['message'], str]]
 ]]
 
 
-CHECK_HOST_API = "https://check-host.net"
+CHECK_HOST_API = 'https://check-host.net'
 
 
 class Colors(Enum):
     """Hex color codes for Rich formatting."""
 
-    CYAN = "3a96dd"
-    CYAN_LIGHT = "61d6d6"
-    GREEN = "13a10e"
-    GREEN_LIGHT = "00ff00"
-    YELLOW = "c19c00"
-    YELLOW_LIGHT = "f9f1a5"
-    ORANGE = "ff5f00"
-    ORANGE_LIGHT = "ff8700"
-    RED = "c50f1f"
-    RED_LIGHT = "e74856"
+    CYAN = '3a96dd'
+    CYAN_LIGHT = '61d6d6'
+    GREEN = '13a10e'
+    GREEN_LIGHT = '00ff00'
+    YELLOW = 'c19c00'
+    YELLOW_LIGHT = 'f9f1a5'
+    ORANGE = 'ff5f00'
+    ORANGE_LIGHT = 'ff8700'
+    RED = 'c50f1f'
+    RED_LIGHT = 'e74856'
 
     def __str__(self):
         """Automatically returns the color with a '#' prefix."""
-        return f"#{self.value}"
+        return f'#{self.value}'
 
 
 PING_COLOR_MAP = {
@@ -55,14 +55,14 @@ def ping_loop(target_ip: str, s: requests.Session):
 
     def send_ping_request(ip: str):
         """Send a ping request to the Check-Host API."""
-        response = s.get(f"{CHECK_HOST_API}/check-ping?host={ip}", headers={"Accept": "application/json"})
+        response = s.get(f'{CHECK_HOST_API}/check-ping?host={ip}', headers={'Accept': 'application/json'})
         response.raise_for_status()
 
         nodes = response.json()
         if not isinstance(nodes, dict):
             error_msg = f'Expected "dict", got "{type(nodes).__name__}"'
             raise TypeError(error_msg)
-        request_id = nodes.get("request_id")
+        request_id = nodes.get('request_id')
         if request_id is None:
             return None, None
         if not isinstance(request_id, str):
@@ -73,11 +73,11 @@ def ping_loop(target_ip: str, s: requests.Session):
     def get_ping_results(request_id: str, delay: int = 10):
         """Fetch the results using the request ID."""
         for i in range(delay, 0, -1):
-            rprint(f"[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} for ping request to complete...  ", end="\r")
+            rprint(f'[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} for ping request to complete...  ', end='\r')
             time.sleep(1)
-        rprint(" " * 50, end="\r")
+        rprint(' ' * 50, end='\r')
 
-        response = s.get(f"{CHECK_HOST_API}/check-result/{request_id}", headers={"Accept": "application/json"})
+        response = s.get(f'{CHECK_HOST_API}/check-result/{request_id}', headers={'Accept': 'application/json'})
         response.raise_for_status()
 
         results: PingCheckResults = response.json()
@@ -96,66 +96,66 @@ def ping_loop(target_ip: str, s: requests.Session):
         return results
 
     def pluralize(variable: int):
-        return "s" if variable > 1 else ""
+        return 's' if variable > 1 else ''
 
     def get_rtt_gradient_color(val: int):
         val = min(max(val, 0), 3000) * 0xFF // 3000
-        return f"#{val:02X}{(0xFF - val):02X}00"
+        return f'#{val:02X}{(0xFF - val):02X}00'
 
     def color_ping_result(successful_pings: int):
         """Return a color-coded string based on successful pings."""
         color = PING_COLOR_MAP.get(successful_pings, Colors.RED)
-        return f"[{color}]{successful_pings}[/{color}]"
+        return f'[{color}]{successful_pings}[/{color}]'
 
     while True:
         request_id, nodes = send_ping_request(target_ip)
 
         if not request_id or not nodes:
-            rprint(f"[{Colors.RED}]Failed to send ping request to [{Colors.RED_LIGHT}]{target_ip}[/{Colors.RED_LIGHT}].[/{Colors.RED}]")
+            rprint(f'[{Colors.RED}]Failed to send ping request to [{Colors.RED_LIGHT}]{target_ip}[/{Colors.RED_LIGHT}].[/{Colors.RED}]')
 
             for i in range(100, 0, -1):
-                rprint(f"[{Colors.YELLOW}]Retrying in [{Colors.YELLOW_LIGHT}]{i}[/{Colors.YELLOW_LIGHT}] second{pluralize(i)}...[/{Colors.YELLOW}]   ", end="\r")
+                rprint(f'[{Colors.YELLOW}]Retrying in [{Colors.YELLOW_LIGHT}]{i}[/{Colors.YELLOW_LIGHT}] second{pluralize(i)}...[/{Colors.YELLOW}]   ', end='\r')
                 time.sleep(1)
 
-            rprint("\n")
+            rprint('\n')
             continue
 
-        rprint(f"[{Colors.CYAN}]Ping request sent to [{Colors.CYAN_LIGHT}]{target_ip}[/{Colors.CYAN_LIGHT}]. Result API link: [link={CHECK_HOST_API}/check-result/{request_id}][{Colors.CYAN_LIGHT} bold]{CHECK_HOST_API}/check-result/{request_id}[/{Colors.CYAN_LIGHT} bold][/link][/{Colors.CYAN}]")
+        rprint(f'[{Colors.CYAN}]Ping request sent to [{Colors.CYAN_LIGHT}]{target_ip}[/{Colors.CYAN_LIGHT}]. Result API link: [link={CHECK_HOST_API}/check-result/{request_id}][{Colors.CYAN_LIGHT} bold]{CHECK_HOST_API}/check-result/{request_id}[/{Colors.CYAN_LIGHT} bold][/link][/{Colors.CYAN}]')
 
         results: PingCheckResults = get_ping_results(request_id)
         if not isinstance(results, dict):
             error_msg = f'Expected "dict", got "{type(results).__name__}"'
             raise TypeError(error_msg)
         if not results:
-            rprint(f"[{Colors.RED}]Failed to retrieve ping results.[/{Colors.RED}]")
+            rprint(f'[{Colors.RED}]Failed to retrieve ping results.[/{Colors.RED}]')
             time.sleep(10)
             continue
 
         global_rtt_values: list[float | int] = []
 
-        table = Table(title=f"[{Colors.CYAN}]Ping Results from[/{Colors.CYAN}] [{Colors.CYAN_LIGHT}]{target_ip}[/{Colors.CYAN_LIGHT}]", show_header=True, header_style=f"bold {Colors.CYAN_LIGHT}")
-        table.add_column("Country",      header_style=f"{Colors.CYAN_LIGHT}")
-        table.add_column("City",         header_style=f"{Colors.CYAN_LIGHT}")
-        table.add_column("Success",      header_style=f"bold {Colors.CYAN_LIGHT}", justify="center")
-        table.add_column("Min RTT (ms)", header_style=f"{Colors.GREEN}",  justify="right")
-        table.add_column("Avg RTT (ms)", header_style=f"{Colors.YELLOW}", justify="right")
-        table.add_column("Max RTT (ms)", header_style=f"{Colors.RED}",    justify="right")
+        table = Table(title=f'[{Colors.CYAN}]Ping Results from[/{Colors.CYAN}] [{Colors.CYAN_LIGHT}]{target_ip}[/{Colors.CYAN_LIGHT}]', show_header=True, header_style=f'bold {Colors.CYAN_LIGHT}')
+        table.add_column('Country',      header_style=f'{Colors.CYAN_LIGHT}')
+        table.add_column('City',         header_style=f'{Colors.CYAN_LIGHT}')
+        table.add_column('Success',      header_style=f'bold {Colors.CYAN_LIGHT}', justify='center')
+        table.add_column('Min RTT (ms)', header_style=f'{Colors.GREEN}',  justify='right')
+        table.add_column('Avg RTT (ms)', header_style=f'{Colors.YELLOW}', justify='right')
+        table.add_column('Max RTT (ms)', header_style=f'{Colors.RED}',    justify='right')
 
         for node, pings in results.items():
-            country = nodes["nodes"][node][1]
+            country = nodes['nodes'][node][1]
             if not isinstance(country, str):
                 error_msg = f'Expected "str", got "{type(country).__name__}"'
                 raise TypeError(error_msg)
-            city = nodes["nodes"][node][2]
+            city = nodes['nodes'][node][2]
             if not isinstance(city, str):
                 error_msg = f'Expected "str", got "{type(city).__name__}"'
                 raise TypeError(error_msg)
 
             message = None
             if pings is None:
-                message = "Inactivity timeout"
+                message = 'Inactivity timeout'
             elif pings[0] is None:  # and len(pings) == 2  # and isinstance(pings[1], dict) and pings[1].get("message"):  # in {"Connect timeout", "No route to host"}
-                message = pings[1]["message"]
+                message = pings[1]['message']
 
             this_rtt_values: list[float | int] = []
 
@@ -173,7 +173,7 @@ def ping_loop(target_ip: str, s: requests.Session):
                             error_msg = f'Expected "(float, int)", got "{type(rtt).__name__}"'
                             raise TypeError(error_msg)
 
-                        if result == "OK":
+                        if result == 'OK':
                             successful_pings += 1
 
                         this_rtt_values.append(rtt)
@@ -182,7 +182,7 @@ def ping_loop(target_ip: str, s: requests.Session):
             rows = [
                 country,
                 city,
-                f"{color_ping_result(successful_pings)}/[{Colors.GREEN}]4[/{Colors.GREEN}]",
+                f'{color_ping_result(successful_pings)}/[{Colors.GREEN}]4[/{Colors.GREEN}]',
             ]
 
             if this_rtt_values:
@@ -193,15 +193,15 @@ def ping_loop(target_ip: str, s: requests.Session):
                 rtt_avg_color = get_rtt_gradient_color(round(rtt_avg))
                 rtt_max_color = get_rtt_gradient_color(round(rtt_max))
                 rows.extend([
-                    f"[{rtt_min_color}]{round(rtt_min, 1)}[/{rtt_min_color}] ms",
-                    f"[{rtt_avg_color}]{round(rtt_avg, 1)}[/{rtt_avg_color}] ms",
-                    f"[{rtt_max_color}]{round(rtt_max, 1)}[/{rtt_max_color}] ms",
+                    f'[{rtt_min_color}]{round(rtt_min, 1)}[/{rtt_min_color}] ms',
+                    f'[{rtt_avg_color}]{round(rtt_avg, 1)}[/{rtt_avg_color}] ms',
+                    f'[{rtt_max_color}]{round(rtt_max, 1)}[/{rtt_max_color}] ms',
                 ])
             else:
                 rows.extend([
-                    f"[{Colors.RED}]{message}[/{Colors.RED}]",
-                    f"[{Colors.RED}]{message}[/{Colors.RED}]",
-                    f"[{Colors.RED}]{message}[/{Colors.RED}]",
+                    f'[{Colors.RED}]{message}[/{Colors.RED}]',
+                    f'[{Colors.RED}]{message}[/{Colors.RED}]',
+                    f'[{Colors.RED}]{message}[/{Colors.RED}]',
                 ])
 
             table.add_row(*rows)
@@ -217,21 +217,21 @@ def ping_loop(target_ip: str, s: requests.Session):
             global_rtt_avg_color = get_rtt_gradient_color(round(global_rtt_avg))
             global_rtt_max_color = get_rtt_gradient_color(round(global_rtt_max))
 
-            rprint("\n[cyan]RTT Statistics [cyan]([/cyan]All Nodes Combined[cyan])[/cyan]:[/cyan]")
-            rprint(f"[{Colors.GREEN}]Min RTT:[/{Colors.GREEN}] [{global_rtt_min_color}]{str(round(global_rtt_min, 1)).ljust(6)}[/{global_rtt_min_color}] ms")
-            rprint(f"[{Colors.YELLOW}]Avg RTT:[/{Colors.YELLOW}] [{global_rtt_avg_color}]{str(round(global_rtt_avg, 1)).ljust(6)}[/{global_rtt_avg_color}] ms")
-            rprint(f"[{Colors.RED}]Max RTT:[/{Colors.RED}] [{global_rtt_max_color}]{str(round(global_rtt_max, 1)).ljust(6)}[/{global_rtt_max_color}] ms")
+            rprint('\n[cyan]RTT Statistics [cyan]([/cyan]All Nodes Combined[cyan])[/cyan]:[/cyan]')
+            rprint(f'[{Colors.GREEN}]Min RTT:[/{Colors.GREEN}] [{global_rtt_min_color}]{str(round(global_rtt_min, 1)).ljust(6)}[/{global_rtt_min_color}] ms')
+            rprint(f'[{Colors.YELLOW}]Avg RTT:[/{Colors.YELLOW}] [{global_rtt_avg_color}]{str(round(global_rtt_avg, 1)).ljust(6)}[/{global_rtt_avg_color}] ms')
+            rprint(f'[{Colors.RED}]Max RTT:[/{Colors.RED}] [{global_rtt_max_color}]{str(round(global_rtt_max, 1)).ljust(6)}[/{global_rtt_max_color}] ms')
         else:
-            rprint(f"\n[{Colors.RED}]No RTT data available.[/{Colors.RED}]")
+            rprint(f'\n[{Colors.RED}]No RTT data available.[/{Colors.RED}]')
 
         rprint()
-        rprint(f"[bold {Colors.YELLOW_LIGHT}]- [/bold {Colors.YELLOW_LIGHT}]" * 22)
+        rprint(f'[bold {Colors.YELLOW_LIGHT}]- [/bold {Colors.YELLOW_LIGHT}]' * 22)
         rprint()
 
         for i in range(20, 0, -1):
-            rprint(f"[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} before the next ping request...[/{Colors.CYAN}]  ", end="\r")
+            rprint(f'[{Colors.CYAN}]Waiting [{Colors.CYAN_LIGHT}]{i}[/{Colors.CYAN_LIGHT}] second{pluralize(i)} before the next ping request...[/{Colors.CYAN}]  ', end='\r')
             time.sleep(1)
-        rprint(" " * 50, end="\r")
+        rprint(' ' * 50, end='\r')
 
 
 def is_ipv4_address(ip_address: str, /):
@@ -243,13 +243,13 @@ def is_ipv4_address(ip_address: str, /):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ping an IP using Check-Host API.")
-    parser.add_argument("ip", metavar="<ip>", type=str, help="Target IP to ping")
+    parser = argparse.ArgumentParser(description='Ping an IP using Check-Host API.')
+    parser.add_argument('ip', metavar='<ip>', type=str, help='Target IP to ping')
     args = parser.parse_args()
 
     target_ip = args.ip.strip() if isinstance(args.ip, str) else None
     if not target_ip:
-        rprint(f"[{Colors.RED}]Error: No IP address provided.[/{Colors.RED}]")
+        rprint(f'[{Colors.RED}]Error: No IP address provided.[/{Colors.RED}]')
         sys.exit(1)
 
     if not is_ipv4_address(target_ip):
@@ -259,8 +259,8 @@ def main():
     try:
         with requests.Session() as s:
             s.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0",
-                "Accept": "application/json",
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:135.0) Gecko/20100101 Firefox/135.0',
+                'Accept': 'application/json',
             })
             #s.verify = False
             ping_loop(target_ip, s)
@@ -268,5 +268,5 @@ def main():
         sys.exit(0)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

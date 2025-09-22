@@ -167,17 +167,17 @@ from modules.utils import (
 
 logging.basicConfig(
     level=logging.WARNING,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M",
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M',
     handlers=[
-        logging.FileHandler("error.log"),
+        logging.FileHandler('error.log'),
     ],
 )
 logging.captureWarnings(capture=True)
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+@dataclass(frozen=True, config={'arbitrary_types_allowed': True}, slots=True)
 class ExceptionInfo:
     exc_type: type[BaseException]
     exc_value: BaseException
@@ -185,7 +185,7 @@ class ExceptionInfo:
 
 
 def terminate_script(
-    terminate_method: Literal["EXIT", "SIGINT", "THREAD_RAISED"],
+    terminate_method: Literal['EXIT', 'SIGINT', 'THREAD_RAISED'],
     msgbox_crash_text: str | None = None,
     stdout_crash_text: str | None = None,
     exception_info: ExceptionInfo | None = None,
@@ -199,19 +199,19 @@ def terminate_script(
         if terminate_gracefully is False:
             return False
 
-        for thread_name in ("capture_core__thread", "rendering_core__thread", "hostname_core__thread", "iplookup_core__thread", "pinger_core__thread"):
+        for thread_name in ('capture_core__thread', 'rendering_core__thread', 'hostname_core__thread', 'iplookup_core__thread', 'pinger_core__thread'):
             if thread_name in globals():
                 thread = globals()[thread_name]
                 if isinstance(thread, Thread) and thread.is_alive():
                     return False
 
         # TODO(BUZZARDGTA): Gracefully exit the script even when the `cature` module is running.
-        return not ("capture" in globals() and capture is not None and isinstance(capture, PacketCapture))
+        return not ('capture' in globals() and capture is not None and isinstance(capture, PacketCapture))
 
-    ScriptControl.set_crashed(None if stdout_crash_text is None else f"\n\n{stdout_crash_text}\n")
+    ScriptControl.set_crashed(None if stdout_crash_text is None else f'\n\n{stdout_crash_text}\n')
 
     if exception_info:
-        logger.error("Uncaught exception: %s: %s", exception_info.exc_type.__name__, exception_info.exc_value)
+        logger.error('Uncaught exception: %s: %s', exception_info.exc_type.__name__, exception_info.exc_value)
 
         console = Console()
 
@@ -226,7 +226,7 @@ def terminate_script(
                 "DEBUG:\n"
                 f"VERSION={globals().get('VERSION', 'Unknown Version')}"  # Define a default value for VERSION if it's not defined
             ),
-            style="white",
+            style='white',
         )
         console.print(error_message)
 
@@ -243,14 +243,14 @@ def terminate_script(
 
     # If the termination method is "EXIT", do not sleep unless crash messages are present
     need_sleep = True
-    if terminate_method == "EXIT" and msgbox_crash_text is None and stdout_crash_text is None:
+    if terminate_method == 'EXIT' and msgbox_crash_text is None and stdout_crash_text is None:
         need_sleep = False
     if need_sleep:
         time.sleep(3)
 
     if should_terminate_gracefully():
         if force_terminate_errorlevel is False:
-            errorlevel = 1 if terminate_method == "THREAD_RAISED" else 0
+            errorlevel = 1 if terminate_method == 'THREAD_RAISED' else 0
         else:
             errorlevel = force_terminate_errorlevel if force_terminate_errorlevel is not None else 0
         sys.exit(errorlevel)
@@ -264,14 +264,14 @@ def handle_exception(exc_type: type[BaseException], exc_value: BaseException, ex
         return
 
     exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
-    terminate_script("EXIT", "An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues", exception_info=exception_info)
+    terminate_script('EXIT', 'An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\nhttps://github.com/BUZZARDGTA/Session-Sniffer/issues', exception_info=exception_info)
 
 
 def handle_sigint(_sig: int, _frame: FrameType | None):
     if not ScriptControl.has_crashed():
         # Block CTRL+C if script is already crashing under control
-        print(f"\n{Fore.YELLOW}Ctrl+C pressed. Exiting script ...{Fore.RESET}")
-        terminate_script("SIGINT")
+        print(f'\n{Fore.YELLOW}Ctrl+C pressed. Exiting script ...{Fore.RESET}')
+        terminate_script('SIGINT')
 
 
 sys.excepthook = handle_exception
@@ -352,16 +352,16 @@ class ThreadsExceptionHandler:
                 tb = tb.tb_next
             ThreadsExceptionHandler.raising_function = tb.tb_frame.f_code.co_name
         else:
-            ThreadsExceptionHandler.raising_function = "<unknown>"
+            ThreadsExceptionHandler.raising_function = '<unknown>'
 
         # Create the exception info and terminate the script
         exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
         terminate_script(
-            "THREAD_RAISED",
+            'THREAD_RAISED',
             (
-                "An unexpected (uncaught) error occurred.\n\n"
-                "Please kindly report it to:\n"
-                "https://github.com/BUZZARDGTA/Session-Sniffer/issues"
+                'An unexpected (uncaught) error occurred.\n\n'
+                'Please kindly report it to:\n'
+                'https://github.com/BUZZARDGTA/Session-Sniffer/issues'
             ),
             exception_info=exception_info,
         )
@@ -385,7 +385,7 @@ class DefaultSettings:  # pylint: disable=too-many-instance-attributes,invalid-n
     CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER: str | None = None
     GUI_SESSIONS_LOGGING: bool = True
     GUI_RESET_PORTS_ON_REJOINS: bool = True
-    GUI_FIELDS_TO_HIDE: tuple[str, ...] = ("PPM", "Middle Ports", "First Port", "Continent", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "AS", "ASN")
+    GUI_FIELDS_TO_HIDE: tuple[str, ...] = ('PPM', 'Middle Ports', 'First Port', 'Continent', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'ISP', 'AS', 'ASN')
     GUI_DATE_FIELDS_SHOW_DATE: bool = False
     GUI_DATE_FIELDS_SHOW_TIME: bool = False
     GUI_DATE_FIELDS_SHOW_ELAPSED: bool = True
@@ -394,78 +394,78 @@ class DefaultSettings:  # pylint: disable=too-many-instance-attributes,invalid-n
     GUI_DISCONNECTED_PLAYERS_TIMER: float = 10.0
     DISCORD_PRESENCE: bool = True
     SHOW_DISCORD_POPUP: bool = True
-    UPDATER_CHANNEL: str | None = "Stable"
+    UPDATER_CHANNEL: str | None = 'Stable'
 
 
 class Settings(DefaultSettings):
     ALL_SETTINGS: ClassVar = (
-        "CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT",
-        "CAPTURE_INTERFACE_NAME",
-        "CAPTURE_IP_ADDRESS",
-        "CAPTURE_MAC_ADDRESS",
-        "CAPTURE_ARP",
-        "CAPTURE_BLOCK_THIRD_PARTY_SERVERS",
-        "CAPTURE_PROGRAM_PRESET",
-        "CAPTURE_OVERFLOW_TIMER",
-        "CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER",
-        "CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER",
-        "GUI_SESSIONS_LOGGING",
-        "GUI_RESET_PORTS_ON_REJOINS",
-        "GUI_FIELDS_TO_HIDE",
-        "GUI_DATE_FIELDS_SHOW_DATE",
-        "GUI_DATE_FIELDS_SHOW_TIME",
-        "GUI_DATE_FIELDS_SHOW_ELAPSED",
-        "GUI_FIELD_SHOW_COUNTRY_CODE",
-        "GUI_FIELD_SHOW_CONTINENT_CODE",
-        "GUI_DISCONNECTED_PLAYERS_TIMER",
-        "DISCORD_PRESENCE",
-        "SHOW_DISCORD_POPUP",
-        "UPDATER_CHANNEL",
+        'CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT',
+        'CAPTURE_INTERFACE_NAME',
+        'CAPTURE_IP_ADDRESS',
+        'CAPTURE_MAC_ADDRESS',
+        'CAPTURE_ARP',
+        'CAPTURE_BLOCK_THIRD_PARTY_SERVERS',
+        'CAPTURE_PROGRAM_PRESET',
+        'CAPTURE_OVERFLOW_TIMER',
+        'CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER',
+        'CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER',
+        'GUI_SESSIONS_LOGGING',
+        'GUI_RESET_PORTS_ON_REJOINS',
+        'GUI_FIELDS_TO_HIDE',
+        'GUI_DATE_FIELDS_SHOW_DATE',
+        'GUI_DATE_FIELDS_SHOW_TIME',
+        'GUI_DATE_FIELDS_SHOW_ELAPSED',
+        'GUI_FIELD_SHOW_COUNTRY_CODE',
+        'GUI_FIELD_SHOW_CONTINENT_CODE',
+        'GUI_DISCONNECTED_PLAYERS_TIMER',
+        'DISCORD_PRESENCE',
+        'SHOW_DISCORD_POPUP',
+        'UPDATER_CHANNEL',
     )
 
     _ALL_SETTINGS_SET: ClassVar = frozenset(ALL_SETTINGS)
 
     GUI_FIELDS_MAPPING: ClassVar = {
-        "Usernames": "usernames",
-        "First Seen": "datetime.first_seen",
-        "Last Rejoin": "datetime.last_rejoin",
-        "Last Seen": "datetime.last_seen",
-        "Rejoins": "rejoins",
-        "T. Packets": "total_packets",
-        "Packets": "packets",
-        "PPS": "pps.rate",
-        "PPM": "ppm.rate",
-        "IP Address": "ip",
-        "Hostname": "reverse_dns.hostname",
-        "Last Port": "ports.last",
-        "Middle Ports": "ports.middle",
-        "First Port": "ports.first",
-        "Continent": "iplookup.ipapi.continent",
-        "Country": "iplookup.geolite2.country",
-        "Region": "iplookup.ipapi.region",
-        "R. Code": "iplookup.ipapi.region_code",
-        "City": "iplookup.geolite2.city",
-        "District": "iplookup.ipapi.district",
-        "ZIP Code": "iplookup.ipapi.zip_code",
-        "Lat": "iplookup.ipapi.lat",
-        "Lon": "iplookup.ipapi.lon",
-        "Time Zone": "iplookup.ipapi.time_zone",
-        "Offset": "iplookup.ipapi.offset",
-        "Currency": "iplookup.ipapi.currency",
-        "Organization": "iplookup.ipapi.org",
-        "ISP": "iplookup.ipapi.isp",
-        "ASN / ISP": "iplookup.geolite2.asn",
-        "AS": "iplookup.ipapi.asn",
-        "ASN": "iplookup.ipapi.as_name",
-        "Mobile": "iplookup.ipapi.mobile",
-        "VPN": "iplookup.ipapi.proxy",
-        "Hosting": "iplookup.ipapi.hosting",
-        "Pinging": "ping.is_pinging",
+        'Usernames': 'usernames',
+        'First Seen': 'datetime.first_seen',
+        'Last Rejoin': 'datetime.last_rejoin',
+        'Last Seen': 'datetime.last_seen',
+        'Rejoins': 'rejoins',
+        'T. Packets': 'total_packets',
+        'Packets': 'packets',
+        'PPS': 'pps.rate',
+        'PPM': 'ppm.rate',
+        'IP Address': 'ip',
+        'Hostname': 'reverse_dns.hostname',
+        'Last Port': 'ports.last',
+        'Middle Ports': 'ports.middle',
+        'First Port': 'ports.first',
+        'Continent': 'iplookup.ipapi.continent',
+        'Country': 'iplookup.geolite2.country',
+        'Region': 'iplookup.ipapi.region',
+        'R. Code': 'iplookup.ipapi.region_code',
+        'City': 'iplookup.geolite2.city',
+        'District': 'iplookup.ipapi.district',
+        'ZIP Code': 'iplookup.ipapi.zip_code',
+        'Lat': 'iplookup.ipapi.lat',
+        'Lon': 'iplookup.ipapi.lon',
+        'Time Zone': 'iplookup.ipapi.time_zone',
+        'Offset': 'iplookup.ipapi.offset',
+        'Currency': 'iplookup.ipapi.currency',
+        'Organization': 'iplookup.ipapi.org',
+        'ISP': 'iplookup.ipapi.isp',
+        'ASN / ISP': 'iplookup.geolite2.asn',
+        'AS': 'iplookup.ipapi.asn',
+        'ASN': 'iplookup.ipapi.as_name',
+        'Mobile': 'iplookup.ipapi.mobile',
+        'VPN': 'iplookup.ipapi.proxy',
+        'Hosting': 'iplookup.ipapi.hosting',
+        'Pinging': 'ping.is_pinging',
     }
-    GUI_FORCED_FIELDS          : ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address")
-    GUI_HIDEABLE_FIELDS        : ClassVar = (                                                                                           "PPS", "PPM",               "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
-    GUI_ALL_CONNECTED_FIELDS   : ClassVar = ("Usernames", "First Seen", "Last Rejoin",              "Rejoins", "T. Packets", "Packets", "PPS", "PPM", "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
-    GUI_ALL_DISCONNECTED_FIELDS: ClassVar = ("Usernames", "First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets",               "IP Address", "Hostname", "Last Port", "Middle Ports", "First Port", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Lat", "Lon", "Time Zone", "Offset", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN", "Mobile", "VPN", "Hosting", "Pinging")
+    GUI_FORCED_FIELDS          : ClassVar = ('Usernames', 'First Seen', 'Last Rejoin', 'Last Seen', 'Rejoins', 'T. Packets', 'Packets',               'IP Address')
+    GUI_HIDEABLE_FIELDS        : ClassVar = (                                                                                           'PPS', 'PPM',               'Hostname', 'Last Port', 'Middle Ports', 'First Port', 'Continent', 'Country', 'Region', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'ISP', 'ASN / ISP', 'AS', 'ASN', 'Mobile', 'VPN', 'Hosting', 'Pinging')
+    GUI_ALL_CONNECTED_FIELDS   : ClassVar = ('Usernames', 'First Seen', 'Last Rejoin',              'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM', 'IP Address', 'Hostname', 'Last Port', 'Middle Ports', 'First Port', 'Continent', 'Country', 'Region', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'ISP', 'ASN / ISP', 'AS', 'ASN', 'Mobile', 'VPN', 'Hosting', 'Pinging')
+    GUI_ALL_DISCONNECTED_FIELDS: ClassVar = ('Usernames', 'First Seen', 'Last Rejoin', 'Last Seen', 'Rejoins', 'T. Packets', 'Packets',               'IP Address', 'Hostname', 'Last Port', 'Middle Ports', 'First Port', 'Continent', 'Country', 'Region', 'R. Code', 'City', 'District', 'ZIP Code', 'Lat', 'Lon', 'Time Zone', 'Offset', 'Currency', 'Organization', 'ISP', 'ASN / ISP', 'AS', 'ASN', 'Mobile', 'VPN', 'Hosting', 'Pinging')
 
     @classmethod
     def iterate_over_settings(cls):
@@ -497,19 +497,19 @@ class Settings(DefaultSettings):
             ;;-----------------------------------------------------------------------------
         """, add_trailing_newline=True)
         for setting_name, setting_value in cls.iterate_over_settings():
-            text += f"{setting_name}={setting_value}\n"
-        SETTINGS_PATH.write_text(text, encoding="utf-8")
+            text += f'{setting_name}={setting_value}\n'
+        SETTINGS_PATH.write_text(text, encoding='utf-8')
 
     @staticmethod
     def parse_settings_ini_file(ini_path: Path):
         from modules.constants.standard import RE_SETTINGS_INI_PARSER_PATTERN
 
         def process_ini_line_output(line: str):
-            return line.rstrip("\n")
+            return line.rstrip('\n')
 
         validate_file(ini_path)
 
-        ini_data = ini_path.read_text("utf-8")
+        ini_data = ini_path.read_text('utf-8')
 
         need_rewrite_ini = False
         ini_database: dict[str, str] = {}
@@ -523,10 +523,10 @@ class Settings(DefaultSettings):
             if not match:
                 continue
 
-            setting_name = match.group("key")
+            setting_name = match.group('key')
             if not isinstance(setting_name, str):
                 raise TypeError(format_type_error(setting_name, str))
-            setting_value = match.group("value")
+            setting_value = match.group('value')
             if not isinstance(setting_value, str):
                 raise TypeError(format_type_error(setting_value, str))
 
@@ -580,17 +580,17 @@ class Settings(DefaultSettings):
                 matched_settings_count += 1
                 need_rewrite_current_setting = False
 
-                if setting_name == "CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT":
+                if setting_name == 'CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT':
                     try:
                         Settings.CAPTURE_NETWORK_INTERFACE_CONNECTION_PROMPT, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "CAPTURE_INTERFACE_NAME":
+                elif setting_name == 'CAPTURE_INTERFACE_NAME':
                     try:
                         Settings.CAPTURE_INTERFACE_NAME, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         Settings.CAPTURE_INTERFACE_NAME = setting_value
-                elif setting_name == "CAPTURE_IP_ADDRESS":
+                elif setting_name == 'CAPTURE_IP_ADDRESS':
                     try:
                         Settings.CAPTURE_IP_ADDRESS, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
@@ -598,7 +598,7 @@ class Settings(DefaultSettings):
                             Settings.CAPTURE_IP_ADDRESS = setting_value
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_MAC_ADDRESS":
+                elif setting_name == 'CAPTURE_MAC_ADDRESS':
                     try:
                         Settings.CAPTURE_MAC_ADDRESS, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
@@ -609,28 +609,28 @@ class Settings(DefaultSettings):
                             Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_ARP":
+                elif setting_name == 'CAPTURE_ARP':
                     try:
                         Settings.CAPTURE_ARP, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "CAPTURE_BLOCK_THIRD_PARTY_SERVERS":
+                elif setting_name == 'CAPTURE_BLOCK_THIRD_PARTY_SERVERS':
                     try:
                         Settings.CAPTURE_BLOCK_THIRD_PARTY_SERVERS, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "CAPTURE_PROGRAM_PRESET":
+                elif setting_name == 'CAPTURE_PROGRAM_PRESET':
                     try:
                         Settings.CAPTURE_PROGRAM_PRESET, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ("GTA5", "Minecraft"))
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('GTA5', 'Minecraft'))
                             Settings.CAPTURE_PROGRAM_PRESET = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_OVERFLOW_TIMER":
+                elif setting_name == 'CAPTURE_OVERFLOW_TIMER':
                     try:
                         capture_overflow_timer = float(setting_value)
                     except (ValueError, TypeError):
@@ -640,31 +640,31 @@ class Settings(DefaultSettings):
                             Settings.CAPTURE_OVERFLOW_TIMER = capture_overflow_timer
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER":
+                elif setting_name == 'CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER':
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
                             need_rewrite_settings = True
-                elif setting_name == "CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER":
+                elif setting_name == 'CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER':
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
                             need_rewrite_settings = True
-                elif setting_name == "GUI_SESSIONS_LOGGING":
+                elif setting_name == 'GUI_SESSIONS_LOGGING':
                     try:
                         Settings.GUI_SESSIONS_LOGGING, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_RESET_PORTS_ON_REJOINS":
+                elif setting_name == 'GUI_RESET_PORTS_ON_REJOINS':
                     try:
                         Settings.GUI_RESET_PORTS_ON_REJOINS, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_FIELDS_TO_HIDE":
+                elif setting_name == 'GUI_FIELDS_TO_HIDE':
                     try:
                         gui_fields_to_hide: tuple[str] = ast.literal_eval(setting_value)
                     except (ValueError, SyntaxError):
@@ -685,32 +685,32 @@ class Settings(DefaultSettings):
                             Settings.GUI_FIELDS_TO_HIDE = tuple(filtered_gui_fields_to_hide)
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "GUI_DATE_FIELDS_SHOW_DATE":
+                elif setting_name == 'GUI_DATE_FIELDS_SHOW_DATE':
                     try:
                         Settings.GUI_DATE_FIELDS_SHOW_DATE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_DATE_FIELDS_SHOW_TIME":
+                elif setting_name == 'GUI_DATE_FIELDS_SHOW_TIME':
                     try:
                         Settings.GUI_DATE_FIELDS_SHOW_TIME, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_DATE_FIELDS_SHOW_ELAPSED":
+                elif setting_name == 'GUI_DATE_FIELDS_SHOW_ELAPSED':
                     try:
                         Settings.GUI_DATE_FIELDS_SHOW_ELAPSED, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_FIELD_SHOW_CONTINENT_CODE":
+                elif setting_name == 'GUI_FIELD_SHOW_CONTINENT_CODE':
                     try:
                         Settings.GUI_FIELD_SHOW_CONTINENT_CODE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_FIELD_SHOW_COUNTRY_CODE":
+                elif setting_name == 'GUI_FIELD_SHOW_COUNTRY_CODE':
                     try:
                         Settings.GUI_FIELD_SHOW_COUNTRY_CODE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "GUI_DISCONNECTED_PLAYERS_TIMER":
+                elif setting_name == 'GUI_DISCONNECTED_PLAYERS_TIMER':
                     try:
                         player_disconnected_timer = float(setting_value)
                     except (ValueError, TypeError):
@@ -720,22 +720,22 @@ class Settings(DefaultSettings):
                             Settings.GUI_DISCONNECTED_PLAYERS_TIMER = player_disconnected_timer
                         else:
                             need_rewrite_settings = True
-                elif setting_name == "DISCORD_PRESENCE":
+                elif setting_name == 'DISCORD_PRESENCE':
                     try:
                         Settings.DISCORD_PRESENCE, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "SHOW_DISCORD_POPUP":
+                elif setting_name == 'SHOW_DISCORD_POPUP':
                     try:
                         Settings.SHOW_DISCORD_POPUP, need_rewrite_current_setting = custom_str_to_bool(setting_value)
                     except InvalidBooleanValueError:
                         need_rewrite_settings = True
-                elif setting_name == "UPDATER_CHANNEL":
+                elif setting_name == 'UPDATER_CHANNEL':
                     try:
                         Settings.UPDATER_CHANNEL, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ("Stable", "RC"))
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('Stable', 'RC'))
                             Settings.UPDATER_CHANNEL = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
@@ -771,9 +771,9 @@ class Settings(DefaultSettings):
             )
 
             for setting_name in (
-                "GUI_DATE_FIELDS_SHOW_DATE",
-                "GUI_DATE_FIELDS_SHOW_TIME",
-                "GUI_DATE_FIELDS_SHOW_ELAPSED",
+                'GUI_DATE_FIELDS_SHOW_DATE',
+                'GUI_DATE_FIELDS_SHOW_TIME',
+                'GUI_DATE_FIELDS_SHOW_ELAPSED',
             ):
                 setattr(Settings, setting_name, getattr(DefaultSettings, setting_name))
 
@@ -839,7 +839,7 @@ class Interface:
             return False
 
         if self.ip_enabled is not None and self.ip_enabled != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="ip_enabled", existing_value=self.ip_enabled, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='ip_enabled', existing_value=self.ip_enabled, new_value=new_value)
         self.ip_enabled = new_value
         return True
 
@@ -848,7 +848,7 @@ class Interface:
             return False
 
         if self.state is not None and self.state != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="state", existing_value=self.state, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='state', existing_value=self.state, new_value=new_value)
         self.state = new_value
         return True
 
@@ -857,7 +857,7 @@ class Interface:
             return False
 
         if self.name is not None and self.name != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="name", existing_value=self.name, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='name', existing_value=self.name, new_value=new_value)
         self.name = new_value
         return True
 
@@ -866,7 +866,7 @@ class Interface:
             return False
 
         if self.mac_address is not None and self.mac_address != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="mac_address", existing_value=self.mac_address, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='mac_address', existing_value=self.mac_address, new_value=new_value)
         self.mac_address = new_value
         return True
 
@@ -875,7 +875,7 @@ class Interface:
             return False
 
         if self.manufacturer is not None and self.manufacturer != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="manufacturer", existing_value=self.manufacturer, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='manufacturer', existing_value=self.manufacturer, new_value=new_value)
         self.manufacturer = new_value
         return True
 
@@ -884,7 +884,7 @@ class Interface:
             return False
 
         if self.packets_sent is not None and self.packets_sent != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="packets_sent", existing_value=self.packets_sent, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='packets_sent', existing_value=self.packets_sent, new_value=new_value)
         self.packets_sent = new_value
         return True
 
@@ -893,7 +893,7 @@ class Interface:
             return False
 
         if self.packets_recv is not None and self.packets_recv != new_value:
-            raise NetworkInterfaceStateMismatchError(field_name="packets_recv", existing_value=self.packets_recv, new_value=new_value)
+            raise NetworkInterfaceStateMismatchError(field_name='packets_recv', existing_value=self.packets_recv, new_value=new_value)
         self.packets_recv = new_value
         return True
 
@@ -999,21 +999,21 @@ class AllInterfaces:
 
 
 class ThirdPartyServers(enum.Enum):
-    PC_DISCORD = ("66.22.196.0/22", "66.22.200.0/21", "66.22.208.0/20", "66.22.224.0/20", "66.22.240.0/21", "66.22.248.0/24")
-    PC_VALVE = ("103.10.124.0/23", "103.28.54.0/23", "146.66.152.0/21", "155.133.224.0/19", "162.254.192.0/21", "185.25.180.0/22", "205.196.6.0/24")  # Valve = Steam
-    PC_GOOGLE = ("34.0.0.0/9", "34.128.0.0/10", "35.184.0.0/13", "35.192.0.0/11", "35.224.0.0/12", "35.240.0.0/13")
-    PC_MULTICAST = ("224.0.0.0/4",)
-    PC_UK_MINISTRY_OF_DEFENCE = ("25.0.0.0/8",)
-    PC_SERVERS_COM = ("173.237.26.0/24",)
-    PC_OTHERS = ("113.117.15.193/32",)
-    PS_SONY_INTERACTIVE  = ("104.142.128.0/17",)
-    PS_AMAZON = ("34.192.0.0/10", "44.192.0.0/10", "52.0.0.0/10", "52.64.0.0/12", "52.80.0.0/13", "52.88.0.0/14")
-    GTAV_TAKETWO = ("104.255.104.0/22", "185.56.64.0/22", "192.81.240.0/21")
-    GTAV_PC_MICROSOFT = ("52.139.128.0/18",)
-    GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ("26.0.0.0/8",)
-    GTAV_PC_BATTLEYE = ("51.89.97.102/32", "51.89.99.255/32")
-    GTAV_XBOXONE_MICROSOFT = ("40.74.0.0/18", "52.159.128.0/17", "52.160.0.0/16")
-    MINECRAFTBEDROCKEDITION_PC_PS4_MICROSOFT = ("20.202.0.0/24", "20.224.0.0/16", "168.61.142.128/25", "168.61.143.0/24", "168.61.144.0/20", "168.61.160.0/19")
+    PC_DISCORD = ('66.22.196.0/22', '66.22.200.0/21', '66.22.208.0/20', '66.22.224.0/20', '66.22.240.0/21', '66.22.248.0/24')
+    PC_VALVE = ('103.10.124.0/23', '103.28.54.0/23', '146.66.152.0/21', '155.133.224.0/19', '162.254.192.0/21', '185.25.180.0/22', '205.196.6.0/24')  # Valve = Steam
+    PC_GOOGLE = ('34.0.0.0/9', '34.128.0.0/10', '35.184.0.0/13', '35.192.0.0/11', '35.224.0.0/12', '35.240.0.0/13')
+    PC_MULTICAST = ('224.0.0.0/4',)
+    PC_UK_MINISTRY_OF_DEFENCE = ('25.0.0.0/8',)
+    PC_SERVERS_COM = ('173.237.26.0/24',)
+    PC_OTHERS = ('113.117.15.193/32',)
+    PS_SONY_INTERACTIVE  = ('104.142.128.0/17',)
+    PS_AMAZON = ('34.192.0.0/10', '44.192.0.0/10', '52.0.0.0/10', '52.64.0.0/12', '52.80.0.0/13', '52.88.0.0/14')
+    GTAV_TAKETWO = ('104.255.104.0/22', '185.56.64.0/22', '192.81.240.0/21')
+    GTAV_PC_MICROSOFT = ('52.139.128.0/18',)
+    GTAV_PC_DOD_NETWORK_INFORMATION_CENTER = ('26.0.0.0/8',)
+    GTAV_PC_BATTLEYE = ('51.89.97.102/32', '51.89.99.255/32')
+    GTAV_XBOXONE_MICROSOFT = ('40.74.0.0/18', '52.159.128.0/17', '52.160.0.0/16')
+    MINECRAFTBEDROCKEDITION_PC_PS4_MICROSOFT = ('20.202.0.0/24', '20.224.0.0/16', '168.61.142.128/25', '168.61.143.0/24', '168.61.144.0/20', '168.61.160.0/19')
 
     @classmethod
     def get_all_ip_ranges(cls):
@@ -1025,7 +1025,7 @@ class ThirdPartyServers(enum.Enum):
 class PlayerReverseDNS:
     is_initialized: bool = False
 
-    hostname: Literal["..."] | str = "..."  # noqa: PYI051
+    hostname: Literal['...'] | str = '...'  # noqa: PYI051
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1117,40 +1117,40 @@ class PlayerDateTime:
 class PlayerGeoLite2:
     is_initialized: bool = False
 
-    country:      Literal["...", "N/A"] | str = "..."  # noqa: PYI051
-    country_code: Literal["...", "N/A"] | str = "..."  # noqa: PYI051
-    city:         Literal["...", "N/A"] | str = "..."  # noqa: PYI051
-    asn:          Literal["...", "N/A"] | str = "..."  # noqa: PYI051
+    country:      Literal['...', 'N/A'] | str = '...'  # noqa: PYI051
+    country_code: Literal['...', 'N/A'] | str = '...'  # noqa: PYI051
+    city:         Literal['...', 'N/A'] | str = '...'  # noqa: PYI051
+    asn:          Literal['...', 'N/A'] | str = '...'  # noqa: PYI051
 
 
 @dataclass(kw_only=True, slots=True)
 class PlayerIPAPI:  # pylint: disable=too-many-instance-attributes
     is_initialized: bool = False
 
-    continent:      Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    continent_code: Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    country:        Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    country_code:   Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    region:         Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    region_code:    Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    city:           Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    district:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    zip_code:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    lat:            Literal["...", "N/A"] | float | int = "..."
-    lon:            Literal["...", "N/A"] | float | int = "..."
-    time_zone:      Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    offset:         Literal["...", "N/A"] | int         = "..."
-    currency:       Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    org:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    isp:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    asn:            Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    as_name:        Literal["...", "N/A"] | str         = "..."  # noqa: PYI051
-    mobile:         Literal["...", "N/A"] | bool        = "..."
-    proxy:          Literal["...", "N/A"] | bool        = "..."
-    hosting:        Literal["...", "N/A"] | bool        = "..."
+    continent:      Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    continent_code: Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    country:        Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    country_code:   Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    region:         Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    region_code:    Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    city:           Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    district:       Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    zip_code:       Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    lat:            Literal['...', 'N/A'] | float | int = '...'
+    lon:            Literal['...', 'N/A'] | float | int = '...'
+    time_zone:      Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    offset:         Literal['...', 'N/A'] | int         = '...'
+    currency:       Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    org:            Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    isp:            Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    asn:            Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    as_name:        Literal['...', 'N/A'] | str         = '...'  # noqa: PYI051
+    mobile:         Literal['...', 'N/A'] | bool        = '...'
+    proxy:          Literal['...', 'N/A'] | bool        = '...'
+    hosting:        Literal['...', 'N/A'] | bool        = '...'
 
 
-@dataclass(config={"arbitrary_types_allowed": True}, kw_only=True, slots=True)
+@dataclass(config={'arbitrary_types_allowed': True}, kw_only=True, slots=True)
 class PlayerCountryFlag:
     pixmap: QPixmap
     icon: QIcon
@@ -1166,16 +1166,16 @@ class PlayerIPLookup:
 class PlayerPing:  # pylint: disable=too-many-instance-attributes
     is_initialized: bool = False
 
-    is_pinging:          Literal["..."] | bool         = "..."
-    ping_times:          Literal["..."] | list[float]  = "..."
-    packets_transmitted: Literal["..."] | int   | None = "..."
-    packets_received:    Literal["..."] | int   | None = "..."
-    packet_loss:         Literal["..."] | float | None = "..."
-    packet_errors:       Literal["..."] | int   | None = "..."
-    rtt_min:             Literal["..."] | float | None = "..."
-    rtt_avg:             Literal["..."] | float | None = "..."
-    rtt_max:             Literal["..."] | float | None = "..."
-    rtt_mdev:            Literal["..."] | float | None = "..."
+    is_pinging:          Literal['...'] | bool         = '...'
+    ping_times:          Literal['...'] | list[float]  = '...'
+    packets_transmitted: Literal['...'] | int   | None = '...'
+    packets_received:    Literal['...'] | int   | None = '...'
+    packet_loss:         Literal['...'] | float | None = '...'
+    packet_errors:       Literal['...'] | int   | None = '...'
+    rtt_min:             Literal['...'] | float | None = '...'
+    rtt_avg:             Literal['...'] | float | None = '...'
+    rtt_max:             Literal['...'] | float | None = '...'
+    rtt_mdev:            Literal['...'] | float | None = '...'
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1184,7 +1184,7 @@ class PlayerUserIPDetection:
     date_time: str
 
     as_processed_task: bool = True
-    type: Literal["Static IP"] = "Static IP"
+    type: Literal['Static IP'] = 'Static IP'
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1262,8 +1262,8 @@ class Player:  # pylint: disable=too-many-instance-attributes
             self.userip_detection.as_processed_task = False
             Thread(
                 target=process_userip_task,
-                name=f"ProcessUserIPTask-{self.ip}-disconnected",
-                args=(self, "disconnected"), daemon=True,
+                name=f'ProcessUserIPTask-{self.ip}-disconnected',
+                args=(self, 'disconnected'), daemon=True,
             ).start()
 
 
@@ -1272,8 +1272,8 @@ class PlayersRegistry:
 
     This class provides methods to add, retrieve, and iterate over players in the registry.
     """
-    _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar = "datetime.last_rejoin"
-    _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar = "datetime.last_seen"
+    _DEFAULT_CONNECTED_SORT_ORDER   : ClassVar = 'datetime.last_rejoin'
+    _DEFAULT_DISCONNECTED_SORT_ORDER: ClassVar = 'datetime.last_seen'
 
     _registry_lock: ClassVar = RLock()
     _connected_players_registry   : ClassVar[dict[str, Player]] = {}
@@ -1417,7 +1417,7 @@ class SessionHost:
         from modules.constants.standalone import MINIMUM_PACKETS_FOR_SESSION_HOST
         from modules.utils import take
 
-        connected_players = take(2, sorted(session_connected, key=attrgetter("datetime.last_rejoin")))
+        connected_players = take(2, sorted(session_connected, key=attrgetter('datetime.last_rejoin')))
 
         potential_session_host_player = None
 
@@ -1445,18 +1445,18 @@ class SessionHost:
         SessionHost.search_player = False
 
 
-@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, slots=True)
+@dataclass(frozen=True, config={'arbitrary_types_allowed': True}, slots=True)
 class UserIPSettings:
     """Class to represent settings with attributes for each setting key."""
     ENABLED: bool
     COLOR: QColor
     LOG: bool
     NOTIFICATIONS: bool
-    VOICE_NOTIFICATIONS: Literal["Male", "Female", False]
-    PROTECTION: Literal["Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC", False]
+    VOICE_NOTIFICATIONS: Literal['Male', 'Female', False]
+    PROTECTION: Literal['Suspend_Process', 'Exit_Process', 'Restart_Process', 'Shutdown_PC', 'Restart_PC', False]
     PROTECTION_PROCESS_PATH: Path | None
     PROTECTION_RESTART_PROCESS_PATH: Path | None
-    PROTECTION_SUSPEND_PROCESS_MODE: int | float | Literal["Auto", "Manual"]
+    PROTECTION_SUSPEND_PROCESS_MODE: int | float | Literal['Auto', 'Manual']
 
 
 @dataclass(frozen=True, slots=True)
@@ -1491,10 +1491,10 @@ class UserIPDatabases:
 
         Thread(
             target=MsgBox.show,
-            name=f"UserIPConflictError-{initial_userip_ip}",
+            name=f'UserIPConflictError-{initial_userip_ip}',
             kwargs={
-                "title": TITLE,
-                "text": format_triple_quoted_text(f"""
+                'title': TITLE,
+                'text': format_triple_quoted_text(f"""
                     ERROR:
                         UserIP databases IP conflict
 
@@ -1511,7 +1511,7 @@ class UserIPDatabases:
                         "{conflicting_userip_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}":
                         {conflicting_userip_username}={conflicting_userip_ip}
                 """),
-                "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+                'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
             },
             daemon=True,
         ).start()
@@ -1878,20 +1878,20 @@ def check_for_updates():
     if versions_json is None:
         return
 
-    current_version = Version(PYPROJECT_DATA["project"]["version"])
+    current_version = Version(PYPROJECT_DATA['project']['version'])
 
     # Get versions from the response
-    latest_stable_version = Version(versions_json["latest_stable"]["version"])
-    latest_rc_version = Version(versions_json["latest_prerelease"]["version"])
+    latest_stable_version = Version(versions_json['latest_stable']['version'])
+    latest_rc_version = Version(versions_json['latest_prerelease']['version'])
 
     # Check for updates based on the current version
     is_new_stable_version_available = latest_stable_version > current_version
     is_new_rc_version_available = latest_rc_version > current_version
 
     # Determine which version to display based on the user's channel setting
-    if is_new_stable_version_available or (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available):
-        update_channel = "pre-release" if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else "stable release"
-        latest_version = latest_rc_version if (Settings.UPDATER_CHANNEL == "RC" and is_new_rc_version_available) else latest_stable_version
+    if is_new_stable_version_available or (Settings.UPDATER_CHANNEL == 'RC' and is_new_rc_version_available):
+        update_channel = 'pre-release' if (Settings.UPDATER_CHANNEL == 'RC' and is_new_rc_version_available) else 'stable release'
+        latest_version = latest_rc_version if (Settings.UPDATER_CHANNEL == 'RC' and is_new_rc_version_available) else latest_stable_version
 
         if MsgBox.show(
             title=TITLE,
@@ -1919,7 +1919,7 @@ def populate_network_interfaces_info():
 
     def validate_and_format_mac_address(mac_address: str | None):
         """Validate the MAC address, ensuring it is in the correct format."""
-        if mac_address in (None, ""):
+        if mac_address in (None, ''):
             return None
 
         formatted_mac_address = format_mac_address(mac_address)
@@ -1935,13 +1935,13 @@ def populate_network_interfaces_info():
                     mac_address={mac_address}
                     formatted_mac_address={formatted_mac_address}
             """)
-            terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+            terminate_script('EXIT', stdout_crash_text, stdout_crash_text)
 
         return formatted_mac_address
 
     def validate_ip_address(ip_address: str | None):
         """Validate the IP address, ensuring it is a valid IPv4 address."""
-        if ip_address in (None, ""):
+        if ip_address in (None, ''):
             return None
 
         if not is_ipv4_address(ip_address):
@@ -1955,7 +1955,7 @@ def populate_network_interfaces_info():
                 DEBUG:
                     ip_address={ip_address}
             """)
-            terminate_script("EXIT", stdout_crash_text, stdout_crash_text)
+            terminate_script('EXIT', stdout_crash_text, stdout_crash_text)
 
         return ip_address
 
@@ -2068,7 +2068,7 @@ def populate_network_interfaces_info():
             if (
                 validated_ip_address is None
                 or validated_and_formatted_mac_address is None
-                or validated_and_formatted_mac_address in {"00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF"}  # Skip ARP entries with known placeholder MAC addresses
+                or validated_and_formatted_mac_address in {'00:00:00:00:00:00', 'FF:FF:FF:FF:FF:FF'}  # Skip ARP entries with known placeholder MAC addresses
                 or not is_valid_non_special_ipv4(validated_ip_address)
             ):
                 continue
@@ -2076,7 +2076,7 @@ def populate_network_interfaces_info():
             interface.add_arp_entry(ARPEntry(
                 ip_address=validated_ip_address,
                 mac_address=validated_and_formatted_mac_address,
-                organization_name=mac_lookup.get_mac_address_organization_name(validated_and_formatted_mac_address) or "N/A",
+                organization_name=mac_lookup.get_mac_address_organization_name(validated_and_formatted_mac_address) or 'N/A',
             ))
 
     _populate_network_adapter_details()
@@ -2103,18 +2103,18 @@ def get_filtered_tshark_interfaces():
     )
 
     def process_stdout(stdout_line: str):
-        parts = stdout_line.strip().split(" ", maxsplit=INTERFACE_PARTS_LENGTH - 1)
+        parts = stdout_line.strip().split(' ', maxsplit=INTERFACE_PARTS_LENGTH - 1)
 
         if len(parts) != INTERFACE_PARTS_LENGTH:
             raise TSharkOutputParsingError(INTERFACE_PARTS_LENGTH, len(parts), stdout_line)
 
-        index = int(parts[0].removesuffix("."))
+        index = int(parts[0].removesuffix('.'))
         device_name = parts[1]
-        name = parts[2].removeprefix("(").removesuffix(")")
+        name = parts[2].removeprefix('(').removesuffix(')')
 
         return index, device_name, name
 
-    tshark_output = subprocess.check_output([TSHARK_PATH, "-D"], encoding="utf-8", text=True)
+    tshark_output = subprocess.check_output([TSHARK_PATH, '-D'], encoding='utf-8', text=True)
 
     return [
         (index, device_name, name)
@@ -2196,18 +2196,18 @@ def update_and_initialize_geolite2_readers():
         )
         from modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
-        geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / "version.json"
+        geolite2_version_file_path = GEOLITE2_DATABASES_FOLDER_PATH / 'version.json'
         geolite2_databases: dict[str, dict[str, str | None]] = {
-            f"GeoLite2-{db}.mmdb": {
-                "current_version": None,
-                "last_version": None,
-                "download_url": None,
+            f'GeoLite2-{db}.mmdb': {
+                'current_version': None,
+                'last_version': None,
+                'download_url': None,
             }
-            for db in ("ASN", "City", "Country")
+            for db in ('ASN', 'City', 'Country')
         }
 
         try:
-            with geolite2_version_file_path.open("r", encoding="utf-8") as f:
+            with geolite2_version_file_path.open('r', encoding='utf-8') as f:
                 loaded_data = json.load(f)
         except FileNotFoundError:
             pass
@@ -2221,39 +2221,39 @@ def update_and_initialize_geolite2_readers():
                     if database_name not in geolite2_databases:
                         continue
 
-                    geolite2_databases[database_name]["current_version"] = database_info.get("version", None)
+                    geolite2_databases[database_name]['current_version'] = database_info.get('version', None)
 
         try:
             response = s.get(GITHUB_RELEASE_API__GEOLITE2__URL)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             return {
-                "exception": e,
-                "url": GITHUB_RELEASE_API__GEOLITE2__URL,
-                "http_code": getattr(e.response, "status_code", None),
+                'exception': e,
+                'url': GITHUB_RELEASE_API__GEOLITE2__URL,
+                'http_code': getattr(e.response, 'status_code', None),
             }
 
         release_data = response.json()
         if not isinstance(release_data, dict):
             raise TypeError(format_type_error(release_data, dict))
 
-        for asset in release_data["assets"]:
-            asset_name = asset["name"]
+        for asset in release_data['assets']:
+            asset_name = asset['name']
             if not isinstance(asset_name, str):
                 continue
             if asset_name not in geolite2_databases:
                 continue
 
             geolite2_databases[asset_name].update({
-                "last_version": asset["updated_at"],
-                "download_url": asset["browser_download_url"],
+                'last_version': asset['updated_at'],
+                'download_url': asset['browser_download_url'],
             })
 
         failed_fetching_flag_list: list[str] = []
         for database_name, database_info in geolite2_databases.items():
-            if database_info["last_version"]:
-                if database_info["current_version"] != database_info["last_version"]:
-                    download_url = database_info["download_url"]
+            if database_info['last_version']:
+                if database_info['current_version'] != database_info['last_version']:
+                    download_url = database_info['download_url']
                     if download_url is None:
                         failed_fetching_flag_list.append(database_name)
                         continue
@@ -2262,9 +2262,9 @@ def update_and_initialize_geolite2_readers():
                         response.raise_for_status()
                     except requests.exceptions.RequestException as e:
                         return {
-                            "exception": e,
-                            "url": download_url,
-                            "http_code": getattr(e.response, "status_code", None),
+                            'exception': e,
+                            'url': download_url,
+                            'http_code': getattr(e.response, 'status_code', None),
                         }
 
                     if not isinstance(response.content, bytes):
@@ -2276,7 +2276,7 @@ def update_and_initialize_geolite2_readers():
                     # [Bug-Fix]: https://github.com/BUZZARDGTA/Session-Sniffer/issues/28
                     if destination_file_path.is_file():
                         if hashlib.sha256(destination_file_path.read_bytes()).hexdigest() == hashlib.sha256(response.content).hexdigest():
-                            geolite2_databases[database_name]["current_version"] = database_info["last_version"]
+                            geolite2_databases[database_name]['current_version'] = database_info['last_version']
                         else:
                             temp_path = Path(tempfile.gettempdir()) / database_name
                             temp_path.write_bytes(response.content)
@@ -2288,20 +2288,20 @@ def update_and_initialize_geolite2_readers():
                                 if e.winerror == ERROR_USER_MAPPED_FILE:
                                     if temp_path.is_file():
                                         temp_path.unlink()
-                                    geolite2_databases[database_name]["current_version"] = database_info["current_version"]
+                                    geolite2_databases[database_name]['current_version'] = database_info['current_version']
                     else:
                         destination_file_path.write_bytes(response.content)
-                        geolite2_databases[database_name]["current_version"] = database_info["last_version"]
+                        geolite2_databases[database_name]['current_version'] = database_info['last_version']
             else:
                 failed_fetching_flag_list.append(database_name)
 
         if failed_fetching_flag_list:
             Thread(
                 target=MsgBox.show,
-                name="GeoLite2DownloadError",
+                name='GeoLite2DownloadError',
                 kwargs={
-                    "title": TITLE,
-                    "text": format_triple_quoted_text(f"""
+                    'title': TITLE,
+                    'text': format_triple_quoted_text(f"""
                         ERROR:
                             Failed fetching MaxMind GeoLite2 "{'", "'.join(failed_fetching_flag_list)}" database{pluralize(len(failed_fetching_flag_list))}.
 
@@ -2311,14 +2311,14 @@ def update_and_initialize_geolite2_readers():
 
                         These MaxMind GeoLite2 database{pluralize(len(failed_fetching_flag_list))} will not be updated.
                     """),
-                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+                    'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
                 },
                 daemon=True,
             ).start()
 
         # Create the data dictionary, where each name maps to its version info
         data = {
-            name: {"version": info["current_version"]}
+            name: {'version': info['current_version']}
             for name, info in geolite2_databases.items()
         }
 
@@ -2326,25 +2326,25 @@ def update_and_initialize_geolite2_readers():
         json_data = json.dumps(data, indent=4)
 
         # Write the JSON formatted string to the GeoLite2 version file
-        geolite2_version_file_path.write_text(json_data, encoding="utf-8")
+        geolite2_version_file_path.write_text(json_data, encoding='utf-8')
 
         return {
-            "exception": None,
-            "url": None,
-            "http_code": None,
+            'exception': None,
+            'url': None,
+            'http_code': None,
         }
 
     def initialize_geolite2_readers():
         from modules.constants.standard import GEOLITE2_DATABASES_FOLDER_PATH
 
         try:
-            geolite2_asn_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / "GeoLite2-ASN.mmdb")
-            geolite2_city_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / "GeoLite2-City.mmdb")
-            geolite2_country_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / "GeoLite2-Country.mmdb")
+            geolite2_asn_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / 'GeoLite2-ASN.mmdb')
+            geolite2_city_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / 'GeoLite2-City.mmdb')
+            geolite2_country_reader = geoip2.database.Reader(GEOLITE2_DATABASES_FOLDER_PATH / 'GeoLite2-Country.mmdb')
 
-            geolite2_asn_reader.asn("1.1.1.1")
-            geolite2_city_reader.city("1.1.1.1")
-            geolite2_country_reader.country("1.1.1.1")
+            geolite2_asn_reader.asn('1.1.1.1')
+            geolite2_city_reader.city('1.1.1.1')
+            geolite2_country_reader.country('1.1.1.1')
 
             exception = None
         except geoip2.errors.GeoIP2Error as e:
@@ -2360,20 +2360,20 @@ def update_and_initialize_geolite2_readers():
     exception__initialize_geolite2_readers, geolite2_asn_reader, geolite2_city_reader, geolite2_country_reader = initialize_geolite2_readers()
 
     show_error = False
-    msgbox_message = ""
+    msgbox_message = ''
 
-    if update_geolite2_databases__dict["exception"]:
+    if update_geolite2_databases__dict['exception']:
         msgbox_message += f"Exception Error: {update_geolite2_databases__dict['exception']}\n\n"
         show_error = True
-    if update_geolite2_databases__dict["url"]:
+    if update_geolite2_databases__dict['url']:
         msgbox_message += f'Error: Failed fetching url: "{update_geolite2_databases__dict['url']}".'
-        if update_geolite2_databases__dict["http_code"]:
+        if update_geolite2_databases__dict['http_code']:
             msgbox_message += f" (http_code: {update_geolite2_databases__dict['http_code']})"
         msgbox_message += "\nImpossible to keep Maxmind's GeoLite2 IP to Country, City and ASN resolutions feature up-to-date.\n\n"
         show_error = True
 
     if exception__initialize_geolite2_readers:
-        msgbox_message += f"Exception Error: {exception__initialize_geolite2_readers}\n\n"
+        msgbox_message += f'Exception Error: {exception__initialize_geolite2_readers}\n\n'
         msgbox_message += "Now disabling MaxMind's GeoLite2 IP to Country, City and ASN resolutions feature.\n"
         msgbox_message += "Countrys, Citys and ASN from players won't shows up from the players fields."
         geoip2_enabled = False
@@ -2383,7 +2383,7 @@ def update_and_initialize_geolite2_readers():
 
     if show_error:
         msgbox_title = TITLE
-        msgbox_message = msgbox_message.rstrip("\n")
+        msgbox_message = msgbox_message.rstrip('\n')
         msgbox_style = MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
         MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
 
@@ -2404,15 +2404,15 @@ if not is_pyinstaller_compiled():
     print('\nChecking that your Python packages versions matches with file "requirements.txt" ...\n')
 
     if outdated_packages := check_packages_version(get_dependencies_from_pyproject() or get_dependencies_from_requirements()):
-        msgbox_message = "The following packages have version mismatches:\n\n"
+        msgbox_message = 'The following packages have version mismatches:\n\n'
 
         # Iterate over outdated packages and add each package's information to the message box text
         for package_name, required_version, installed_version in outdated_packages:
-            msgbox_message += f"{package_name} (required {required_version}, installed {installed_version})\n"
+            msgbox_message += f'{package_name} (required {required_version}, installed {installed_version})\n'
 
         # Add additional message box text
         msgbox_message += f'\nKeeping your packages synced with "{TITLE}" ensures smooth script execution and prevents compatibility issues.'
-        msgbox_message += "\n\nDo you want to ignore this warning and continue with script execution?"
+        msgbox_message += '\n\nDo you want to ignore this warning and continue with script execution?'
 
         # Show message box
         msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
@@ -2427,8 +2427,8 @@ print('\nApplying your custom settings from "Settings.ini" ...\n')
 Settings.load_from_settings_file(SETTINGS_PATH)
 
 clear_screen()
-set_window_title(f"Searching for a new update - {TITLE}")
-print("\nSearching for a new update ...\n")
+set_window_title(f'Searching for a new update - {TITLE}')
+print('\nSearching for a new update ...\n')
 check_for_updates()
 
 clear_screen()
@@ -2447,13 +2447,13 @@ print("\nInitializing and updating MaxMind's GeoLite2 Country, City and ASN data
 geoip2_enabled, geolite2_asn_reader, geolite2_city_reader, geolite2_country_reader = update_and_initialize_geolite2_readers()
 
 clear_screen()
-set_window_title(f"Initializing MacLookup module - {TITLE}")
-print("\nInitializing MacLookup module ...\n")
+set_window_title(f'Initializing MacLookup module - {TITLE}')
+print('\nInitializing MacLookup module ...\n')
 mac_lookup = MacLookup(load_on_init=True)
 
 clear_screen()
-set_window_title(f"Capture network interface selection - {TITLE}")
-print("\nCapture network interface selection ...\n")
+set_window_title(f'Capture network interface selection - {TITLE}')
+print('\nCapture network interface selection ...\n')
 populate_network_interfaces_info()
 
 tshark_interfaces = [
@@ -2475,30 +2475,30 @@ for interface in tshark_interfaces:
         Settings.CAPTURE_INTERFACE_NAME = interface.name
         Settings.reconstruct_settings()
 
-    manufacturer = "N/A" if interface.manufacturer is None else interface.manufacturer
-    packets_sent = "N/A" if interface.packets_sent is None else interface.packets_sent
-    packets_recv = "N/A" if interface.packets_recv is None else interface.packets_recv
-    interface_name = interface.name if interface.name is not None else "Unknown Interface"
+    manufacturer = 'N/A' if interface.manufacturer is None else interface.manufacturer
+    packets_sent = 'N/A' if interface.packets_sent is None else interface.packets_sent
+    packets_recv = 'N/A' if interface.packets_recv is None else interface.packets_recv
+    interface_name = interface.name if interface.name is not None else 'Unknown Interface'
 
     if interface.ip_addresses:
         for ip_address in interface.ip_addresses:
-            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ", ".join(interface.descriptions), packets_sent, packets_recv, ip_address, interface.mac_address, manufacturer))
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ', '.join(interface.descriptions), packets_sent, packets_recv, ip_address, interface.mac_address, manufacturer))
     else:
-        interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ", ".join(interface.descriptions), packets_sent, packets_recv, "N/A", interface.mac_address, manufacturer))
+        interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ', '.join(interface.descriptions), packets_sent, packets_recv, 'N/A', interface.mac_address, manufacturer))
 
     if Settings.CAPTURE_ARP:
         for arp_entry in interface.get_arp_entries():
-            organization_name = "N/A" if arp_entry.organization_name is None else arp_entry.organization_name
+            organization_name = 'N/A' if arp_entry.organization_name is None else arp_entry.organization_name
 
-            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ", ".join(interface.descriptions), "N/A", "N/A", arp_entry.ip_address, arp_entry.mac_address, organization_name, is_arp=True))
+            interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ', '.join(interface.descriptions), 'N/A', 'N/A', arp_entry.ip_address, arp_entry.mac_address, organization_name, is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
 if not isinstance(selected_interface.name, str):
     raise TypeError(format_type_error(selected_interface.name, str))
 
 clear_screen()
-set_window_title(f"Initializing addresses and establishing connection to your PC / Console - {TITLE}")
-print("\nInitializing addresses and establishing connection to your PC / Console ...\n")
+set_window_title(f'Initializing addresses and establishing connection to your PC / Console - {TITLE}')
+print('\nInitializing addresses and establishing connection to your PC / Console ...\n')
 need_rewrite_settings = False
 fixed__capture_mac_address = selected_interface.mac_address
 fixed__capture_ip_address = selected_interface.ip_address
@@ -2521,33 +2521,33 @@ if fixed__capture_ip_address != Settings.CAPTURE_IP_ADDRESS:
 if need_rewrite_settings:
     Settings.reconstruct_settings()
 
-capture_filter: list[str] = ["ip", "udp"]
+capture_filter: list[str] = ['ip', 'udp']
 display_filter: list[str] = []
 excluded_protocols: list[str] = []
 
 if Settings.CAPTURE_IP_ADDRESS:
-    capture_filter.append(f"((src host {Settings.CAPTURE_IP_ADDRESS} and (not (dst net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))) or (dst host {Settings.CAPTURE_IP_ADDRESS} and (not (src net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))))")
+    capture_filter.append(f'((src host {Settings.CAPTURE_IP_ADDRESS} and (not (dst net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))) or (dst host {Settings.CAPTURE_IP_ADDRESS} and (not (src net 10.0.0.0/8 or 100.64.0.0/10 or 172.16.0.0/12 or 192.168.0.0/16 or 224.0.0.0/4))))')
 
 broadcast_support, multicast_support = check_broadcast_multicast_support(TSHARK_PATH, Settings.CAPTURE_INTERFACE_NAME)
 if broadcast_support and multicast_support:
-    capture_filter.append("not (broadcast or multicast)")
+    capture_filter.append('not (broadcast or multicast)')
     vpn_mode_enabled = False
 elif broadcast_support:
-    capture_filter.append("not broadcast")
+    capture_filter.append('not broadcast')
     vpn_mode_enabled = True
 elif multicast_support:
-    capture_filter.append("not multicast")
+    capture_filter.append('not multicast')
     vpn_mode_enabled = True
 else:
     vpn_mode_enabled = True
 
-capture_filter.append("not (portrange 0-1023 or port 5353)")
+capture_filter.append('not (portrange 0-1023 or port 5353)')
 
 if Settings.CAPTURE_PROGRAM_PRESET:
-    if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
-        capture_filter.append("(len >= 71 and len <= 1032)")
-    elif Settings.CAPTURE_PROGRAM_PRESET == "Minecraft":
-        capture_filter.append("(len >= 49 and len <= 1498)")
+    if Settings.CAPTURE_PROGRAM_PRESET == 'GTA5':
+        capture_filter.append('(len >= 71 and len <= 1032)')
+    elif Settings.CAPTURE_PROGRAM_PRESET == 'Minecraft':
+        capture_filter.append('(len >= 49 and len <= 1498)')
 
     # If the <CAPTURE_PROGRAM_PRESET> setting is set, automatically blocks RTCP connections.
     # In case RTCP can be useful to get someone IP, I decided not to block them without using a <CAPTURE_PROGRAM_PRESET>.
@@ -2556,14 +2556,14 @@ if Settings.CAPTURE_PROGRAM_PRESET:
     # I know that eventually you will see their corresponding IPs time to time but I can guarantee that it does the job it is supposed to do.
     # It filters RTCP but some connections are STILL made out of it, but those are not RTCP ¯\_(ツ)_/¯.
     # And that's exactly why the "Discord" (`class ThirdPartyServers`) IP ranges Capture Filters are useful for.
-    excluded_protocols.append("rtcp")
+    excluded_protocols.append('rtcp')
 
 if Settings.CAPTURE_BLOCK_THIRD_PARTY_SERVERS:
     capture_filter.append(f"not (net {' or '.join(ThirdPartyServers.get_all_ip_ranges())})")
 
     # Here I'm trying to exclude various UDP protocols that are usefless for the srcipt.
     # But there can be a lot more, those are just a couples I could find on my own usage.
-    excluded_protocols.extend(["ssdp", "raknet", "dtls", "nbns", "pcp", "bt-dht", "uaudp", "classicstun", "dhcp", "mdns", "llmnr"])
+    excluded_protocols.extend(['ssdp', 'raknet', 'dtls', 'nbns', 'pcp', 'bt-dht', 'uaudp', 'classicstun', 'dhcp', 'mdns', 'llmnr'])
 
 if excluded_protocols:
     display_filter.append(
@@ -2571,13 +2571,13 @@ if excluded_protocols:
     )
 
 if Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
-    capture_filter.insert(0, f"({Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER})")
+    capture_filter.insert(0, f'({Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER})')
 
 if Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
-    display_filter.insert(0, f"({Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER})")
+    display_filter.insert(0, f'({Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER})')
 
-CAPTURE_FILTER = " and ".join(capture_filter) if capture_filter else None
-DISPLAY_FILTER = " and ".join(display_filter) if display_filter else None
+CAPTURE_FILTER = ' and '.join(capture_filter) if capture_filter else None
+DISPLAY_FILTER = ' and '.join(display_filter) if display_filter else None
 
 capture = PacketCapture(
     interface=Settings.CAPTURE_INTERFACE_NAME,
@@ -2590,7 +2590,7 @@ gui_closed__event = Event()
 _userip_logging_file_write_lock = Lock()
 
 
-def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal["userip.usernames", "reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"], ...], timeout: float):
+def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal['userip.usernames', 'reverse_dns.hostname', 'iplookup.geolite2', 'iplookup.ipapi'], ...], timeout: float):
     """Wait for specific player data fields to be ready for display.
 
     Args:
@@ -2618,10 +2618,10 @@ def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal["us
         return player.iplookup.ipapi.is_initialized
 
     field_checkers = {
-        "userip.usernames": check_userip_usernames,
-        "reverse_dns.hostname": check_reverse_dns_hostname,
-        "iplookup.geolite2": check_iplookup_geolite2,
-        "iplookup.ipapi": check_iplookup_ipapi,
+        'userip.usernames': check_userip_usernames,
+        'reverse_dns.hostname': check_reverse_dns_hostname,
+        'iplookup.geolite2': check_iplookup_geolite2,
+        'iplookup.ipapi': check_iplookup_ipapi,
     }
 
     while not player.left_event.is_set() and (datetime.now(tz=LOCAL_TZ) - player.datetime.last_seen) < timedelta(seconds=timeout):
@@ -2635,7 +2635,7 @@ def wait_for_player_data_ready(player: Player, *, data_fields: tuple[Literal["us
 
 def show_detection_warning_popup(
     player: Player,
-    notification_type: Literal["mobile", "vpn", "hosting", "player_joined", "player_left"],
+    notification_type: Literal['mobile', 'vpn', 'hosting', 'player_joined', 'player_left'],
 ):
     """Show a notification popup for detections or player connection events.
 
@@ -2645,48 +2645,48 @@ def show_detection_warning_popup(
     """
     def show_popup_thread():
         """Thread function to show popup after ensuring data is ready."""
-        notification_configs: dict[Literal["mobile", "vpn", "hosting", "player_joined", "player_left"], dict[Literal["emoji", "title", "description", "icon", "thread_name"], str | MsgBox.Style]] = {
-            "mobile": {
-                "emoji": "📱",
-                "title": "MOBILE CONNECTION DETECTED!",
-                "description": "A player using a mobile (cellular) connection has been detected in your session!",
-                "icon": MsgBox.Style.MB_ICONINFORMATION,
-                "thread_name": "MobileWarning",
+        notification_configs: dict[Literal['mobile', 'vpn', 'hosting', 'player_joined', 'player_left'], dict[Literal['emoji', 'title', 'description', 'icon', 'thread_name'], str | MsgBox.Style]] = {
+            'mobile': {
+                'emoji': '📱',
+                'title': 'MOBILE CONNECTION DETECTED!',
+                'description': 'A player using a mobile (cellular) connection has been detected in your session!',
+                'icon': MsgBox.Style.MB_ICONINFORMATION,
+                'thread_name': 'MobileWarning',
             },
-            "vpn": {
-                "emoji": "🚨",
-                "title": "VPN CONNECTION DETECTED!",
-                "description": "A player using a VPN/Proxy/Tor connection has been detected in your session!",
-                "icon": MsgBox.Style.MB_ICONEXCLAMATION,
-                "thread_name": "VPNWarning",
+            'vpn': {
+                'emoji': '🚨',
+                'title': 'VPN CONNECTION DETECTED!',
+                'description': 'A player using a VPN/Proxy/Tor connection has been detected in your session!',
+                'icon': MsgBox.Style.MB_ICONEXCLAMATION,
+                'thread_name': 'VPNWarning',
             },
-            "hosting": {
-                "emoji": "🏢",
-                "title": "HOSTING CONNECTION DETECTED!",
-                "description": "A player connecting from a hosting provider or data center has been detected in your session!",
-                "icon": MsgBox.Style.MB_ICONWARNING,
-                "thread_name": "HostingWarning",
+            'hosting': {
+                'emoji': '🏢',
+                'title': 'HOSTING CONNECTION DETECTED!',
+                'description': 'A player connecting from a hosting provider or data center has been detected in your session!',
+                'icon': MsgBox.Style.MB_ICONWARNING,
+                'thread_name': 'HostingWarning',
             },
-            "player_joined": {
-                "emoji": "🟢",
-                "title": "PLAYER JOINED SESSION!",
-                "description": "A new player has joined your session!",
-                "icon": MsgBox.Style.MB_ICONINFORMATION,
-                "thread_name": "PlayerJoined",
+            'player_joined': {
+                'emoji': '🟢',
+                'title': 'PLAYER JOINED SESSION!',
+                'description': 'A new player has joined your session!',
+                'icon': MsgBox.Style.MB_ICONINFORMATION,
+                'thread_name': 'PlayerJoined',
             },
-            "player_left": {
-                "emoji": "🔴",
-                "title": "PLAYER LEFT SESSION!",
-                "description": "A player has left your session!",
-                "icon": MsgBox.Style.MB_ICONINFORMATION,
-                "thread_name": "PlayerLeft",
+            'player_left': {
+                'emoji': '🔴',
+                'title': 'PLAYER LEFT SESSION!',
+                'description': 'A player has left your session!',
+                'icon': MsgBox.Style.MB_ICONINFORMATION,
+                'thread_name': 'PlayerLeft',
             },
         }
 
         config = notification_configs[notification_type]
-        data_ready = wait_for_player_data_ready(player, data_fields=("reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"), timeout=3.0)
-        time_label = "Detection Time" if notification_type in {"mobile", "vpn", "hosting"} else "Event Time"
-        data_status_line = "" if data_ready else "⚠️ Some data may still be loading and missing from this notification\n\n"
+        data_ready = wait_for_player_data_ready(player, data_fields=('reverse_dns.hostname', 'iplookup.geolite2', 'iplookup.ipapi'), timeout=3.0)
+        time_label = 'Detection Time' if notification_type in {'mobile', 'vpn', 'hosting'} else 'Event Time'
+        data_status_line = '' if data_ready else '⚠️ Some data may still be loading and missing from this notification\n\n'
 
         MsgBox.show(
             title=f"{TITLE} - {config['title']}",
@@ -2724,28 +2724,28 @@ def show_detection_warning_popup(
                 Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
                 Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
             """),
-            style=MsgBox.Style.MB_OK | MsgBox.Style(config["icon"]) | MsgBox.Style.MB_SYSTEMMODAL,
+            style=MsgBox.Style.MB_OK | MsgBox.Style(config['icon']) | MsgBox.Style.MB_SYSTEMMODAL,
         )
 
     # Get thread name for the notification type
     notification_configs_for_thread_name = {
-        "mobile": "MobileWarning",
-        "vpn": "VPNWarning",
-        "hosting": "HostingWarning",
-        "player_joined": "PlayerJoined",
-        "player_left": "PlayerLeft",
+        'mobile': 'MobileWarning',
+        'vpn': 'VPNWarning',
+        'hosting': 'HostingWarning',
+        'player_joined': 'PlayerJoined',
+        'player_left': 'PlayerLeft',
     }
 
     Thread(
         target=show_popup_thread,
-        name=f"{notification_configs_for_thread_name[notification_type]}-{player.ip}",
+        name=f'{notification_configs_for_thread_name[notification_type]}-{player.ip}',
         daemon=True,
     ).start()
 
 
 def process_userip_task(
     player: Player,
-    connection_type: Literal["connected", "disconnected"],
+    connection_type: Literal['connected', 'disconnected'],
 ):
     with ThreadsExceptionHandler():
         from modules.constants.local import TTS_FOLDER_PATH
@@ -2767,7 +2767,7 @@ def process_userip_task(
                 raise TypeError(format_type_error(player.userip, UserIP))
             time.sleep(0.01)  # Sleep to prevent high CPU usage
 
-        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal["Auto", "Manual"]):
+        def suspend_process_for_duration_or_mode(process_pid: int, duration_or_mode: float | Literal['Auto', 'Manual']):
             """Suspends the specified process for a given duration or until a specified condition is met.
 
             Args:
@@ -2785,62 +2785,62 @@ def process_userip_task(
                 process.resume()
                 return
 
-            if duration_or_mode == "Manual":
+            if duration_or_mode == 'Manual':
                 return
-            if duration_or_mode == "Auto":
+            if duration_or_mode == 'Auto':
                 while not player.left_event.is_set():
                     gui_closed__event.wait(0.1)
                 process.resume()
                 return
 
         # We wants to run this as fast as possible so it's on top of the function.
-        if connection_type == "connected" and player.userip.settings.PROTECTION:
-            if player.userip.settings.PROTECTION == "Suspend_Process" and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
+        if connection_type == 'connected' and player.userip.settings.PROTECTION:
+            if player.userip.settings.PROTECTION == 'Suspend_Process' and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
                 if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
                     Thread(
                         target=suspend_process_for_duration_or_mode,
-                        name=f"UserIPSuspendProcess-{player.ip}",
+                        name=f'UserIPSuspendProcess-{player.ip}',
                         args=(process_pid, player.userip.settings.PROTECTION_SUSPEND_PROCESS_MODE),
                         daemon=True,
                     ).start()
 
-            elif player.userip.settings.PROTECTION in {"Exit_Process", "Restart_Process"} and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
+            elif player.userip.settings.PROTECTION in {'Exit_Process', 'Restart_Process'} and isinstance(player.userip.settings.PROTECTION_PROCESS_PATH, Path):
                 if process_pid := get_pid_by_path(player.userip.settings.PROTECTION_PROCESS_PATH):
                     terminate_process_tree(process_pid)
 
-                    if player.userip.settings.PROTECTION == "Restart_Process" and isinstance(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH, Path):
+                    if player.userip.settings.PROTECTION == 'Restart_Process' and isinstance(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH, Path):
                         subprocess.Popen([str(player.userip.settings.PROTECTION_RESTART_PROCESS_PATH.absolute())])
 
-            elif player.userip.settings.PROTECTION in {"Shutdown_PC", "Restart_PC"}:
+            elif player.userip.settings.PROTECTION in {'Shutdown_PC', 'Restart_PC'}:
                 validate_file(SHUTDOWN_EXE)
 
-                subprocess.Popen([str(SHUTDOWN_EXE), "/s" if player.userip.settings.PROTECTION == "Shutdown_PC" else "/r"])
+                subprocess.Popen([str(SHUTDOWN_EXE), '/s' if player.userip.settings.PROTECTION == 'Shutdown_PC' else '/r'])
 
         if player.userip.settings.VOICE_NOTIFICATIONS:
-            if player.userip.settings.VOICE_NOTIFICATIONS == "Male":
-                voice_name = "Liam"
-            elif player.userip.settings.VOICE_NOTIFICATIONS == "Female":
-                voice_name = "Jane"
+            if player.userip.settings.VOICE_NOTIFICATIONS == 'Male':
+                voice_name = 'Liam'
+            elif player.userip.settings.VOICE_NOTIFICATIONS == 'Female':
+                voice_name = 'Jane'
             else:
                 voice_name = None
 
             if not isinstance(voice_name, str):
                 raise TypeError(format_type_error(voice_name, str))
 
-            tts_file_path = TTS_FOLDER_PATH / f"{voice_name} ({connection_type}).wav"
+            tts_file_path = TTS_FOLDER_PATH / f'{voice_name} ({connection_type}).wav'
             validate_file(tts_file_path)
 
             winsound.PlaySound(str(tts_file_path), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT)
 
-        if connection_type == "connected":
+        if connection_type == 'connected':
             from modules.constants.standard import USERIP_DATABASES_PATH
 
-            wait_for_player_data_ready(player, data_fields=("userip.usernames", "iplookup.geolite2"), timeout=10.0)
+            wait_for_player_data_ready(player, data_fields=('userip.usernames', 'iplookup.geolite2'), timeout=10.0)
 
-            relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")
+            relative_database_path = player.userip.database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')
 
             with _userip_logging_file_write_lock:
-                write_lines_to_file(USERIP_LOGGING_PATH, "a", [(
+                write_lines_to_file(USERIP_LOGGING_PATH, 'a', [(
                     f"User{pluralize(len(player.userip.usernames))}:{', '.join(player.userip.usernames)} | "
                     f"IP:{player.ip} | Ports:{', '.join(map(str, reversed(player.ports.all)))} | "
                     f"Time:{player.userip_detection.date_time} | Country:{player.iplookup.geolite2.country} | "
@@ -2849,14 +2849,14 @@ def process_userip_task(
                 )])
 
             if player.userip.settings.NOTIFICATIONS:
-                wait_for_player_data_ready(player, data_fields=("userip.usernames", "reverse_dns.hostname", "iplookup.geolite2", "iplookup.ipapi"), timeout=10.0)
+                wait_for_player_data_ready(player, data_fields=('userip.usernames', 'reverse_dns.hostname', 'iplookup.geolite2', 'iplookup.ipapi'), timeout=10.0)
 
                 Thread(
                     target=MsgBox.show,
-                    name=f"UserIPMsgBox-{player.ip}",
+                    name=f'UserIPMsgBox-{player.ip}',
                     kwargs={
-                        "title": TITLE,
-                        "text": format_triple_quoted_text(f"""
+                        'title': TITLE,
+                        'text': format_triple_quoted_text(f"""
                             #### UserIP detected at {player.userip_detection.time} ####
                             User{pluralize(len(player.userip.usernames))}: {', '.join(player.userip.usernames)}
                             IP Address: {player.ip}
@@ -2878,7 +2878,7 @@ def process_userip_task(
                             Proxy, VPN or Tor exit address: {player.iplookup.ipapi.proxy}
                             Hosting, colocated or data center: {player.iplookup.ipapi.hosting}
                         """),
-                        "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
+                        'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SYSTEMMODAL,
                     },
                     daemon=True,
                 ).start()
@@ -2897,29 +2897,29 @@ def iplookup_core():
         #MAX_REQUESTS = 15
         #MAX_THROTTLE_TIME = 60
         MAX_BATCH_IP_API_IPS = 100
-        FIELDS_TO_LOOKUP = "continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query"
+        FIELDS_TO_LOOKUP = 'continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query'
         FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[Any], ...]]] = {
-            "continent": ("continent", (str,)),
-            "continent_code": ("continentCode", (str,)),
-            "country": ("country", (str,)),
-            "country_code": ("countryCode", (str,)),
-            "region": ("regionName", (str,)),
-            "region_code": ("region", (str,)),
-            "city": ("city", (str,)),
-            "district": ("district", (str,)),
-            "zip_code": ("zip", (str,)),
-            "lat": ("lat", (float, int)),
-            "lon": ("lon", (float, int)),
-            "time_zone": ("timezone", (str,)),
-            "offset": ("offset", (int,)),
-            "currency": ("currency", (str,)),
-            "isp": ("isp", (str,)),
-            "org": ("org", (str,)),
-            "asn": ("as", (str,)),
-            "as_name": ("asname", (str,)),
-            "mobile": ("mobile", (bool,)),
-            "proxy": ("proxy", (bool,)),
-            "hosting": ("hosting", (bool,)),
+            'continent': ('continent', (str,)),
+            'continent_code': ('continentCode', (str,)),
+            'country': ('country', (str,)),
+            'country_code': ('countryCode', (str,)),
+            'region': ('regionName', (str,)),
+            'region_code': ('region', (str,)),
+            'city': ('city', (str,)),
+            'district': ('district', (str,)),
+            'zip_code': ('zip', (str,)),
+            'lat': ('lat', (float, int)),
+            'lon': ('lon', (float, int)),
+            'time_zone': ('timezone', (str,)),
+            'offset': ('offset', (int,)),
+            'currency': ('currency', (str,)),
+            'isp': ('isp', (str,)),
+            'org': ('org', (str,)),
+            'asn': ('as', (str,)),
+            'as_name': ('asname', (str,)),
+            'mobile': ('mobile', (bool,)),
+            'proxy': ('proxy', (bool,)),
+            'hosting': ('hosting', (bool,)),
         }
 
         def validate_and_get_iplookup_field(
@@ -2929,9 +2929,9 @@ def iplookup_core():
             expected_types: tuple[type[Any], ...],
         ):
             """Retrieve a field from a dictionary and validate its type."""
-            result = iplookup.get(json_key, "N/A")
+            result = iplookup.get(json_key, 'N/A')
 
-            if result != "N/A" and not isinstance(result, expected_types):
+            if result != 'N/A' and not isinstance(result, expected_types):
                 raise TypeError(format_type_error(result, expected_types, f' in field "{json_key}" ({player_ip})'))
 
             return result
@@ -2957,9 +2957,9 @@ def iplookup_core():
 
             try:
                 response = s.post(
-                    "http://ip-api.com/batch",
-                    params={"fields": FIELDS_TO_LOOKUP},
-                    headers={"Content-Type": "application/json"},
+                    'http://ip-api.com/batch',
+                    params={'fields': FIELDS_TO_LOOKUP},
+                    headers={'Content-Type': 'application/json'},
                     json=ips_to_lookup,
                     timeout=3,
                 )
@@ -2969,7 +2969,7 @@ def iplookup_core():
                 continue
             except requests.exceptions.HTTPError as e:
                 if isinstance(e.response, requests.Response) and e.response.status_code == requests.codes.too_many_requests:  # Handle rate limiting  # pylint: disable=no-member
-                    throttle_until(int(e.response.headers["X-Rl"]), int(e.response.headers["X-Ttl"]))
+                    throttle_until(int(e.response.headers['X-Rl']), int(e.response.headers['X-Ttl']))
                     continue
                 raise  # Re-raise other HTTP errors
 
@@ -2981,7 +2981,7 @@ def iplookup_core():
                 if not isinstance(iplookup, dict):
                     raise TypeError(format_type_error(iplookup, dict))
 
-                player_ip = iplookup.get("query")
+                player_ip = iplookup.get('query')
                 if not isinstance(player_ip, str):
                     raise TypeError(format_type_error(player_ip, str))
 
@@ -2990,7 +2990,7 @@ def iplookup_core():
                     setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
                 player.iplookup.ipapi.is_initialized = True
 
-            throttle_until(int(response.headers["X-Rl"]), int(response.headers["X-Ttl"]))
+            throttle_until(int(response.headers['X-Rl']), int(response.headers['X-Ttl']))
 
 
 def hostname_core():
@@ -3145,7 +3145,7 @@ def capture_core():
                 )
 
                 if GUIDetectionSettings.player_join_notifications_enabled:
-                    show_detection_warning_popup(player, "player_joined")
+                    show_detection_warning_popup(player, 'player_joined')
 
             elif player.left_event.is_set():
                 player.mark_as_rejoined(
@@ -3155,7 +3155,7 @@ def capture_core():
                 PlayersRegistry.move_player_to_connected(player)
 
                 if GUIDetectionSettings.player_join_notifications_enabled:
-                    show_detection_warning_popup(player, "player_joined")
+                    show_detection_warning_popup(player, 'player_joined')
             else:
                 player.mark_as_seen(
                     port=target_port,
@@ -3167,13 +3167,13 @@ def capture_core():
                 or not player.userip_detection.as_processed_task
             ):
                 player.userip_detection = PlayerUserIPDetection(
-                    time=packet.datetime.strftime("%H:%M:%S"),
-                    date_time=packet.datetime.strftime("%Y-%m-%d_%H:%M:%S"),
+                    time=packet.datetime.strftime('%H:%M:%S'),
+                    date_time=packet.datetime.strftime('%Y-%m-%d_%H:%M:%S'),
                 )
                 Thread(
                     target=process_userip_task,
-                    name=f"ProcessUserIPTask-{player.ip}-connected",
-                    args=(player, "connected"),
+                    name=f'ProcessUserIPTask-{player.ip}-connected',
+                    args=(player, 'connected'),
                     daemon=True,
                 ).start()
 
@@ -3188,7 +3188,7 @@ def capture_core():
                 continue
 
 
-@dataclass(frozen=True, config={"arbitrary_types_allowed": True}, kw_only=True, slots=True)
+@dataclass(frozen=True, config={'arbitrary_types_allowed': True}, kw_only=True, slots=True)
 class CellColor:
     foreground: QColor
     background: QColor
@@ -3286,42 +3286,42 @@ def rendering_core():
             userip: dict[str, list[str]] = {}
             current_section = None
             matched_settings: list[str] = []
-            ini_data = ini_path.read_text("utf-8")
+            ini_data = ini_path.read_text('utf-8')
             corrected_ini_data_lines: list[str] = []
 
             for line in map(process_ini_line_output, ini_data.splitlines(keepends=True)):
                 corrected_ini_data_lines.append(line)
 
-                if line.startswith("[") and line.endswith("]"):
+                if line.startswith('[') and line.endswith(']'):
                     # we basically adding a newline if the previous line is not a newline for eyes visiblitly or idk how we say that
                     if (
                         corrected_ini_data_lines
                         and len(corrected_ini_data_lines) > 1
                         and corrected_ini_data_lines[-2]
                     ):
-                        corrected_ini_data_lines.insert(-1, "")  # Insert an empty string before the last line
+                        corrected_ini_data_lines.insert(-1, '')  # Insert an empty string before the last line
                     current_section = line[1:-1]
                     continue
 
                 if current_section is None:
                     continue
 
-                if current_section == "Settings":
+                if current_section == 'Settings':
                     match = RE_SETTINGS_INI_PARSER_PATTERN.search(line)
                     if not match:
                         # If it's a newline or a comment we don't really care about rewritting at this point.
-                        if not line.startswith((";", "#")) or not line:
+                        if not line.startswith((';', '#')) or not line:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
 
-                    setting = match.group("key")
+                    setting = match.group('key')
                     if setting is None:
                         if corrected_ini_data_lines:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
                         continue
                     if not isinstance(setting, str):
                         raise TypeError(format_type_error(setting, str))
-                    value = match.group("value")
+                    value = match.group('value')
                     if value is None:
                         if corrected_ini_data_lines:
                             corrected_ini_data_lines = corrected_ini_data_lines[:-1]
@@ -3354,44 +3354,44 @@ def rendering_core():
                     need_rewrite_current_setting = False
                     is_setting_corrupted = False
 
-                    if setting == "ENABLED":
+                    if setting == 'ENABLED':
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value)
                         except InvalidBooleanValueError:
                             is_setting_corrupted = True
-                    elif setting == "COLOR":
+                    elif setting == 'COLOR':
                         if (q_color := QColor(value)).isValid():
                             settings[setting] = q_color
                         else:
                             is_setting_corrupted = True
-                    elif setting in {"LOG", "NOTIFICATIONS"}:
+                    elif setting in {'LOG', 'NOTIFICATIONS'}:
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value)
                         except InvalidBooleanValueError:
                             is_setting_corrupted = True
-                    elif setting == "VOICE_NOTIFICATIONS":
+                    elif setting == 'VOICE_NOTIFICATIONS':
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value, only_match_against=False)
                         except InvalidBooleanValueError:
                             try:
-                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Male", "Female"))
+                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ('Male', 'Female'))
                                 settings[setting] = normalized_match
                                 if not case_sensitive_match:
                                     need_rewrite_current_setting = True
                             except NoMatchFoundError:
                                 is_setting_corrupted = True
-                    elif setting == "PROTECTION":
+                    elif setting == 'PROTECTION':
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_bool(value, only_match_against=False)
                         except InvalidBooleanValueError:
                             try:
-                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Suspend_Process", "Exit_Process", "Restart_Process", "Shutdown_PC", "Restart_PC"))
+                                case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ('Suspend_Process', 'Exit_Process', 'Restart_Process', 'Shutdown_PC', 'Restart_PC'))
                                 settings[setting] = normalized_match
                                 if not case_sensitive_match:
                                     need_rewrite_current_setting = True
                             except NoMatchFoundError:
                                 is_setting_corrupted = True
-                    elif setting in {"PROTECTION_PROCESS_PATH", "PROTECTION_RESTART_PROCESS_PATH"}:
+                    elif setting in {'PROTECTION_PROCESS_PATH', 'PROTECTION_RESTART_PROCESS_PATH'}:
                         try:
                             settings[setting], need_rewrite_current_setting = custom_str_to_nonetype(value)
                         except InvalidNoneTypeValueError:
@@ -3399,15 +3399,15 @@ def rendering_core():
                             if value != stripped_value:
                                 is_setting_corrupted = True
                             settings[setting] = Path(stripped_value)
-                    elif setting == "PROTECTION_SUSPEND_PROCESS_MODE":
+                    elif setting == 'PROTECTION_SUSPEND_PROCESS_MODE':
                         try:
-                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ("Auto", "Manual"))
+                            case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, ('Auto', 'Manual'))
                             settings[setting] = normalized_match
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
                             try:
-                                if "." in value:
+                                if '.' in value:
                                     protection_suspend_process_mode = float(value)
                                 else:
                                     protection_suspend_process_mode = int(value)
@@ -3424,10 +3424,10 @@ def rendering_core():
                             UserIPDatabases.notified_settings_corrupted.add(ini_path)
                             Thread(
                                 target=MsgBox.show,
-                                name=f"UserIPConfigFileError-{ini_path.name}",
+                                name=f'UserIPConfigFileError-{ini_path.name}',
                                 kwargs={
-                                    "title": TITLE,
-                                    "text": format_triple_quoted_text(f"""
+                                    'title': TITLE,
+                                    'text': format_triple_quoted_text(f"""
                                         ERROR:
                                             Corrupted UserIP Database File (Settings)
 
@@ -3442,25 +3442,25 @@ def rendering_core():
                                         documentation:
                                         https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
                                     """),
-                                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                                    'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
                                 },
                                 daemon=True,
                             ).start()
                         return None, None
 
                     if need_rewrite_current_setting:
-                        corrected_ini_data_lines[-1] = f"{setting}={settings[setting]}"
+                        corrected_ini_data_lines[-1] = f'{setting}={settings[setting]}'
 
-                elif current_section == "UserIP":
+                elif current_section == 'UserIP':
                     match = RE_USERIP_INI_PARSER_PATTERN.search(line)
                     if not match:
                         continue
-                    username = match.group("username")
+                    username = match.group('username')
                     if username is None:
                         continue
                     if not isinstance(username, str):
                         raise TypeError(format_type_error(username, str))
-                    ip = match.group("ip")
+                    ip = match.group('ip')
                     if ip is None:
                         continue
                     if not isinstance(ip, str):
@@ -3474,14 +3474,14 @@ def rendering_core():
                         continue
 
                     if not is_ipv4_address(ip):
-                        unresolved_ip_invalid.add(f"{ini_path}={username}={ip}")
-                        if f"{ini_path}={username}={ip}" not in UserIPDatabases.notified_ip_invalid:
+                        unresolved_ip_invalid.add(f'{ini_path}={username}={ip}')
+                        if f'{ini_path}={username}={ip}' not in UserIPDatabases.notified_ip_invalid:
                             Thread(
                                 target=MsgBox.show,
-                                name=f"UserIPInvalidEntryError-{ini_path.name}_{username}={ip}",
+                                name=f'UserIPInvalidEntryError-{ini_path.name}_{username}={ip}',
                                 kwargs={
-                                    "title": TITLE,
-                                    "text": format_triple_quoted_text(f"""
+                                    'title': TITLE,
+                                    'text': format_triple_quoted_text(f"""
                                         ERROR:
                                             UserIP database invalid IP address
 
@@ -3496,11 +3496,11 @@ def rendering_core():
                                         documentation:
                                         https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
                                     """),
-                                    "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                                    'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
                                 },
                                 daemon=True,
                             ).start()
-                            UserIPDatabases.notified_ip_invalid.add(f"{ini_path}={username}={ip}")
+                            UserIPDatabases.notified_ip_invalid.add(f'{ini_path}={username}={ip}')
                         continue
 
                     if username in userip:
@@ -3517,10 +3517,10 @@ def rendering_core():
                     UserIPDatabases.notified_settings_corrupted.add(ini_path)
                     Thread(
                         target=MsgBox.show,
-                        name=f"UserIPConfigFileError-{ini_path.name}",
+                        name=f'UserIPConfigFileError-{ini_path.name}',
                         kwargs={
-                            "title": TITLE,
-                            "text": format_triple_quoted_text(f"""
+                            'title': TITLE,
+                            'text': format_triple_quoted_text(f"""
                                 ERROR:
                                     Missing setting{pluralize(number_of_settings_missing)} in UserIP Database File
 
@@ -3534,7 +3534,7 @@ def rendering_core():
                                 documentation:
                                 https://github.com/BUZZARDGTA/Session-Sniffer/wiki/Configuration-Guide#userip-ini-databases-configuration
                             """),
-                            "style": MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
+                            'style': MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND,
                         },
                         daemon=True,
                     ).start()
@@ -3548,23 +3548,23 @@ def rendering_core():
                 len(corrected_ini_data_lines) > 1
                 and corrected_ini_data_lines[-1]
             ):
-                corrected_ini_data_lines.append("")
+                corrected_ini_data_lines.append('')
 
-            fixed_ini_data = "\n".join(corrected_ini_data_lines)
+            fixed_ini_data = '\n'.join(corrected_ini_data_lines)
 
             if ini_data != fixed_ini_data:
-                ini_path.write_text(fixed_ini_data, encoding="utf-8")
+                ini_path.write_text(fixed_ini_data, encoding='utf-8')
 
             return UserIPSettings(
-                settings["ENABLED"],
-                settings["COLOR"],
-                settings["LOG"],
-                settings["NOTIFICATIONS"],
-                settings["VOICE_NOTIFICATIONS"],
-                settings["PROTECTION"],
-                settings["PROTECTION_PROCESS_PATH"],
-                settings["PROTECTION_RESTART_PROCESS_PATH"],
-                settings["PROTECTION_SUSPEND_PROCESS_MODE"],
+                settings['ENABLED'],
+                settings['COLOR'],
+                settings['LOG'],
+                settings['NOTIFICATIONS'],
+                settings['VOICE_NOTIFICATIONS'],
+                settings['PROTECTION'],
+                settings['PROTECTION_PROCESS_PATH'],
+                settings['PROTECTION_RESTART_PROCESS_PATH'],
+                settings['PROTECTION_SUSPEND_PROCESS_MODE'],
             ), userip
 
         def update_userip_databases():
@@ -3583,7 +3583,7 @@ def rendering_core():
             """)
 
             DEFAULT_USERIP_FILES_SETTINGS = {
-                USERIP_DATABASES_PATH / "Blacklist.ini": """
+                USERIP_DATABASES_PATH / 'Blacklist.ini': """
                     ENABLED=True
                     COLOR=RED
                     LOG=True
@@ -3594,7 +3594,7 @@ def rendering_core():
                     PROTECTION_RESTART_PROCESS_PATH=None
                     PROTECTION_SUSPEND_PROCESS_MODE=Auto
                 """,
-                USERIP_DATABASES_PATH / "Enemylist.ini": """
+                USERIP_DATABASES_PATH / 'Enemylist.ini': """
                     ENABLED=True
                     COLOR=DARKGOLDENROD
                     LOG=True
@@ -3605,7 +3605,7 @@ def rendering_core():
                     PROTECTION_RESTART_PROCESS_PATH=None
                     PROTECTION_SUSPEND_PROCESS_MODE=Auto
                 """,
-                USERIP_DATABASES_PATH / "Friendlist.ini": """
+                USERIP_DATABASES_PATH / 'Friendlist.ini': """
                     ENABLED=True
                     COLOR=GREEN
                     LOG=True
@@ -3616,7 +3616,7 @@ def rendering_core():
                     PROTECTION_RESTART_PROCESS_PATH=None
                     PROTECTION_SUSPEND_PROCESS_MODE=Auto
                 """,
-                USERIP_DATABASES_PATH / "Randomlist.ini": """
+                USERIP_DATABASES_PATH / 'Randomlist.ini': """
                     ENABLED=True
                     COLOR=BLACK
                     LOG=True
@@ -3627,7 +3627,7 @@ def rendering_core():
                     PROTECTION_RESTART_PROCESS_PATH=None
                     PROTECTION_SUSPEND_PROCESS_MODE=Auto
                 """,
-                USERIP_DATABASES_PATH / "Searchlist.ini": """
+                USERIP_DATABASES_PATH / 'Searchlist.ini': """
                     ENABLED=True
                     COLOR=BLUE
                     LOG=True
@@ -3653,8 +3653,8 @@ def rendering_core():
 
             for userip_path, settings in DEFAULT_USERIP_FILES_SETTINGS.items():
                 if not userip_path.is_file():
-                    file_content = f"{DEFAULT_USERIP_FILE_HEADER}\n\n{settings}\n\n{DEFAULT_USERIP_FILE_FOOTER}"
-                    userip_path.write_text(file_content, encoding="utf-8")
+                    file_content = f'{DEFAULT_USERIP_FILE_HEADER}\n\n{settings}\n\n{DEFAULT_USERIP_FILE_FOOTER}'
+                    userip_path.write_text(file_content, encoding='utf-8')
 
             # Remove deleted files from notified settings conflicts
             # TODO(BUZZARDGTA): I should also warn again on another error, but it'd probably require a DICT then.
@@ -3665,7 +3665,7 @@ def rendering_core():
             new_databases: list[tuple[Path, UserIPSettings, dict[str, list[str]]]] = []
             unresolved_ip_invalid: set[str] = set()
 
-            for userip_path in USERIP_DATABASES_PATH.rglob("*.ini"):
+            for userip_path in USERIP_DATABASES_PATH.rglob('*.ini'):
                 parsed_settings, parsed_data = parse_userip_ini_file(userip_path, unresolved_ip_invalid)
                 if parsed_settings is None or parsed_data is None:
                     continue
@@ -3682,8 +3682,8 @@ def rendering_core():
             return time.monotonic()
 
         def get_country_info(ip_address: str):
-            country_name = "N/A"
-            country_code = "N/A"
+            country_name = 'N/A'
+            country_code = 'N/A'
 
             if geoip2_enabled and geolite2_country_reader is not None:
                 try:
@@ -3697,7 +3697,7 @@ def rendering_core():
             return country_name, country_code
 
         def get_city_info(ip_address: str):
-            city = "N/A"
+            city = 'N/A'
 
             if geoip2_enabled and geolite2_city_reader is not None:
                 try:
@@ -3710,7 +3710,7 @@ def rendering_core():
             return city
 
         def get_asn_info(ip_address: str):
-            asn = "N/A"
+            asn = 'N/A'
 
             if geoip2_enabled and geolite2_asn_reader is not None:
                 try:
@@ -3724,23 +3724,23 @@ def rendering_core():
 
         def process_session_logging():
             def format_player_logging_datetime(datetime_object: datetime):
-                return datetime_object.strftime("%m/%d/%Y %H:%M:%S.%f")[:-3]
+                return datetime_object.strftime('%m/%d/%Y %H:%M:%S.%f')[:-3]
 
             def format_player_logging_usernames(player: Player):
-                return ", ".join(player.usernames) if player.usernames else ""
+                return ', '.join(player.usernames) if player.usernames else ''
 
             def format_player_logging_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
-                    return f"{player_ip} 👑"
+                    return f'{player_ip} 👑'
                 return player_ip
 
             def format_player_logging_middle_ports(player: Player):
                 if player.ports.middle:
-                    return ", ".join(map(str, reversed(player.ports.middle)))
-                return ""
+                    return ', '.join(map(str, reversed(player.ports.middle)))
+                return ''
 
             def add_sort_arrow_char_to_sorted_logging_table_field(field_names: Sequence[str], sorted_field: str, sort_order: Qt.SortOrder):
-                arrow = " \u2193" if sort_order == Qt.SortOrder.DescendingOrder else " \u2191"  # Down arrow for descending, up arrow for ascending
+                arrow = ' \u2193' if sort_order == Qt.SortOrder.DescendingOrder else ' \u2191'  # Down arrow for descending, up arrow for ascending
                 return [
                     field + arrow if field == sorted_field else field
                     for field in field_names
@@ -3780,8 +3780,8 @@ def rendering_core():
             TABLE_COUNTRY_COLUMN_LENGTH_THRESHOLD = 27
             TABLE_CONTINENT_COLUMN_LENGTH_THRESHOLD = 13
 
-            logging_connected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, "Last Rejoin", Qt.SortOrder.DescendingOrder)
-            logging_disconnected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, "Last Seen", Qt.SortOrder.AscendingOrder)
+            logging_connected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, 'Last Rejoin', Qt.SortOrder.DescendingOrder)
+            logging_disconnected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, 'Last Seen', Qt.SortOrder.AscendingOrder)
             row_texts: list[str] = []
 
             # Calculate optimal padding for both connected and disconnected players
@@ -3792,87 +3792,87 @@ def rendering_core():
 
             logging_connected_players_table = PrettyTable()
             logging_connected_players_table.set_style(TableStyle.SINGLE_BORDER)
-            logging_connected_players_table.title = f"Player{pluralize(len(session_connected))} connected in your session ({len(session_connected)}):"
+            logging_connected_players_table.title = f'Player{pluralize(len(session_connected))} connected in your session ({len(session_connected)}):'
             logging_connected_players_table.field_names = logging_connected_players__field_names__with_down_arrow
-            logging_connected_players_table.align = "l"
+            logging_connected_players_table.align = 'l'
             for player in session_connected:
                 row_texts = []
-                row_texts.append(f"{format_player_logging_usernames(player)}")
-                row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
-                row_texts.append(f"{format_player_logging_datetime(player.datetime.last_rejoin)}")
-                row_texts.append(f"{player.rejoins}")
-                row_texts.append(f"{player.total_packets}")
-                row_texts.append(f"{player.packets}")
-                row_texts.append(f"{player.pps.rate}")
-                row_texts.append(f"{player.ppm.rate}")
-                row_texts.append(f"{format_player_logging_ip(player.ip)}")
-                row_texts.append(f"{player.reverse_dns.hostname}")
-                row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_middle_ports(player)}")
-                row_texts.append(f"{player.ports.first}")
-                row_texts.append(f"{player.iplookup.ipapi.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
-                row_texts.append(f"{player.iplookup.geolite2.country:<{session_connected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
-                row_texts.append(f"{player.iplookup.ipapi.region}")
-                row_texts.append(f"{player.iplookup.ipapi.region_code}")
-                row_texts.append(f"{player.iplookup.geolite2.city}")
-                row_texts.append(f"{player.iplookup.ipapi.district}")
-                row_texts.append(f"{player.iplookup.ipapi.zip_code}")
-                row_texts.append(f"{player.iplookup.ipapi.lat}")
-                row_texts.append(f"{player.iplookup.ipapi.lon}")
-                row_texts.append(f"{player.iplookup.ipapi.time_zone}")
-                row_texts.append(f"{player.iplookup.ipapi.offset}")
-                row_texts.append(f"{player.iplookup.ipapi.currency}")
-                row_texts.append(f"{player.iplookup.ipapi.org}")
-                row_texts.append(f"{player.iplookup.ipapi.isp}")
-                row_texts.append(f"{player.iplookup.geolite2.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.as_name}")
-                row_texts.append(f"{player.iplookup.ipapi.mobile}")
-                row_texts.append(f"{player.iplookup.ipapi.proxy}")
-                row_texts.append(f"{player.iplookup.ipapi.hosting}")
-                row_texts.append(f"{player.ping.is_pinging}")
+                row_texts.append(f'{format_player_logging_usernames(player)}')
+                row_texts.append(f'{format_player_logging_datetime(player.datetime.first_seen)}')
+                row_texts.append(f'{format_player_logging_datetime(player.datetime.last_rejoin)}')
+                row_texts.append(f'{player.rejoins}')
+                row_texts.append(f'{player.total_packets}')
+                row_texts.append(f'{player.packets}')
+                row_texts.append(f'{player.pps.rate}')
+                row_texts.append(f'{player.ppm.rate}')
+                row_texts.append(f'{format_player_logging_ip(player.ip)}')
+                row_texts.append(f'{player.reverse_dns.hostname}')
+                row_texts.append(f'{player.ports.last}')
+                row_texts.append(f'{format_player_logging_middle_ports(player)}')
+                row_texts.append(f'{player.ports.first}')
+                row_texts.append(f'{player.iplookup.ipapi.continent:<{session_connected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})')
+                row_texts.append(f'{player.iplookup.geolite2.country:<{session_connected__padding_country_name}} ({player.iplookup.geolite2.country_code})')
+                row_texts.append(f'{player.iplookup.ipapi.region}')
+                row_texts.append(f'{player.iplookup.ipapi.region_code}')
+                row_texts.append(f'{player.iplookup.geolite2.city}')
+                row_texts.append(f'{player.iplookup.ipapi.district}')
+                row_texts.append(f'{player.iplookup.ipapi.zip_code}')
+                row_texts.append(f'{player.iplookup.ipapi.lat}')
+                row_texts.append(f'{player.iplookup.ipapi.lon}')
+                row_texts.append(f'{player.iplookup.ipapi.time_zone}')
+                row_texts.append(f'{player.iplookup.ipapi.offset}')
+                row_texts.append(f'{player.iplookup.ipapi.currency}')
+                row_texts.append(f'{player.iplookup.ipapi.org}')
+                row_texts.append(f'{player.iplookup.ipapi.isp}')
+                row_texts.append(f'{player.iplookup.geolite2.asn}')
+                row_texts.append(f'{player.iplookup.ipapi.asn}')
+                row_texts.append(f'{player.iplookup.ipapi.as_name}')
+                row_texts.append(f'{player.iplookup.ipapi.mobile}')
+                row_texts.append(f'{player.iplookup.ipapi.proxy}')
+                row_texts.append(f'{player.iplookup.ipapi.hosting}')
+                row_texts.append(f'{player.ping.is_pinging}')
                 logging_connected_players_table.add_row(row_texts)
 
             logging_disconnected_players_table = PrettyTable()
             logging_disconnected_players_table.set_style(TableStyle.SINGLE_BORDER)
             logging_disconnected_players_table.title = f"Player{pluralize(len(session_disconnected))} who've left your session ({len(session_disconnected)}):"
             logging_disconnected_players_table.field_names = logging_disconnected_players__field_names__with_down_arrow
-            logging_disconnected_players_table.align = "l"
+            logging_disconnected_players_table.align = 'l'
             for player in session_disconnected:
                 row_texts = []
-                row_texts.append(f"{format_player_logging_usernames(player)}")
-                row_texts.append(f"{format_player_logging_datetime(player.datetime.first_seen)}")
-                row_texts.append(f"{format_player_logging_datetime(player.datetime.last_rejoin)}")
-                row_texts.append(f"{format_player_logging_datetime(player.datetime.last_seen)}")
-                row_texts.append(f"{player.rejoins}")
-                row_texts.append(f"{player.total_packets}")
-                row_texts.append(f"{player.packets}")
-                row_texts.append(f"{player.ip}")
-                row_texts.append(f"{player.reverse_dns.hostname}")
-                row_texts.append(f"{player.ports.last}")
-                row_texts.append(f"{format_player_logging_middle_ports(player)}")
-                row_texts.append(f"{player.ports.first}")
-                row_texts.append(f"{player.iplookup.ipapi.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})")
-                row_texts.append(f"{player.iplookup.geolite2.country:<{session_disconnected__padding_country_name}} ({player.iplookup.geolite2.country_code})")
-                row_texts.append(f"{player.iplookup.ipapi.region}")
-                row_texts.append(f"{player.iplookup.ipapi.region_code}")
-                row_texts.append(f"{player.iplookup.geolite2.city}")
-                row_texts.append(f"{player.iplookup.ipapi.district}")
-                row_texts.append(f"{player.iplookup.ipapi.zip_code}")
-                row_texts.append(f"{player.iplookup.ipapi.lat}")
-                row_texts.append(f"{player.iplookup.ipapi.lon}")
-                row_texts.append(f"{player.iplookup.ipapi.time_zone}")
-                row_texts.append(f"{player.iplookup.ipapi.offset}")
-                row_texts.append(f"{player.iplookup.ipapi.currency}")
-                row_texts.append(f"{player.iplookup.ipapi.org}")
-                row_texts.append(f"{player.iplookup.ipapi.isp}")
-                row_texts.append(f"{player.iplookup.geolite2.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.asn}")
-                row_texts.append(f"{player.iplookup.ipapi.as_name}")
-                row_texts.append(f"{player.iplookup.ipapi.mobile}")
-                row_texts.append(f"{player.iplookup.ipapi.proxy}")
-                row_texts.append(f"{player.iplookup.ipapi.hosting}")
-                row_texts.append(f"{player.ping.is_pinging}")
+                row_texts.append(f'{format_player_logging_usernames(player)}')
+                row_texts.append(f'{format_player_logging_datetime(player.datetime.first_seen)}')
+                row_texts.append(f'{format_player_logging_datetime(player.datetime.last_rejoin)}')
+                row_texts.append(f'{format_player_logging_datetime(player.datetime.last_seen)}')
+                row_texts.append(f'{player.rejoins}')
+                row_texts.append(f'{player.total_packets}')
+                row_texts.append(f'{player.packets}')
+                row_texts.append(f'{player.ip}')
+                row_texts.append(f'{player.reverse_dns.hostname}')
+                row_texts.append(f'{player.ports.last}')
+                row_texts.append(f'{format_player_logging_middle_ports(player)}')
+                row_texts.append(f'{player.ports.first}')
+                row_texts.append(f'{player.iplookup.ipapi.continent:<{session_disconnected__padding_continent_name}} ({player.iplookup.ipapi.continent_code})')
+                row_texts.append(f'{player.iplookup.geolite2.country:<{session_disconnected__padding_country_name}} ({player.iplookup.geolite2.country_code})')
+                row_texts.append(f'{player.iplookup.ipapi.region}')
+                row_texts.append(f'{player.iplookup.ipapi.region_code}')
+                row_texts.append(f'{player.iplookup.geolite2.city}')
+                row_texts.append(f'{player.iplookup.ipapi.district}')
+                row_texts.append(f'{player.iplookup.ipapi.zip_code}')
+                row_texts.append(f'{player.iplookup.ipapi.lat}')
+                row_texts.append(f'{player.iplookup.ipapi.lon}')
+                row_texts.append(f'{player.iplookup.ipapi.time_zone}')
+                row_texts.append(f'{player.iplookup.ipapi.offset}')
+                row_texts.append(f'{player.iplookup.ipapi.currency}')
+                row_texts.append(f'{player.iplookup.ipapi.org}')
+                row_texts.append(f'{player.iplookup.ipapi.isp}')
+                row_texts.append(f'{player.iplookup.geolite2.asn}')
+                row_texts.append(f'{player.iplookup.ipapi.asn}')
+                row_texts.append(f'{player.iplookup.ipapi.as_name}')
+                row_texts.append(f'{player.iplookup.ipapi.mobile}')
+                row_texts.append(f'{player.iplookup.ipapi.proxy}')
+                row_texts.append(f'{player.iplookup.ipapi.hosting}')
+                row_texts.append(f'{player.ping.is_pinging}')
                 logging_disconnected_players_table.add_row(row_texts)
 
             from modules.constants.standard import SESSIONS_LOGGING_PATH
@@ -3885,7 +3885,7 @@ def rendering_core():
             if not SESSIONS_LOGGING_PATH.is_file():
                 SESSIONS_LOGGING_PATH.touch()  # Create the file if it doesn't exist
 
-            SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + "\n" + logging_disconnected_players_table.get_string(), encoding="utf-8")
+            SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + '\n' + logging_disconnected_players_table.get_string(), encoding='utf-8')
 
         def process_gui_session_tables_rendering():
             def format_player_gui_datetime(datetime_object: datetime):
@@ -3900,46 +3900,46 @@ def rendering_core():
 
                     elapsed_parts: list[str] = []
                     if hours >= 1:
-                        elapsed_parts.append(f"{int(hours):02}h")
+                        elapsed_parts.append(f'{int(hours):02}h')
                     if elapsed_parts or minutes >= 1:
-                        elapsed_parts.append(f"{int(minutes):02}m")
+                        elapsed_parts.append(f'{int(minutes):02}m')
                     if elapsed_parts or seconds >= 1:
-                        elapsed_parts.append(f"{int(seconds):02}s")
+                        elapsed_parts.append(f'{int(seconds):02}s')
                     if not elapsed_parts and milliseconds > 0:
-                        elapsed_parts.append(f"{int(milliseconds):03}ms")
+                        elapsed_parts.append(f'{int(milliseconds):03}ms')
 
-                    formatted_elapsed = " ".join(elapsed_parts)
+                    formatted_elapsed = ' '.join(elapsed_parts)
 
                     if Settings.GUI_DATE_FIELDS_SHOW_DATE is False and Settings.GUI_DATE_FIELDS_SHOW_TIME is False:
                         return formatted_elapsed
 
                 parts: list[str] = []
                 if Settings.GUI_DATE_FIELDS_SHOW_DATE:
-                    parts.append(datetime_object.strftime("%m/%d/%Y"))
+                    parts.append(datetime_object.strftime('%m/%d/%Y'))
                 if Settings.GUI_DATE_FIELDS_SHOW_TIME:
-                    parts.append(datetime_object.strftime("%H:%M:%S.%f")[:-3])
+                    parts.append(datetime_object.strftime('%H:%M:%S.%f')[:-3])
                 if not parts:
                     raise InvalidDateFieldConfigurationError
 
-                formatted_datetime = " ".join(parts)
+                formatted_datetime = ' '.join(parts)
 
                 if formatted_elapsed:
-                    formatted_datetime += f" ({formatted_elapsed})"
+                    formatted_datetime += f' ({formatted_elapsed})'
 
                 return formatted_datetime
 
             def format_player_gui_usernames(player: Player):
-                return ", ".join(player.usernames) if player.usernames else ""
+                return ', '.join(player.usernames) if player.usernames else ''
 
             def format_player_gui_ip(player_ip: str):
                 if SessionHost.player and SessionHost.player.ip == player_ip:
-                    return f"{player_ip} 👑"
+                    return f'{player_ip} 👑'
                 return player_ip
 
             def format_player_gui_middle_ports(player: Player):
                 if player.ports.middle:
-                    return ", ".join(map(str, reversed(player.ports.middle)))
-                return ""
+                    return ', '.join(map(str, reversed(player.ports.middle)))
+                return ''
 
             def get_player_rate_color(color: QColor, rate: int, *, is_first_calculation: bool):
                 """Determine the color for player rates based on given thresholds."""
@@ -3947,9 +3947,9 @@ def rendering_core():
 
                 if not is_first_calculation:
                     if rate == RATE_ZERO:
-                        return QColor("red")
+                        return QColor('red')
                     if RATE_LOW <= rate <= RATE_MAX:
-                        return QColor("yellow")
+                        return QColor('yellow')
                 return color
 
             from modules.constants.external import (
@@ -3964,10 +3964,10 @@ def rendering_core():
 
             for player in session_connected:
                 if player.userip and player.userip.usernames:
-                    row_fg_color = QColor("white")
+                    row_fg_color = QColor('white')
                     row_bg_color = player.userip.settings.COLOR
                 else:
-                    row_fg_color = QColor("lime")
+                    row_fg_color = QColor('lime')
                     row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
 
                 # Initialize a list for cell colors for the current row, creating a new CellColor object for each column
@@ -3977,155 +3977,155 @@ def rendering_core():
                 ]
 
                 row_texts = []
-                row_texts.append(f"{format_player_gui_usernames(player)}")
-                row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
-                row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
-                row_texts.append(f"{player.rejoins}")
-                row_texts.append(f"{player.total_packets}")
-                row_texts.append(f"{player.packets}")
-                if "PPS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPS"]] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING["PPS"]], foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
-                    row_texts.append(f"{player.pps.rate}")
-                if "PPM" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_colors[CONNECTED_COLUMN_MAPPING["PPM"]] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING["PPM"]], foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
-                    row_texts.append(f"{player.ppm.rate}")
-                row_texts.append(f"{format_player_gui_ip(player.ip)}")
-                if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.reverse_dns.hostname}")
-                if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ports.last}")
-                if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_middle_ports(player)}")
-                if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ports.first}")
-                if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
+                row_texts.append(f'{format_player_gui_usernames(player)}')
+                row_texts.append(f'{format_player_gui_datetime(player.datetime.first_seen)}')
+                row_texts.append(f'{format_player_gui_datetime(player.datetime.last_rejoin)}')
+                row_texts.append(f'{player.rejoins}')
+                row_texts.append(f'{player.total_packets}')
+                row_texts.append(f'{player.packets}')
+                if 'PPS' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING['PPS']] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING['PPS']], foreground=get_player_rate_color(row_fg_color, player.pps.rate, is_first_calculation=player.pps.is_first_calculation))
+                    row_texts.append(f'{player.pps.rate}')
+                if 'PPM' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_colors[CONNECTED_COLUMN_MAPPING['PPM']] = dataclasses.replace(row_colors[CONNECTED_COLUMN_MAPPING['PPM']], foreground=get_player_rate_color(row_fg_color, player.ppm.rate, is_first_calculation=player.ppm.is_first_calculation))
+                    row_texts.append(f'{player.ppm.rate}')
+                row_texts.append(f'{format_player_gui_ip(player.ip)}')
+                if 'Hostname' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.reverse_dns.hostname}')
+                if 'Last Port' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ports.last}')
+                if 'Middle Ports' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{format_player_gui_middle_ports(player)}')
+                if 'First Port' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ports.first}')
+                if 'Continent' not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_CONTINENT_CODE:
-                        row_texts.append(f"{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})")
+                        row_texts.append(f'{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})')
                     else:
-                        row_texts.append(f"{player.iplookup.ipapi.continent}")
-                if "Country" not in GUIrenderingData.FIELDS_TO_HIDE:
+                        row_texts.append(f'{player.iplookup.ipapi.continent}')
+                if 'Country' not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_COUNTRY_CODE:
-                        row_texts.append(f"{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})")
+                        row_texts.append(f'{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})')
                     else:
-                        row_texts.append(f"{player.iplookup.geolite2.country}")
-                if "Region" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.region}")
-                if "R. Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.region_code}")
-                if "City" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.geolite2.city}")
-                if "District" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.district}")
-                if "ZIP Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.zip_code}")
-                if "Lat" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.lat}")
-                if "Lon" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.lon}")
-                if "Time Zone" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.time_zone}")
-                if "Offset" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.offset}")
-                if "Currency" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.currency}")
-                if "Organization" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.org}")
-                if "ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.isp}")
-                if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.geolite2.asn}")
-                if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.asn}")
-                if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.as_name}")
-                if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.mobile}")
-                if "VPN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.proxy}")
-                if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.hosting}")
-                if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ping.is_pinging}")
+                        row_texts.append(f'{player.iplookup.geolite2.country}')
+                if 'Region' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.region}')
+                if 'R. Code' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.region_code}')
+                if 'City' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.geolite2.city}')
+                if 'District' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.district}')
+                if 'ZIP Code' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.zip_code}')
+                if 'Lat' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.lat}')
+                if 'Lon' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.lon}')
+                if 'Time Zone' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.time_zone}')
+                if 'Offset' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.offset}')
+                if 'Currency' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.currency}')
+                if 'Organization' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.org}')
+                if 'ISP' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.isp}')
+                if 'ASN / ISP' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.geolite2.asn}')
+                if 'AS' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.asn}')
+                if 'ASN' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.as_name}')
+                if 'Mobile' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.mobile}')
+                if 'VPN' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.proxy}')
+                if 'Hosting' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.hosting}')
+                if 'Pinging' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ping.is_pinging}')
 
                 session_connected_table__processed_data.append(row_texts)
                 session_connected_table__compiled_colors.append(row_colors)
 
             for player in session_disconnected:
                 if player.userip and player.userip.usernames:
-                    row_fg_color = QColor("white")
+                    row_fg_color = QColor('white')
                     row_bg_color = player.userip.settings.COLOR
                 else:
-                    row_fg_color = QColor("red")
+                    row_fg_color = QColor('red')
                     row_bg_color = HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR
 
                 # Initialize a list for cell colors for the current row, creating a new CellColor object for each column
                 row_colors = [CellColor(foreground=row_fg_color, background=row_bg_color) for _ in range(GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS)]
 
                 row_texts = []
-                row_texts.append(f"{format_player_gui_usernames(player)}")
-                row_texts.append(f"{format_player_gui_datetime(player.datetime.first_seen)}")
-                row_texts.append(f"{format_player_gui_datetime(player.datetime.last_rejoin)}")
-                row_texts.append(f"{format_player_gui_datetime(player.datetime.last_seen)}")
-                row_texts.append(f"{player.rejoins}")
-                row_texts.append(f"{player.total_packets}")
-                row_texts.append(f"{player.packets}")
-                row_texts.append(f"{player.ip}")
-                if "Hostname" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.reverse_dns.hostname}")
-                if "Last Port" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ports.last}")
-                if "Middle Ports" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{format_player_gui_middle_ports(player)}")
-                if "First Port" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ports.first}")
-                if "Continent" not in GUIrenderingData.FIELDS_TO_HIDE:
+                row_texts.append(f'{format_player_gui_usernames(player)}')
+                row_texts.append(f'{format_player_gui_datetime(player.datetime.first_seen)}')
+                row_texts.append(f'{format_player_gui_datetime(player.datetime.last_rejoin)}')
+                row_texts.append(f'{format_player_gui_datetime(player.datetime.last_seen)}')
+                row_texts.append(f'{player.rejoins}')
+                row_texts.append(f'{player.total_packets}')
+                row_texts.append(f'{player.packets}')
+                row_texts.append(f'{player.ip}')
+                if 'Hostname' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.reverse_dns.hostname}')
+                if 'Last Port' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ports.last}')
+                if 'Middle Ports' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{format_player_gui_middle_ports(player)}')
+                if 'First Port' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ports.first}')
+                if 'Continent' not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_CONTINENT_CODE:
-                        row_texts.append(f"{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})")
+                        row_texts.append(f'{player.iplookup.ipapi.continent} ({player.iplookup.ipapi.continent_code})')
                     else:
-                        row_texts.append(f"{player.iplookup.ipapi.continent}")
-                if "Country" not in GUIrenderingData.FIELDS_TO_HIDE:
+                        row_texts.append(f'{player.iplookup.ipapi.continent}')
+                if 'Country' not in GUIrenderingData.FIELDS_TO_HIDE:
                     if Settings.GUI_FIELD_SHOW_COUNTRY_CODE:
-                        row_texts.append(f"{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})")
+                        row_texts.append(f'{player.iplookup.geolite2.country} ({player.iplookup.geolite2.country_code})')
                     else:
-                        row_texts.append(f"{player.iplookup.geolite2.country}")
-                if "Region" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.region}")
-                if "R. Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.region_code}")
-                if "City" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.geolite2.city}")
-                if "District" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.district}")
-                if "ZIP Code" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.zip_code}")
-                if "Lat" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.lat}")
-                if "Lon" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.lon}")
-                if "Time Zone" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.time_zone}")
-                if "Offset" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.offset}")
-                if "Currency" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.currency}")
-                if "Organization" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.org}")
-                if "ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.isp}")
-                if "ASN / ISP" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.geolite2.asn}")
-                if "AS" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.asn}")
-                if "ASN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.as_name}")
-                if "Mobile" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.mobile}")
-                if "VPN" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.proxy}")
-                if "Hosting" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.iplookup.ipapi.hosting}")
-                if "Pinging" not in GUIrenderingData.FIELDS_TO_HIDE:
-                    row_texts.append(f"{player.ping.is_pinging}")
+                        row_texts.append(f'{player.iplookup.geolite2.country}')
+                if 'Region' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.region}')
+                if 'R. Code' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.region_code}')
+                if 'City' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.geolite2.city}')
+                if 'District' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.district}')
+                if 'ZIP Code' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.zip_code}')
+                if 'Lat' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.lat}')
+                if 'Lon' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.lon}')
+                if 'Time Zone' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.time_zone}')
+                if 'Offset' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.offset}')
+                if 'Currency' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.currency}')
+                if 'Organization' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.org}')
+                if 'ISP' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.isp}')
+                if 'ASN / ISP' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.geolite2.asn}')
+                if 'AS' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.asn}')
+                if 'ASN' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.as_name}')
+                if 'Mobile' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.mobile}')
+                if 'VPN' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.proxy}')
+                if 'Hosting' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.iplookup.ipapi.hosting}')
+                if 'Pinging' not in GUIrenderingData.FIELDS_TO_HIDE:
+                    row_texts.append(f'{player.ping.is_pinging}')
 
                 session_disconnected_table__processed_data.append(row_texts)
                 session_disconnected_table__compiled_colors.append(row_colors)
@@ -4180,14 +4180,14 @@ def rendering_core():
             else:
                 pps_color = '<span style="color: green;">'
 
-            is_vpn_mode_enabled = "Enabled" if vpn_mode_enabled else "Disabled"
-            is_arp_enabled = "Enabled" if selected_interface.is_arp else "Disabled"
-            displayed_capture_ip_address = Settings.CAPTURE_IP_ADDRESS if Settings.CAPTURE_IP_ADDRESS else "N/A"
+            is_vpn_mode_enabled = 'Enabled' if vpn_mode_enabled else 'Disabled'
+            is_arp_enabled = 'Enabled' if selected_interface.is_arp else 'Disabled'
+            displayed_capture_ip_address = Settings.CAPTURE_IP_ADDRESS if Settings.CAPTURE_IP_ADDRESS else 'N/A'
             color_tshark_restarted_time = '<span style="color: green;">' if not tshark_restarted_times else '<span style="color: red;">'
             if Settings.DISCORD_PRESENCE and discord_rpc_manager is not None:
                 rpc_message = ' RPC:<span style="color: green;">Connected</span>' if discord_rpc_manager.connection_status.is_set() else ' RPC:<span style="color: yellow;">Waiting for Discord</span>'
             else:
-                rpc_message = ""
+                rpc_message = ''
 
             invalid_ip_count = len(UserIPDatabases.notified_ip_invalid)
             conflict_ip_count = len(UserIPDatabases.notified_ip_conflicts)
@@ -4213,14 +4213,14 @@ def rendering_core():
             if any([invalid_ip_count, conflict_ip_count, corrupted_settings_count]):
                 num_of_userip_files = len(UserIPDatabases.get_userip_database_filepaths())
 
-                header += "───────────────────────────────────────────────────────────────────────────────────────────────────<br>"
+                header += '───────────────────────────────────────────────────────────────────────────────────────────────────<br>'
                 if invalid_ip_count:
                     header += f'Number of invalid IP{pluralize(invalid_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{invalid_ip_count}</span><br>'
                 if conflict_ip_count:
                     header += f'Number of conflicting IP{pluralize(conflict_ip_count)} in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{conflict_ip_count}</span><br>'
                 if corrupted_settings_count:
                     header += f'Number of corrupted setting(s) in UserIP file{pluralize(num_of_userip_files)}: <span style="color: red;">{corrupted_settings_count}</span><br>'
-                header += "───────────────────────────────────────────────────────────────────────────────────────────────────"
+                header += '───────────────────────────────────────────────────────────────────────────────────────────────────'
             return header
 
         GUIrenderingData.FIELDS_TO_HIDE = set(Settings.GUI_FIELDS_TO_HIDE)
@@ -4272,7 +4272,7 @@ def rendering_core():
                     session_disconnected.append(player)
 
                     if GUIDetectionSettings.player_leave_notifications_enabled:
-                        show_detection_warning_popup(player, "player_left")
+                        show_detection_warning_popup(player, 'player_left')
 
                     continue
 
@@ -4310,14 +4310,14 @@ def rendering_core():
                 if player.country_flag is None:
                     country_code = (
                         player.iplookup.geolite2.country_code
-                        if player.iplookup.geolite2.country_code not in ["...", "N/A"]
+                        if player.iplookup.geolite2.country_code not in ['...', 'N/A']
                         else player.iplookup.ipapi.country_code
-                        if player.iplookup.ipapi.country_code not in ["...", "N/A"]
+                        if player.iplookup.ipapi.country_code not in ['...', 'N/A']
                         else None
                     )
                     if (
                         country_code
-                        and (flag_path := COUNTRY_FLAGS_FOLDER_PATH / f"{country_code.upper()}.png").exists()
+                        and (flag_path := COUNTRY_FLAGS_FOLDER_PATH / f'{country_code.upper()}.png').exists()
                     ):
                         pixmap = QPixmap()
                         pixmap.loadFromData(flag_path.read_bytes())
@@ -4339,7 +4339,7 @@ def rendering_core():
                         and not MobileWarnings.is_ip_notified(player.ip)
                         and MobileWarnings.add_notified_ip(player.ip)
                     ):
-                        show_detection_warning_popup(player, "mobile")
+                        show_detection_warning_popup(player, 'mobile')
 
                     if (
                         player.iplookup.ipapi.proxy is True
@@ -4347,7 +4347,7 @@ def rendering_core():
                         and not VPNWarnings.is_ip_notified(player.ip)
                         and VPNWarnings.add_notified_ip(player.ip)
                     ):
-                        show_detection_warning_popup(player, "vpn")
+                        show_detection_warning_popup(player, 'vpn')
 
                     if (
                         player.iplookup.ipapi.hosting is True
@@ -4355,9 +4355,9 @@ def rendering_core():
                         and not HostingWarnings.is_ip_notified(player.ip)
                         and HostingWarnings.add_notified_ip(player.ip)
                     ):
-                        show_detection_warning_popup(player, "hosting")
+                        show_detection_warning_popup(player, 'hosting')
 
-            if Settings.CAPTURE_PROGRAM_PRESET == "GTA5":
+            if Settings.CAPTURE_PROGRAM_PRESET == 'GTA5':
                 if SessionHost.player and SessionHost.player.left_event.is_set():
                     SessionHost.player = None
                 # TODO(BUZZARDGTA): We should also potentially needs to check that not more then 1s passed before each disconnected
@@ -4380,7 +4380,7 @@ def rendering_core():
                 process_session_logging()
 
             if Settings.DISCORD_PRESENCE and discord_rpc_manager is not None and (discord_rpc_manager.last_update_time is None or (time.monotonic() - discord_rpc_manager.last_update_time) >= 3.0):  # noqa: PLR2004
-                discord_rpc_manager.update(f"{len(session_connected)} player{pluralize(len(session_connected))} connected")
+                discord_rpc_manager.update(f'{len(session_connected)} player{pluralize(len(session_connected))} connected')
 
             GUIrenderingData.header_text = generate_gui_header_text(global_pps_rate)
             (
@@ -4397,21 +4397,21 @@ def rendering_core():
 
 
 clear_screen()
-set_window_title(f"DEBUG CONSOLE - {TITLE}")
+set_window_title(f'DEBUG CONSOLE - {TITLE}')
 
-rendering_core__thread = Thread(target=rendering_core, name="rendering_core", daemon=True)
+rendering_core__thread = Thread(target=rendering_core, name='rendering_core', daemon=True)
 rendering_core__thread.start()
 
-hostname_core__thread = Thread(target=hostname_core, name="hostname_core", daemon=True)
+hostname_core__thread = Thread(target=hostname_core, name='hostname_core', daemon=True)
 hostname_core__thread.start()
 
-iplookup_core__thread = Thread(target=iplookup_core, name="iplookup_core", daemon=True)
+iplookup_core__thread = Thread(target=iplookup_core, name='iplookup_core', daemon=True)
 iplookup_core__thread.start()
 
-pinger_core__thread = Thread(target=pinger_core, name="pinger_core", daemon=True)
+pinger_core__thread = Thread(target=pinger_core, name='pinger_core', daemon=True)
 pinger_core__thread.start()
 
-capture_core__thread = Thread(target=capture_core, name="capture_core", daemon=True)
+capture_core__thread = Thread(target=capture_core, name='capture_core', daemon=True)
 capture_core__thread.start()
 
 
@@ -4425,8 +4425,8 @@ class SessionTableModel(QAbstractTableModel):
         self._data: list[list[str]] = []  # The data to be displayed in the table
         self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
         self._headers = headers  # The column headers
-        self._ip_column_index = self._headers.index("IP Address")
-        self._username_column_index = self._headers.index("Usernames")
+        self._ip_column_index = self._headers.index('IP Address')
+        self._username_column_index = self._headers.index('Usernames')
 
     # --------------------------------------------------------------------------
     # Public properties
@@ -4440,7 +4440,7 @@ class SessionTableModel(QAbstractTableModel):
         return self._view
 
     @view.setter
-    def view(self, new_view: "SessionTableView"):
+    def view(self, new_view: 'SessionTableView'):
         """Attach a `SessionTableView` to this model."""
         self._view = new_view
 
@@ -4495,11 +4495,11 @@ class SessionTableModel(QAbstractTableModel):
             return None  # Return None for invalid index
 
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
-            if self.get_column_index_by_name("Country") == col_idx:
+            if self.get_column_index_by_name('Country') == col_idx:
                 ip = self._data[row_idx][self.ip_column_index]
                 if not isinstance(ip, str):
                     raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(" 👑")
+                ip = ip.removesuffix(' 👑')
 
                 player = PlayersRegistry.require_player_by_ip(ip)
                 if player.country_flag is not None:
@@ -4570,11 +4570,11 @@ class SessionTableModel(QAbstractTableModel):
         """
         if not self._data:
             if self._compiled_colors:
-                raise TableDataConsistencyError(case="colors_without_data")
+                raise TableDataConsistencyError(case='colors_without_data')
             return  # No data to process, exit early.
 
         if not self._compiled_colors:
-            raise TableDataConsistencyError(case="data_without_colors")
+            raise TableDataConsistencyError(case='data_without_colors')
 
         self.layoutAboutToBeChanged.emit()
 
@@ -4583,15 +4583,15 @@ class SessionTableModel(QAbstractTableModel):
         # Combine data and colors for sorting
         combined = list(zip(self._data, self._compiled_colors, strict=True))
         if not combined:
-            raise TableDataConsistencyError(case="empty_combined")
+            raise TableDataConsistencyError(case='empty_combined')
         sort_order_bool = order == Qt.SortOrder.DescendingOrder
 
-        if sorted_column_name == "Usernames":
+        if sorted_column_name == 'Usernames':
             combined.sort(
-                key=lambda row: ", ".join(row[0][column]).casefold(),
+                key=lambda row: ', '.join(row[0][column]).casefold(),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name in {"First Seen", "Last Rejoin", "Last Seen"}:
+        elif sorted_column_name in {'First Seen', 'Last Rejoin', 'Last Seen'}:
             # Retrieve the player datetime object from the IP column
             def extract_datetime_for_ip(ip: str):
                 """Extract a datetime object for a given IP address."""
@@ -4600,9 +4600,9 @@ class SessionTableModel(QAbstractTableModel):
                 # Retrieve the player datetime attribute name for the selected column
                 # Mapping column names to player datetime attributes
                 datetime_attribute = {
-                    "First Seen": "first_seen",
-                    "Last Rejoin": "last_rejoin",
-                    "Last Seen": "last_seen",
+                    'First Seen': 'first_seen',
+                    'Last Rejoin': 'last_rejoin',
+                    'Last Seen': 'last_seen',
                 }.get(self._headers[column])
                 if datetime_attribute is None:
                     raise TypeError(format_type_error(datetime_attribute, str))
@@ -4611,42 +4611,42 @@ class SessionTableModel(QAbstractTableModel):
                 return getattr(player.datetime, datetime_attribute)
 
             combined.sort(
-                key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(" 👑")),
+                key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(' 👑')),
                 reverse=not sort_order_bool,
             )
-        elif sorted_column_name == "IP Address":
+        elif sorted_column_name == 'IP Address':
             # Sort by IP address
             import ipaddress
 
             combined.sort(
-                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(" 👑")),
+                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(' 👑')),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name in {"Rejoins", "T. Packets", "Packets", "PPS", "PPM", "Last Port", "First Port"}:
+        elif sorted_column_name in {'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM', 'Last Port', 'First Port'}:
             # Sort by integer/float value of the column value
             combined.sort(
                 key=lambda row: float(row[0][column]),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name == "Middle Ports":
+        elif sorted_column_name == 'Middle Ports':
             # Sort by the number of ports in the list (length)
             combined.sort(
                 key=lambda row: len(row[0][column]),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name in {"Lat", "Lon", "Offset"}:
+        elif sorted_column_name in {'Lat', 'Lon', 'Offset'}:
             # Sort by integer/float value of the column value but keep "..." at the end
             combined.sort(
-                key=lambda row: float(row[0][column]) if row[0][column] != "..." else float("-inf"),
+                key=lambda row: float(row[0][column]) if row[0][column] != '...' else float('-inf'),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name in {"Hostname", "Continent", "Country", "Region", "R. Code", "City", "District", "ZIP Code", "Time Zone", "Currency", "Organization", "ISP", "ASN / ISP", "AS", "ASN"}:
+        elif sorted_column_name in {'Hostname', 'Continent', 'Country', 'Region', 'R. Code', 'City', 'District', 'ZIP Code', 'Time Zone', 'Currency', 'Organization', 'ISP', 'ASN / ISP', 'AS', 'ASN'}:
             # Sort by string representation of the column value
             combined.sort(
                 key=lambda row: str(row[0][column]).casefold(),
                 reverse=sort_order_bool,
             )
-        elif sorted_column_name in {"Mobile", "VPN", "Hosting", "Pinging"}:
+        elif sorted_column_name in {'Mobile', 'VPN', 'Hosting', 'Pinging'}:
             # Sort by boolean representation of the column value
             combined.sort(
                 key=lambda row: str(row[0][column]).casefold(),
@@ -4686,7 +4686,7 @@ class SessionTableModel(QAbstractTableModel):
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if row_data[self.ip_column_index].removesuffix(" 👑") == ip:
+            if row_data[self.ip_column_index].removesuffix(' 👑') == ip:
                 return row_index
         return None
 
@@ -4877,12 +4877,12 @@ class SessionTableView(QTableView):
             if index.isValid():
                 model = self.model()
 
-                if model.get_column_index_by_name("Country") == index.column():
+                if model.get_column_index_by_name('Country') == index.column():
                     ip = model.data(model.index(index.row(), model.ip_column_index))
                     if ip is not None:
                         if not isinstance(ip, str):
                             raise TypeError(format_type_error(ip, str))
-                        ip = ip.removesuffix(" 👑")
+                        ip = ip.removesuffix(' 👑')
 
                         player = PlayersRegistry.require_player_by_ip(ip)
                         if player.country_flag is not None:
@@ -4987,9 +4987,9 @@ class SessionTableView(QTableView):
         for column in range(model.columnCount()):
             header_label = model.headerData(column, Qt.Orientation.Horizontal)
 
-            if header_label in {"First Seen", "Last Rejoin", "Last Seen", "Rejoins", "T. Packets", "Packets", "PPS", "PPM",
-                                "IP Address", "First Port", "Last Port", "Mobile", "VPN", "Hosting", "Pinging",
-                                "R. Code", "ZIP Code", "Lat", "Lon", "Offset", "Currency", "Time Zone"}:
+            if header_label in {'First Seen', 'Last Rejoin', 'Last Seen', 'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM',
+                                'IP Address', 'First Port', 'Last Port', 'Mobile', 'VPN', 'Hosting', 'Pinging',
+                                'R. Code', 'ZIP Code', 'Lat', 'Lon', 'Offset', 'Currency', 'Time Zone'}:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
             else:
                 horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
@@ -5126,53 +5126,53 @@ class SessionTableView(QTableView):
         # Add "Copy Selection" action
         add_action(
             context_menu,
-            "Copy Selection",
-            shortcut="Ctrl+C",
-            tooltip="Copy selected cells to your clipboard.",
+            'Copy Selection',
+            shortcut='Ctrl+C',
+            tooltip='Copy selected cells to your clipboard.',
             handler=lambda: self.copy_selected_cells(selected_model, selected_indexes),
         )
         context_menu.addSeparator()
 
         # "Select" submenu
-        select_menu = add_menu(context_menu, "Select  ")
+        select_menu = add_menu(context_menu, 'Select  ')
         add_action(
             select_menu,
-            "Select All",
-            shortcut="Ctrl+A",
-            tooltip="Select all cells in the table.",
+            'Select All',
+            shortcut='Ctrl+A',
+            tooltip='Select all cells in the table.',
             handler=self.select_all_cells,
         )
         add_action(
             select_menu,
-            "Select Row",
-            tooltip="Select all cells in this row.",
+            'Select Row',
+            tooltip='Select all cells in this row.',
             handler=lambda: self.select_row_cells(index.row()),
         )
         add_action(
             select_menu,
-            "Select Column",
-            tooltip="Select all cells in this column.",
+            'Select Column',
+            tooltip='Select all cells in this column.',
             handler=lambda: self.select_column_cells(index.column()),
         )
 
         # "Unselect" submenu
-        unselect_menu = add_menu(context_menu, "Unselect")
+        unselect_menu = add_menu(context_menu, 'Unselect')
         add_action(
             unselect_menu,
-            "Unselect All",
-            tooltip="Unselect all cells in the table.",
+            'Unselect All',
+            tooltip='Unselect all cells in the table.',
             handler=self.unselect_all_cells,
         )
         add_action(
             unselect_menu,
-            "Unselect Row",
-            tooltip="Unselect all cells in this row.",
+            'Unselect Row',
+            tooltip='Unselect all cells in this row.',
             handler=lambda: self.unselect_row_cells(index.row()),
         )
         add_action(
             unselect_menu,
-            "Unselect Column",
-            tooltip="Unselect all cells in this column.",
+            'Unselect Column',
+            tooltip='Unselect all cells in this column.',
             handler=lambda: self.unselect_column_cells(index.column()),
         )
         context_menu.addSeparator()
@@ -5185,7 +5185,7 @@ class SessionTableView(QTableView):
             if not isinstance(column_name, str):
                 raise TypeError(format_type_error(column_name, str))
 
-            if column_name == "IP Address":
+            if column_name == 'IP Address':
                 from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
@@ -5194,38 +5194,38 @@ class SessionTableView(QTableView):
                     return  # Added this return cuz some rare times it would raise.
                 if not isinstance(ip, str):
                     raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(" 👑")
+                ip = ip.removesuffix(' 👑')
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
                 player = PlayersRegistry.require_player_by_ip(ip)
 
                 add_action(
                     context_menu,
-                    "IP Lookup Details",
-                    tooltip="Displays a notification with a detailed IP lookup report for selected player.",
+                    'IP Lookup Details',
+                    tooltip='Displays a notification with a detailed IP lookup report for selected player.',
                     handler=lambda: self.show_detailed_ip_lookup_player_cell(ip),
                 )
 
-                ping_menu = add_menu(context_menu, "Ping    ")
+                ping_menu = add_menu(context_menu, 'Ping    ')
                 add_action(
                     ping_menu,
-                    "Normal",
-                    tooltip="Checks if selected IP address responds to pings.",
+                    'Normal',
+                    tooltip='Checks if selected IP address responds to pings.',
                     handler=lambda: self.ping(ip),
                 )
                 add_action(
                     ping_menu,
-                    "TCP Port (paping.exe)",
-                    tooltip="Checks if selected IP address responds to TCP pings on a given port.",
+                    'TCP Port (paping.exe)',
+                    tooltip='Checks if selected IP address responds to TCP pings on a given port.',
                     handler=lambda: self.tcp_port_ping(ip),
                 )
 
-                scripts_menu = add_menu(context_menu, "User Scripts ")
-                for script in SCRIPTS_FOLDER_PATH.glob("*"):
+                scripts_menu = add_menu(context_menu, 'User Scripts ')
+                for script in SCRIPTS_FOLDER_PATH.glob('*'):
                     if (
                         not script.is_file()
-                        or script.name.startswith(("_", "."))
-                        or script.suffix.casefold() not in {".bat", ".cmd", ".exe", ".py", ".lnk"}
+                        or script.name.startswith(('_', '.'))
+                        or script.suffix.casefold() not in {'.bat', '.cmd', '.exe', '.py', '.lnk'}
                     ):
                         continue
 
@@ -5234,41 +5234,41 @@ class SessionTableView(QTableView):
                     add_action(
                         scripts_menu,
                         script_resolved.name,
-                        tooltip="",
+                        tooltip='',
                         handler=lambda _, s=script_resolved: run_cmd_script(s, [ip]),
                     )
 
-                userip_menu = add_menu(context_menu, "UserIP  ")
+                userip_menu = add_menu(context_menu, 'UserIP  ')
 
                 if player.userip is None:
-                    add_userip_menu = add_menu(userip_menu, "Add     ", "Add selected IP address to UserIP database.")  # Extra spaces for alignment
+                    add_userip_menu = add_menu(userip_menu, 'Add     ', 'Add selected IP address to UserIP database.')  # Extra spaces for alignment
                     for database_path in userip_database_filepaths:
                         add_action(
                             add_userip_menu,
-                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                            tooltip="Add selected IP address to this UserIP database.",
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
+                            tooltip='Add selected IP address to this UserIP database.',
                             handler=lambda _, database_path=database_path: self.userip_manager__add([ip], database_path),
                         )
                 else:
-                    move_userip_menu = add_menu(userip_menu, "Move    ", "Move selected IP address to another database.")
+                    move_userip_menu = add_menu(userip_menu, 'Move    ', 'Move selected IP address to another database.')
                     for database_path in userip_database_filepaths:
                         add_action(
                             move_userip_menu,
-                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                            tooltip="Move selected IP address to this UserIP database.",
+                            str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
+                            tooltip='Move selected IP address to this UserIP database.',
                             handler=lambda _, database_path=database_path: self.userip_manager__move([ip], database_path),
                             enabled=player.userip.database_path != database_path,
                         )
                     add_action(
                         userip_menu,
-                        "Delete  ",  # Extra spaces for alignment
-                        tooltip="Delete selected IP address from UserIP databases.",
+                        'Delete  ',  # Extra spaces for alignment
+                        tooltip='Delete selected IP address from UserIP databases.',
                         handler=lambda: self.userip_manager__del([ip]),
                     )
 
         # Check if all selected cells are in the "IP Address" column
         elif all(
-            selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address"
+            selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address'
             for index in selected_indexes
         ):
             all_ips: list[str] = []
@@ -5280,36 +5280,36 @@ class SessionTableView(QTableView):
                     continue  # Added this continue cuz some rare times it would raise.
                 if not isinstance(ip, str):
                     raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(" 👑")
+                ip = ip.removesuffix(' 👑')
                 all_ips.append(ip)
 
             if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
-                userip_menu = add_menu(context_menu, "UserIP  ")
+                userip_menu = add_menu(context_menu, 'UserIP  ')
 
-                add_userip_menu = add_menu(userip_menu, "Add Selected")
+                add_userip_menu = add_menu(userip_menu, 'Add Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
                     add_action(
                         add_userip_menu,
-                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                        tooltip="Add selected IP addresses to this UserIP database.",
+                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
+                        tooltip='Add selected IP addresses to this UserIP database.',
                         handler=lambda _, database_path=database_path: self.userip_manager__add(all_ips, database_path),
                     )
             elif all(ip in UserIPDatabases.ips_set for ip in all_ips):
-                userip_menu = add_menu(context_menu, "UserIP  ")
+                userip_menu = add_menu(context_menu, 'UserIP  ')
 
-                move_userip_menu = add_menu(userip_menu, "Move Selected")
+                move_userip_menu = add_menu(userip_menu, 'Move Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
                     add_action(
                         move_userip_menu,
-                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")),
-                        tooltip="Move selected IP addresses to this UserIP database.",
+                        str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
+                        tooltip='Move selected IP addresses to this UserIP database.',
                         handler=lambda _, database_path=database_path: self.userip_manager__move(all_ips, database_path),
                     )
 
                 add_action(
                     userip_menu,
-                    "Delete Selected",  # Extra spaces for alignment
-                    tooltip="Delete selected IP addresses from UserIP databases.",
+                    'Delete Selected',  # Extra spaces for alignment
+                    tooltip='Delete selected IP addresses from UserIP databases.',
                     handler=lambda: self.userip_manager__del(all_ips),
                 )
 
@@ -5334,8 +5334,8 @@ class SessionTableView(QTableView):
             if not isinstance(cell_text, str):
                 raise TypeError(format_type_error(cell_text, str))
 
-            if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == "IP Address":
-                cell_text = cell_text.removesuffix(" 👑")
+            if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address':
+                cell_text = cell_text.removesuffix(' 👑')
 
             selected_texts.append(cell_text)
 
@@ -5344,7 +5344,7 @@ class SessionTableView(QTableView):
             return
 
         # Join all selected text entries with a newline to format for copying
-        clipboard_content = "\n".join(selected_texts)
+        clipboard_content = '\n'.join(selected_texts)
 
         # Set the formatted text in the system clipboard
         clipboard.setText(clipboard_content)
@@ -5402,7 +5402,7 @@ class SessionTableView(QTableView):
 
     def ping(self, ip: str):
         """Runs a continuous ping to a specified IP address in a new terminal window."""
-        run_cmd_command("ping", [ip, "-t"])
+        run_cmd_command('ping', [ip, '-t'])
 
     def tcp_port_ping(self, ip: str):
         """Runs paping to check TCP connectivity to a host on a user-specified port indefinitely."""
@@ -5411,11 +5411,11 @@ class SessionTableView(QTableView):
             """Runs paping in a new terminal window to check TCP connectivity continuously."""
             from modules.constants.local import PAPING_PATH
 
-            run_cmd_script(PAPING_PATH, [host, "-p", str(port)])
+            run_cmd_script(PAPING_PATH, [host, '-p', str(port)])
 
         from modules.constants.standalone import MAX_PORT, MIN_PORT
 
-        port_str, ok = QInputDialog.getText(self, "Input Port", "Enter the port number to check TCP connectivity:")
+        port_str, ok = QInputDialog.getText(self, 'Input Port', 'Enter the port number to check TCP connectivity:')
 
         if not ok:
             return
@@ -5423,13 +5423,13 @@ class SessionTableView(QTableView):
         port_str = port_str.strip()
 
         if not port_str.isdigit():
-            QMessageBox.warning(self, "Error", "No valid port number provided.")
+            QMessageBox.warning(self, 'Error', 'No valid port number provided.')
             return
 
         port = int(port_str)
 
         if not MIN_PORT <= port <= MAX_PORT:
-            QMessageBox.warning(self, "Error", "Please enter a valid port number between 1 and 65535.")
+            QMessageBox.warning(self, 'Error', 'Please enter a valid port number between 1 and 65535.')
             return
 
         run_paping(ip, port)
@@ -5439,7 +5439,7 @@ class SessionTableView(QTableView):
         from modules.utils import write_lines_to_file
 
         # Prompt the user for a username
-        username, ok = QInputDialog.getText(self, "Input Username", f"Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:")
+        username, ok = QInputDialog.getText(self, 'Input Username', f'Please enter the username to associate with the selected IP{pluralize(len(ip_addresses))}:')
 
         if not ok:
             return
@@ -5448,12 +5448,12 @@ class SessionTableView(QTableView):
 
         if username:  # Only proceed if the user clicked 'OK' and provided a username
             # Append the username and associated IP(s) to the corresponding database file
-            write_lines_to_file(selected_database, "a", [f"{username}={ip}\n" for ip in ip_addresses])
+            write_lines_to_file(selected_database, 'a', [f'{username}={ip}\n' for ip in ip_addresses])
 
             QMessageBox.information(self, TITLE, f'Selected IP{pluralize(len(ip_addresses))} {ip_addresses} has been added with username "{username}" to UserIP database "{selected_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}".')
         else:
             # If the user canceled or left the input empty, show an error
-            QMessageBox.warning(self, TITLE, "ERROR:\nNo username was provided.")
+            QMessageBox.warning(self, TITLE, 'ERROR:\nNo username was provided.')
 
     def userip_manager__move(self, ip_addresses: list[str], selected_database: Path):
         from modules.constants.standard import (
@@ -5471,7 +5471,7 @@ class SessionTableView(QTableView):
                 continue
 
             # Read the database file
-            lines = database_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            lines = database_path.read_text(encoding='utf-8').splitlines(keepends=True)
             if not lines:
                 continue
 
@@ -5484,7 +5484,7 @@ class SessionTableView(QTableView):
                 match = RE_USERIP_INI_PARSER_PATTERN.search(line)
                 if match:
                     # Extract username and ip using named groups
-                    username, ip = match.group("username").strip(), match.group("ip").strip()
+                    username, ip = match.group('username').strip(), match.group('ip').strip()
 
                     # Ensure both username and ip are non-empty strings
                     if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
@@ -5495,24 +5495,24 @@ class SessionTableView(QTableView):
 
             if deleted_entries_in_this_database:
                 # Only update the database file if there were any deletions
-                write_lines_to_file(database_path, "w", lines_to_keep)
+                write_lines_to_file(database_path, 'w', lines_to_keep)
 
                 # Store the deleted entries for this database
                 deleted_entries_by_database[database_path] = deleted_entries_in_this_database
 
                 # Move the deleted entries to the target database
-                write_lines_to_file(selected_database, "a", [f"{entry}\n" for entry in deleted_entries_in_this_database])
+                write_lines_to_file(selected_database, 'a', [f'{entry}\n' for entry in deleted_entries_in_this_database])
 
         # After processing all databases, show a detailed report
         if deleted_entries_by_database:
             report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} moved from the following UserIP database{pluralize(len(deleted_entries_by_database))} to UserIP database "{selected_database.relative_to(USERIP_DATABASES_PATH).with_suffix("")}":</b><br><br><br>'
             for database_path, deleted_entries in deleted_entries_by_database.items():
-                report += f"<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>"
-                report += "<ul>"
+                report += f'<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>'
+                report += '<ul>'
                 for entry in deleted_entries:
-                    report += f"<li>{entry}</li>"
-                report += "</ul><br>"
-            report = report.removesuffix("<br>")
+                    report += f'<li>{entry}</li>'
+                report += '</ul><br>'
+            report = report.removesuffix('<br>')
 
             QMessageBox.information(self, TITLE, report)
 
@@ -5529,7 +5529,7 @@ class SessionTableView(QTableView):
         # Iterate over each UserIP database
         for database_path in UserIPDatabases.get_userip_database_filepaths():
             # Read the database file
-            lines = database_path.read_text(encoding="utf-8").splitlines(keepends=True)
+            lines = database_path.read_text(encoding='utf-8').splitlines(keepends=True)
             if not lines:
                 continue
 
@@ -5542,7 +5542,7 @@ class SessionTableView(QTableView):
                 match = RE_USERIP_INI_PARSER_PATTERN.search(line)
                 if match:
                     # Extract username and ip using named groups
-                    username, ip = match.group("username").strip(), match.group("ip").strip()
+                    username, ip = match.group('username').strip(), match.group('ip').strip()
 
                     # Ensure both username and ip are non-empty strings
                     if isinstance(username, str) and isinstance(ip, str) and ip in ip_addresses:
@@ -5553,21 +5553,21 @@ class SessionTableView(QTableView):
 
             if deleted_entries_in_this_database:
                 # Only update the database file if there were any deletions
-                write_lines_to_file(database_path, "w", lines_to_keep)
+                write_lines_to_file(database_path, 'w', lines_to_keep)
 
                 # Store the deleted entries for this database
                 deleted_entries_by_database[database_path] = deleted_entries_in_this_database
 
         # After processing all databases, show a detailed report
         if deleted_entries_by_database:
-            report = f"<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_database))}:</b><br><br><br>"
+            report = f'<b>Selected IP{pluralize(len(ip_addresses))} {ip_addresses} removed from the following UserIP database{pluralize(len(deleted_entries_by_database))}:</b><br><br><br>'
             for database_path, deleted_entries in deleted_entries_by_database.items():
-                report += f"<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>"
-                report += "<ul>"
+                report += f'<b>{database_path.relative_to(USERIP_DATABASES_PATH).with_suffix("")}:</b><br>'
+                report += '<ul>'
                 for entry in deleted_entries:
-                    report += f"<li>{entry}</li>"
-                report += "</ul><br>"
-            report = report.removesuffix("<br>")
+                    report += f'<li>{entry}</li>'
+                report += '</ul><br>'
+            report = report.removesuffix('<br>')
 
             QMessageBox.information(self, TITLE, report)
 
@@ -5749,7 +5749,7 @@ class MainWindow(QMainWindow):
         from modules.guis.utils import resize_window_for_screen
 
         # Set up the window
-        self.setWindowTitle(f"{TITLE}")
+        self.setWindowTitle(f'{TITLE}')
         self.setMinimumSize(800, 600)
         resize_window_for_screen(self, screen_width, screen_height)
 
@@ -5761,7 +5761,7 @@ class MainWindow(QMainWindow):
         self.main_layout = QVBoxLayout(central_widget)
 
         # Create the toolbar
-        toolbar = QToolBar("Main Toolbar", self)
+        toolbar = QToolBar('Main Toolbar', self)
         toolbar.setAllowedAreas(Qt.ToolBarArea.TopToolBarArea)
         toolbar.setFloatable(False)
         toolbar.setMovable(False)
@@ -5769,55 +5769,55 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
         # ----- Open Project Repository Button -----
-        open_project_repo_action = QAction("Project Repository", self)
-        open_project_repo_action.setToolTip("Open the Session Sniffer GitHub repository in your default web browser")
+        open_project_repo_action = QAction('Project Repository', self)
+        open_project_repo_action.setToolTip('Open the Session Sniffer GitHub repository in your default web browser')
         open_project_repo_action.triggered.connect(self.open_project_repo)
         toolbar.addAction(open_project_repo_action)
 
         toolbar.addSeparator()
 
         # ----- Open Documentation Button -----
-        open_documentation_action = QAction("Documentation", self)
-        open_documentation_action.setToolTip("View the complete documentation and user guide for Session Sniffer")
+        open_documentation_action = QAction('Documentation', self)
+        open_documentation_action.setToolTip('View the complete documentation and user guide for Session Sniffer')
         open_documentation_action.triggered.connect(self.open_documentation)
         toolbar.addAction(open_documentation_action)
 
         toolbar.addSeparator()
 
         # ----- Join Discord Button -----
-        discord_action = QAction("Discord Server", self)
-        discord_action.setToolTip("Join the official Session Sniffer Discord community for support and updates")
+        discord_action = QAction('Discord Server', self)
+        discord_action.setToolTip('Join the official Session Sniffer Discord community for support and updates')
         discord_action.triggered.connect(self.join_discord)
         toolbar.addAction(discord_action)
 
         toolbar.addSeparator()
 
         # ----- Detection Menu -----
-        detection_menu_button = QPushButton(" Detection Settings ", self)
-        detection_menu_button.setToolTip("Configure notification settings for various player detection scenarios")
+        detection_menu_button = QPushButton(' Detection Settings ', self)
+        detection_menu_button.setToolTip('Configure notification settings for various player detection scenarios')
 
         detection_menu = PersistentMenu(self)
         detection_menu.setToolTipsVisible(True)
 
         # Mobile Detection action
-        self.mobile_detection_action = QAction("Mobile (cellular) connection", self)
-        self.mobile_detection_action.setToolTip("Get notified when a player joins using a mobile/cellular internet connection")
+        self.mobile_detection_action = QAction('Mobile (cellular) connection', self)
+        self.mobile_detection_action.setToolTip('Get notified when a player joins using a mobile/cellular internet connection')
         self.mobile_detection_action.setCheckable(True)
         self.mobile_detection_action.setChecked(GUIDetectionSettings.mobile_detection_enabled)
         self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)
         detection_menu.addAction(self.mobile_detection_action)
 
         # VPN Detection action
-        self.vpn_detection_action = QAction("Proxy, VPN or Tor exit address", self)
-        self.vpn_detection_action.setToolTip("Get notified when a player joins using a VPN, proxy, or Tor exit node")
+        self.vpn_detection_action = QAction('Proxy, VPN or Tor exit address', self)
+        self.vpn_detection_action.setToolTip('Get notified when a player joins using a VPN, proxy, or Tor exit node')
         self.vpn_detection_action.setCheckable(True)
         self.vpn_detection_action.setChecked(GUIDetectionSettings.vpn_detection_enabled)
         self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)
         detection_menu.addAction(self.vpn_detection_action)
 
         # Hosting Detection action
-        self.hosting_detection_action = QAction("Hosting, colocated or data center", self)
-        self.hosting_detection_action.setToolTip("Get notified when a player joins from a hosting provider or data center")
+        self.hosting_detection_action = QAction('Hosting, colocated or data center', self)
+        self.hosting_detection_action.setToolTip('Get notified when a player joins from a hosting provider or data center')
         self.hosting_detection_action.setCheckable(True)
         self.hosting_detection_action.setChecked(GUIDetectionSettings.hosting_detection_enabled)
         self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)
@@ -5826,16 +5826,16 @@ class MainWindow(QMainWindow):
         detection_menu.addSeparator()
 
         # Player Join Notification action
-        self.player_join_notification_action = QAction("Player join notifications", self)
-        self.player_join_notification_action.setToolTip("Get notified whenever any player joins your session")
+        self.player_join_notification_action = QAction('Player join notifications', self)
+        self.player_join_notification_action.setToolTip('Get notified whenever any player joins your session')
         self.player_join_notification_action.setCheckable(True)
         self.player_join_notification_action.setChecked(GUIDetectionSettings.player_join_notifications_enabled)
         self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)
         detection_menu.addAction(self.player_join_notification_action)
 
         # Player Leave Notification action
-        self.player_leave_notification_action = QAction("Player leave notifications", self)
-        self.player_leave_notification_action.setToolTip("Get notified whenever any player leaves your session")
+        self.player_leave_notification_action = QAction('Player leave notifications', self)
+        self.player_leave_notification_action.setToolTip('Get notified whenever any player leaves your session')
         self.player_leave_notification_action.setCheckable(True)
         self.player_leave_notification_action.setChecked(GUIDetectionSettings.player_leave_notifications_enabled)
         self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)
@@ -5849,7 +5849,7 @@ class MainWindow(QMainWindow):
         self.header_text.setTextFormat(Qt.TextFormat.RichText)
         self.header_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.header_text.setWordWrap(True)
-        self.header_text.setFont(QFont("Courier", 10, QFont.Weight.Bold))
+        self.header_text.setFont(QFont('Courier', 10, QFont.Weight.Bold))
 
         # Create container for connected header and controls
         self.connected_header_container = QWidget()
@@ -5858,18 +5858,18 @@ class MainWindow(QMainWindow):
         self.connected_header_layout.setContentsMargins(0, 0, 0, 0)
 
         # Custom header for the Session Connected table with matching background as first column
-        self.session_connected_header = QLabel("Players connected in your session (0):")
+        self.session_connected_header = QLabel('Players connected in your session (0):')
         self.session_connected_header.setTextFormat(Qt.TextFormat.RichText)
         self.session_connected_header.setStyleSheet(CONNECTED_HEADER_TEXT_STYLESHEET)
         self.session_connected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.session_connected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
+        self.session_connected_header.setFont(QFont('Courier', 9, QFont.Weight.Bold))
 
         # Add connected header to container with stretch to fill available space
         self.connected_header_layout.addWidget(self.session_connected_header, 1)
 
         # Add sleek collapse icon button for connected table
-        self.connected_collapse_button = QPushButton("▼")
-        self.connected_collapse_button.setToolTip("Hide the connected players table")
+        self.connected_collapse_button = QPushButton('▼')
+        self.connected_collapse_button.setToolTip('Hide the connected players table')
         self.connected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
         self.connected_collapse_button.clicked.connect(self.minimize_connected_section)
         self.connected_header_layout.addWidget(self.connected_collapse_button)
@@ -5878,7 +5878,7 @@ class MainWindow(QMainWindow):
         while not GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
         self.connected_table_model = SessionTableModel(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.connected_table_view = SessionTableView(self.connected_table_model, GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Rejoin"), Qt.SortOrder.DescendingOrder)
+        self.connected_table_view = SessionTableView(self.connected_table_model, GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES.index('Last Rejoin'), Qt.SortOrder.DescendingOrder)
         self.connected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
         self.connected_table_view.setup_static_column_resizing()
         self.connected_table_model.view = self.connected_table_view
@@ -5899,28 +5899,28 @@ class MainWindow(QMainWindow):
         self.session_disconnected_header.setTextFormat(Qt.TextFormat.RichText)
         self.session_disconnected_header.setStyleSheet(DISCONNECTED_HEADER_TEXT_STYLESHEET)
         self.session_disconnected_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.session_disconnected_header.setFont(QFont("Courier", 9, QFont.Weight.Bold))
+        self.session_disconnected_header.setFont(QFont('Courier', 9, QFont.Weight.Bold))
 
         # Add disconnected header to container with stretch to fill available space
         self.disconnected_header_layout.addWidget(self.session_disconnected_header, 1)
 
         # Add sleek collapse icon button for disconnected table
-        self.disconnected_collapse_button = QPushButton("▼")
-        self.disconnected_collapse_button.setToolTip("Hide the disconnected players table")
+        self.disconnected_collapse_button = QPushButton('▼')
+        self.disconnected_collapse_button.setToolTip('Hide the disconnected players table')
         self.disconnected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
         self.disconnected_collapse_button.clicked.connect(self.minimize_disconnected_section)
         self.disconnected_header_layout.addWidget(self.disconnected_collapse_button)
 
         # Create expand button for when connected section is hidden
-        self.connected_expand_button = QPushButton("▲  Show Connected Players (0)")
-        self.connected_expand_button.setToolTip("Show the connected players table")
+        self.connected_expand_button = QPushButton('▲  Show Connected Players (0)')
+        self.connected_expand_button.setToolTip('Show the connected players table')
         self.connected_expand_button.setStyleSheet(CONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.connected_expand_button.clicked.connect(self.expand_connected_section)
         self.connected_expand_button.setVisible(False)
 
         # Create expand button for when disconnected section is hidden
-        self.disconnected_expand_button = QPushButton("▲  Show Disconnected Players (0)")
-        self.disconnected_expand_button.setToolTip("Show the disconnected players table")
+        self.disconnected_expand_button = QPushButton('▲  Show Disconnected Players (0)')
+        self.disconnected_expand_button.setToolTip('Show the disconnected players table')
         self.disconnected_expand_button.setStyleSheet(DISCONNECTED_EXPAND_BUTTON_STYLESHEET)
         self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)
         self.disconnected_expand_button.setVisible(False)
@@ -5929,7 +5929,7 @@ class MainWindow(QMainWindow):
         while not GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES:  # Wait for the GUI rendering data to be ready
             gui_closed__event.wait(0.1)
         self.disconnected_table_model = SessionTableModel(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
-        self.disconnected_table_view = SessionTableView(self.disconnected_table_model, GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index("Last Seen"), Qt.SortOrder.AscendingOrder)
+        self.disconnected_table_view = SessionTableView(self.disconnected_table_model, GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES.index('Last Seen'), Qt.SortOrder.AscendingOrder)
         self.disconnected_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Custom)
         self.disconnected_table_view.setup_static_column_resizing()
         self.disconnected_table_model.view = self.disconnected_table_view
@@ -5954,10 +5954,10 @@ class MainWindow(QMainWindow):
 
         # Connect to selection change signals to track selected cells
         self.connected_table_view.selectionModel().selectionChanged.connect(
-            lambda: self._update_selection_count(self.connected_table_view, "connected"),
+            lambda: self._update_selection_count(self.connected_table_view, 'connected'),
         )
         self.disconnected_table_view.selectionModel().selectionChanged.connect(
-            lambda: self._update_selection_count(self.disconnected_table_view, "disconnected"),
+            lambda: self._update_selection_count(self.disconnected_table_view, 'disconnected'),
         )
 
         # Raise and activate window to ensure it gets focus
@@ -5980,7 +5980,7 @@ class MainWindow(QMainWindow):
         if event is not None:
             event.accept()
 
-        terminate_script("EXIT")
+        terminate_script('EXIT')
 
     # --------------------------------------------------------------------------
     # Custom / internal management methods
@@ -5988,10 +5988,10 @@ class MainWindow(QMainWindow):
 
     def _update_connected_header_with_selection(self):
         """Update the connected table header to include selection information."""
-        base_text = f"Players connected in your session ({self._last_connected_count}):"
+        base_text = f'Players connected in your session ({self._last_connected_count}):'
         if self._connected_selected_count > 0:
-            player_text = "player" if self._connected_selected_count == 1 else "players"
-            combined_text = f"{base_text} ({self._connected_selected_count} {player_text} selected)"
+            player_text = 'player' if self._connected_selected_count == 1 else 'players'
+            combined_text = f'{base_text} ({self._connected_selected_count} {player_text} selected)'
         else:
             combined_text = base_text
 
@@ -6001,8 +6001,8 @@ class MainWindow(QMainWindow):
         """Update the disconnected table header to include selection information."""
         base_text = f"Players who've left your session ({self._last_disconnected_count}):"
         if self._disconnected_selected_count > 0:
-            player_text = "player" if self._disconnected_selected_count == 1 else "players"
-            combined_text = f"{base_text} ({self._disconnected_selected_count} {player_text} selected)"
+            player_text = 'player' if self._disconnected_selected_count == 1 else 'players'
+            combined_text = f'{base_text} ({self._disconnected_selected_count} {player_text} selected)'
         else:
             combined_text = base_text
 
@@ -6017,10 +6017,10 @@ class MainWindow(QMainWindow):
         unique_rows = {index.row() for index in selected_indexes}
         selected_count = len(unique_rows)
 
-        if table_type == "connected":
+        if table_type == 'connected':
             self._connected_selected_count = selected_count
             self._update_connected_header_with_selection()
-        elif table_type == "disconnected":
+        elif table_type == 'disconnected':
             self._disconnected_selected_count = selected_count
             self._update_disconnected_header_with_selection()
 
@@ -6058,7 +6058,7 @@ class MainWindow(QMainWindow):
         self.connected_header_container.setVisible(False)
         self.connected_table_view.setVisible(False)
         self.tables_separator.setVisible(False)
-        self.connected_expand_button.setText(f"▲  Show Connected Players ({self.connected_table_model.rowCount()})")  # Set initial count on the expand button
+        self.connected_expand_button.setText(f'▲  Show Connected Players ({self.connected_table_model.rowCount()})')  # Set initial count on the expand button
         self.connected_expand_button.setVisible(True)
 
     def minimize_disconnected_section(self):
@@ -6067,7 +6067,7 @@ class MainWindow(QMainWindow):
         self.disconnected_header_container.setVisible(False)
         self.disconnected_table_view.setVisible(False)
         self.tables_separator.setVisible(False)
-        self.disconnected_expand_button.setText(f"▲  Show Disconnected Players ({self.disconnected_table_model.rowCount()})")  # Set initial count on the expand button
+        self.disconnected_expand_button.setText(f'▲  Show Disconnected Players ({self.disconnected_table_model.rowCount()})')  # Set initial count on the expand button
         self.disconnected_expand_button.setVisible(True)
 
     def update_gui(
@@ -6092,7 +6092,7 @@ class MainWindow(QMainWindow):
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
-            ip = processed_data[self.connected_table_model.ip_column_index].removesuffix(" 👑")
+            ip = processed_data[self.connected_table_model.ip_column_index].removesuffix(' 👑')
 
             # Remove from disconnected table (maintain data consistency)
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
@@ -6111,7 +6111,7 @@ class MainWindow(QMainWindow):
             self.connected_table_model.sort_current_column()
             self.connected_table_view.adjust_username_column_width()
         elif connected_count_changed:
-            self.connected_expand_button.setText(f"▲  Show Connected Players ({connected_num})")
+            self.connected_expand_button.setText(f'▲  Show Connected Players ({connected_num})')
 
         if disconnected_count_changed:
             self._last_disconnected_count = disconnected_num
@@ -6119,7 +6119,7 @@ class MainWindow(QMainWindow):
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
-            ip = processed_data[self.disconnected_table_model.ip_column_index].removesuffix(" 👑")
+            ip = processed_data[self.disconnected_table_model.ip_column_index].removesuffix(' 👑')
 
             # Remove from connected table (maintain data consistency)
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
@@ -6138,7 +6138,7 @@ class MainWindow(QMainWindow):
             self.disconnected_table_model.sort_current_column()
             self.disconnected_table_view.adjust_username_column_width()
         elif disconnected_count_changed:
-            self.disconnected_expand_button.setText(f"▲  Show Disconnected Players ({disconnected_num})")
+            self.disconnected_expand_button.setText(f'▲  Show Disconnected Players ({disconnected_num})')
 
     def open_project_repo(self):
         from modules.constants.standalone import GITHUB_REPO_URL
@@ -6203,7 +6203,7 @@ class DiscordIntro(QDialog):
         # Ensure the dialog is modal, blocking interaction with the main window
         self.setModal(True)
 
-        WINDOW_TITLE = "🏆 Join our Discord Community! 🤝"
+        WINDOW_TITLE = '🏆 Join our Discord Community! 🤝'
 
         # Set up the window
         self.setWindowTitle(WINDOW_TITLE)
@@ -6216,12 +6216,12 @@ class DiscordIntro(QDialog):
         # Styling for the main container window
         self.setStyleSheet(DISCORD_POPUP_MAIN_STYLESHEET)
 
-        self.fade_out = QPropertyAnimation(self, b"windowOpacity")
+        self.fade_out = QPropertyAnimation(self, b'windowOpacity')
 
         # Exit button in the top right corner
-        self.exit_button = QPushButton("x", self)
+        self.exit_button = QPushButton('x', self)
         self.exit_button.setFixedSize(16, 16)  # Make the width and height equal
-        self.exit_button.setToolTip("Close this popup")
+        self.exit_button.setToolTip('Close this popup')
         self.exit_button.setStyleSheet(DISCORD_POPUP_EXIT_BUTTON_STYLESHEET)
         self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.exit_button.clicked.connect(self.close_popup)
@@ -6246,8 +6246,8 @@ class DiscordIntro(QDialog):
         layout.addItem(QSpacerItem(0, 4, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))  # Spacer
 
         # Join button container
-        self.join_button = QPushButton("🔥 Join Now - Session Sniffer Discord! 🔥", self)
-        self.join_button.setToolTip("Open Discord and join the Session Sniffer community server")
+        self.join_button = QPushButton('🔥 Join Now - Session Sniffer Discord! 🔥', self)
+        self.join_button.setToolTip('Open Discord and join the Session Sniffer community server')
         self.join_button.setStyleSheet(DISCORD_POPUP_JOIN_BUTTON_STYLESHEET)
         self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.join_button.clicked.connect(self.open_discord)
@@ -6266,7 +6266,7 @@ class DiscordIntro(QDialog):
         # Clickable text "Don't remind me again"
         self.dont_remind_me_label = ClickableLabel("<font size='3' color='#B0B0B0'><u>Don't remind me again</u></font>", self)
         self.dont_remind_me_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.dont_remind_me_label.setToolTip("Disable Discord popup notifications permanently")
+        self.dont_remind_me_label.setToolTip('Disable Discord popup notifications permanently')
         self.dont_remind_me_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dont_remind_me_label.clicked.connect(self.dont_remind_me)
 
@@ -6286,7 +6286,7 @@ class DiscordIntro(QDialog):
         self.center_window()
 
         # Fade-in animation
-        self.fade_in = QPropertyAnimation(self, b"windowOpacity")
+        self.fade_in = QPropertyAnimation(self, b'windowOpacity')
         self.fade_in.setDuration(1000)
         self.fade_in.setStartValue(0)
         self.fade_in.setEndValue(1)
@@ -6364,7 +6364,7 @@ class DiscordIntro(QDialog):
         self.fade_out.start()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Initialize the main application
     window = MainWindow(screen_width, screen_height)
     window.show()

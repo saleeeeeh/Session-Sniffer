@@ -7,10 +7,10 @@ from typing import ClassVar
 
 from modules.utils import format_type_error, get_documents_folder
 
-RE_MODMENU_LOGS_USER_PATTERN = re.compile(r"^user:(?P<username>[\w._-]{1,16}), scid:\d{1,9}, ip:(?P<ip>[\d.]+), timestamp:\d{10}$")
-TWO_TAKE_ONE__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/PopstarDevs/2Take1Menu/scripts/GTA_V_Session_Sniffer-plugin/log.txt"
-STAND__PLUGIN__LOG_PATH = Path.home() / "AppData/Roaming/Stand/Lua Scripts/GTA_V_Session_Sniffer-plugin/log.txt"
-CHERAX__PLUGIN__LOG_PATH = get_documents_folder() / "Cherax/Lua/GTA_V_Session_Sniffer-plugin/log.txt"
+RE_MODMENU_LOGS_USER_PATTERN = re.compile(r'^user:(?P<username>[\w._-]{1,16}), scid:\d{1,9}, ip:(?P<ip>[\d.]+), timestamp:\d{10}$')
+TWO_TAKE_ONE__PLUGIN__LOG_PATH = Path.home() / 'AppData/Roaming/PopstarDevs/2Take1Menu/scripts/GTA_V_Session_Sniffer-plugin/log.txt'
+STAND__PLUGIN__LOG_PATH = Path.home() / 'AppData/Roaming/Stand/Lua Scripts/GTA_V_Session_Sniffer-plugin/log.txt'
+CHERAX__PLUGIN__LOG_PATH = get_documents_folder() / 'Cherax/Lua/GTA_V_Session_Sniffer-plugin/log.txt'
 
 
 LOGS_PATHS = (
@@ -33,13 +33,13 @@ def _parse_log_file(log_path: Path):
     """Read and parse a single log file and return IP-to-usernames mapping."""
     ip_usernames: defaultdict[str, list[str]] = defaultdict(list)
 
-    for line in log_path.read_text(encoding="utf-8").splitlines():
+    for line in log_path.read_text(encoding='utf-8').splitlines():
         match = RE_MODMENU_LOGS_USER_PATTERN.fullmatch(line)
         if not match:
             continue
 
-        username = match.group("username")
-        ip = match.group("ip")
+        username = match.group('username')
+        ip = match.group('ip')
 
         if username is None or ip is None:
             continue
@@ -75,7 +75,7 @@ class ModMenuLogsParser:
             if not cls._has_log_files_changed(current_log_files_mod_times):
                 return  # No changes
 
-            print("ModMenuLogsParser: Detected changes in log files, re-parsing...")
+            print('ModMenuLogsParser: Detected changes in log files, re-parsing...')
 
             # Full reparse since something changed
             ip_to_usernames_map: defaultdict[str, list[str]] = defaultdict(list)

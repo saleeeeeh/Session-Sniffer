@@ -8,14 +8,14 @@ class InterfaceStateError(Exception):
     """Raised when there's a mismatch in interface state values."""
 
     def __init__(self, field_name: str, existing_value: object, new_value: object):
-        super().__init__(f"{field_name} mismatch: existing={existing_value}, new={new_value}")
+        super().__init__(f'{field_name} mismatch: existing={existing_value}, new={new_value}')
 
 
 class NetworkInterfaceStateMismatchError(Exception):
     """Raised when there's a mismatch in network interface state values."""
 
     def __init__(self, field_name: str, existing_value: object, new_value: object):
-        super().__init__(f"{field_name} mismatch: existing={existing_value}, new={new_value}")
+        super().__init__(f'{field_name} mismatch: existing={existing_value}, new={new_value}')
 
 
 class InvalidMacAddressError(Exception):
@@ -27,8 +27,8 @@ class InvalidMacAddressError(Exception):
         Args:
             mac_address (str): The invalid MAC address that caused the error.
         """
-        super().__init__(f"Invalid MAC address: {mac_address}\n"
-                         f"A MAC address must be a 12-digit hexadecimal number long.")
+        super().__init__(f'Invalid MAC address: {mac_address}\n'
+                         f'A MAC address must be a 12-digit hexadecimal number long.')
 
 
 class InvalidIPv4AddressError(Exception):
@@ -40,7 +40,7 @@ class InvalidIPv4AddressError(Exception):
         Args:
             ipv4_address (str): The invalid IPv4 address that caused the error.
         """
-        super().__init__(f"Invalid IPv4 address: {ipv4_address}")
+        super().__init__(f'Invalid IPv4 address: {ipv4_address}')
 
 
 class ManufLineParseError(ValueError):
@@ -48,7 +48,7 @@ class ManufLineParseError(ValueError):
 
     def __init__(self, line: str):
         """Initialize the exception with the failed line."""
-        super().__init__(f"Failed to parse manuf line: {line!r}")
+        super().__init__(f'Failed to parse manuf line: {line!r}')
 
 
 class InvalidManufEntryFieldError(TypeError):
@@ -57,7 +57,7 @@ class InvalidManufEntryFieldError(TypeError):
     def __init__(self, field_name: str, value: object):
         """Initialize the exception with field information."""
         super().__init__(
-            f"Invalid type for {field_name}: expected str but got {type(value).__name__} ({value!r})",
+            f'Invalid type for {field_name}: expected str but got {type(value).__name__} ({value!r})',
         )
 
 
@@ -66,7 +66,7 @@ class InvalidMacPrefixError(InvalidManufEntryFieldError):
 
     def __init__(self, value: object):
         """Initialize the exception with the invalid MAC prefix."""
-        super().__init__("mac_prefix", value)
+        super().__init__('mac_prefix', value)
 
 
 class InvalidCidrError(InvalidManufEntryFieldError):
@@ -74,7 +74,7 @@ class InvalidCidrError(InvalidManufEntryFieldError):
 
     def __init__(self, value: object):
         """Initialize the exception with the invalid CIDR."""
-        super().__init__("cidr", value)
+        super().__init__('cidr', value)
 
 
 class InvalidManufacturerError(InvalidManufEntryFieldError):
@@ -82,7 +82,7 @@ class InvalidManufacturerError(InvalidManufEntryFieldError):
 
     def __init__(self, value: object):
         """Initialize the exception with the invalid manufacturer."""
-        super().__init__("manufacturer", value)
+        super().__init__('manufacturer', value)
 
 
 class InvalidOrganizationNameError(InvalidManufEntryFieldError):
@@ -90,7 +90,7 @@ class InvalidOrganizationNameError(InvalidManufEntryFieldError):
 
     def __init__(self, value: object):
         """Initialize the exception with the invalid organization name."""
-        super().__init__("organization_name", value)
+        super().__init__('organization_name', value)
 
 
 class InvalidPingResultError(Exception):
@@ -98,16 +98,16 @@ class InvalidPingResultError(Exception):
 
     def __init__(self, ip: str, response_content: str, ping_result: object):
         """Initialize the exception with ping result information."""
-        attributes = ""
-        if hasattr(ping_result, "_fields"):
+        attributes = ''
+        if hasattr(ping_result, '_fields'):
             try:
-                attributes = "\n".join(f"{attr}={getattr(ping_result, attr)}"
+                attributes = '\n'.join(f'{attr}={getattr(ping_result, attr)}'
                                        for attr in ping_result._fields)  # type: ignore[attr-defined]
             except (AttributeError, TypeError):
                 attributes = str(ping_result)
-        super().__init__(f"Invalid ping result for {ip}:\n"
-                         f"Response: {response_content}\n"
-                         f"{attributes}")
+        super().__init__(f'Invalid ping result for {ip}:\n'
+                         f'Response: {response_content}\n'
+                         f'{attributes}')
 
 
 class AllEndpointsExhaustedError(Exception):
@@ -115,4 +115,4 @@ class AllEndpointsExhaustedError(Exception):
 
     def __init__(self):
         """Initialize the exception with a default message."""
-        super().__init__("All ping endpoints have been exhausted")
+        super().__init__('All ping endpoints have been exhausted')

@@ -28,11 +28,11 @@ class InterfaceSelectionData:
     selection_index:   int
     name:              str
     description:       str | None
-    packets_sent:      Literal["N/A"] | int
-    packets_recv:      Literal["N/A"] | int
+    packets_sent:      Literal['N/A'] | int
+    packets_recv:      Literal['N/A'] | int
     ip_address:        str | None
     mac_address:       str | None
-    organization_name: Literal["N/A"] | str  # noqa: PYI051
+    organization_name: Literal['N/A'] | str  # noqa: PYI051
     is_arp:            bool                 = False
 
 
@@ -70,7 +70,7 @@ class InterfaceSelectionDialog(QDialog):
         from modules.guis.utils import resize_window_for_screen
 
         # Set up the window
-        self.setWindowTitle("Capture Network Interface Selection - Session Sniffer")
+        self.setWindowTitle('Capture Network Interface Selection - Session Sniffer')
         # Set a minimum size for the window
         self.setMinimumSize(800, 600)
         resize_window_for_screen(self, screen_width, screen_height)
@@ -83,15 +83,15 @@ class InterfaceSelectionDialog(QDialog):
         layout = QVBoxLayout()
 
         # Header above the table
-        header_label = QLabel("Available Network Interfaces for Packet Capture")
+        header_label = QLabel('Available Network Interfaces for Packet Capture')
         header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_label.setStyleSheet("font-size: 16pt; font-weight: bold; margin-bottom: 10px;")
+        header_label.setStyleSheet('font-size: 16pt; font-weight: bold; margin-bottom: 10px;')
         layout.addWidget(header_label)
 
         # Table widget for displaying interfaces
         self.table = SafeQTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(
-            ["Name", "Description", "Packets Sent", "Packets Received", "IP Address", "MAC Address", "Organization Name"],
+            ['Name', 'Description', 'Packets Sent', 'Packets Received', 'IP Address', 'MAC Address', 'Organization Name'],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -117,7 +117,7 @@ class InterfaceSelectionDialog(QDialog):
         for idx, interface in enumerate(self.interfaces):
             self.table.insertRow(idx)
 
-            item = QTableWidgetItem(str(interface.name) if not interface.is_arp else f"{interface.name} (ARP)")
+            item = QTableWidgetItem(str(interface.name) if not interface.is_arp else f'{interface.name} (ARP)')
             self.table.setItem(idx, 0, item)
 
             item = QTableWidgetItem(str(interface.description))
@@ -144,11 +144,11 @@ class InterfaceSelectionDialog(QDialog):
 
         # Bottom layout for buttons
         bottom_layout = QHBoxLayout()
-        instruction_label = QLabel("Select the network interface you want to sniff.")
-        instruction_label.setStyleSheet("font-size: 15pt;")
+        instruction_label = QLabel('Select the network interface you want to sniff.')
+        instruction_label.setStyleSheet('font-size: 15pt;')
 
-        self.select_button = QPushButton("Start Sniffing")
-        self.select_button.setStyleSheet("font-size: 18pt;")
+        self.select_button = QPushButton('Start Sniffing')
+        self.select_button.setStyleSheet('font-size: 18pt;')
         self.select_button.setEnabled(False)  # Initially disabled
 
         # Set fixed size for the button
@@ -199,7 +199,7 @@ class InterfaceSelectionDialog(QDialog):
             return
 
         # TODO(BUZZARDGTA): Even tho it should works it doesn't always, probably just a Qt bug.
-        QToolTip.showText(QCursor.pos(), "", self.table)  # <-- force refresh tooltip position (see: https://doc.qt.io/qt-6/qtooltip.html#showText)
+        QToolTip.showText(QCursor.pos(), '', self.table)  # <-- force refresh tooltip position (see: https://doc.qt.io/qt-6/qtooltip.html#showText)
         QToolTip.showText(QCursor.pos(), displayed_text, self.table)
 
     def update_select_button_state(self):

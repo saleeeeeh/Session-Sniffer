@@ -16,7 +16,7 @@ from modules.networking.exceptions import (
 )
 from modules.networking.utils import is_mac_address
 
-ManufDatabaseType = dict[str, list["ManufEntry"]]
+ManufDatabaseType = dict[str, list['ManufEntry']]
 
 RE_MANUF_ENTRY_PATTERN = re.compile(
     r"""
@@ -43,7 +43,7 @@ class ManufEntry:
 
 def _mac_str_to_int(mac: str):
     """Convert a MAC address string (with colons or dashes) to an integer."""
-    return int(mac.translate(str.maketrans("", "", ":-")), 16)
+    return int(mac.translate(str.maketrans('', '', ':-')), 16)
 
 
 def _mac_prefix_str_to_int(prefix: str, cidr: int):
@@ -63,9 +63,9 @@ def _parse_and_load_manuf_database():
     """Parse the manuf file and return a database dict of prefix -> ManufEntry list."""
     manuf_database: ManufDatabaseType = {}
 
-    for raw_line in MANUF_FILE_PATH.read_text(encoding="utf-8").splitlines():
+    for raw_line in MANUF_FILE_PATH.read_text(encoding='utf-8').splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("#"):
+        if not line or line.startswith('#'):
             continue
 
         match = RE_MANUF_ENTRY_PATTERN.match(line)

@@ -12,7 +12,7 @@ class InvalidFileError(Exception):
         Args:
             file_path (Path): The path to the invalid file.
         """
-        super().__init__(f"Invalid file: {file_path.absolute()}")
+        super().__init__(f'Invalid file: {file_path.absolute()}')
 
 
 class InvalidBooleanValueError(Exception):
@@ -20,7 +20,7 @@ class InvalidBooleanValueError(Exception):
 
     def __init__(self):
         """Initialize the exception with a default error message."""
-        super().__init__("Input is not a valid boolean value")
+        super().__init__('Input is not a valid boolean value')
 
 
 class MismatchedBooleanValueError(Exception):
@@ -28,7 +28,7 @@ class MismatchedBooleanValueError(Exception):
 
     def __init__(self):
         """Initialize the exception with a default error message."""
-        super().__init__("Input does not match the specified boolean value")
+        super().__init__('Input does not match the specified boolean value')
 
 
 class InvalidNoneTypeValueError(Exception):
@@ -36,7 +36,7 @@ class InvalidNoneTypeValueError(Exception):
 
     def __init__(self):
         """Initialize the exception with a default error message."""
-        super().__init__("Input is not a valid NoneType value")
+        super().__init__('Input is not a valid NoneType value')
 
 
 class NoMatchFoundError(Exception):
@@ -63,16 +63,16 @@ class ParenthesisMismatchError(Exception):
             unmatched_closing (list[int]): Positions of unmatched closing parentheses.
         """
 
-        def pluralize(count: int, singular: str = "", plural: str = "s"):
+        def pluralize(count: int, singular: str = '', plural: str = 's'):
             """Return the appropriate plural form based on count."""
             return singular if count == 1 else plural
 
-        message = "\n".join(
-            f"Unmatched {type_} parentheses at position{pluralize(len(positions))}: {positions}"
+        message = '\n'.join(
+            f'Unmatched {type_} parentheses at position{pluralize(len(positions))}: {positions}'
             for type_, positions in (
-                ("opening", unmatched_opening),
-                ("closing", unmatched_closing),
+                ('opening', unmatched_opening),
+                ('closing', unmatched_closing),
             )
             if positions
         )
-        super().__init__(f"Expression has mismatched parentheses: {expr}\n{message}")
+        super().__init__(f'Expression has mismatched parentheses: {expr}\n{message}')

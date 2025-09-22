@@ -8,7 +8,7 @@ from modules.networking.exceptions import (
     InvalidMacAddressError,
 )
 
-RE_MAC_ADDRESS_PATTERN = re.compile(r"^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$", re.IGNORECASE)
+RE_MAC_ADDRESS_PATTERN = re.compile(r'^([0-9A-F]{2}[:-]){5}([0-9A-F]{2})$', re.IGNORECASE)
 IPV4_LAST_OCTET_VALUE = 255
 
 
@@ -36,16 +36,16 @@ def is_mac_address(mac_address: str, /, *, raise_exception: bool = False):
 
 def sanitize_mac_address(mac_address: str, /):
     """Remove any separators from the MAC address and convert to uppercase."""
-    return "".join(c for c in mac_address if c.isalnum()).upper()
+    return ''.join(c for c in mac_address if c.isalnum()).upper()
 
 
-def format_mac_address(mac_address: str, /, separator: str = ":"):
+def format_mac_address(mac_address: str, /, separator: str = ':'):
     """Format the MAC address using the specified separator (default: XX:XX:XX:XX:XX:XX)."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, len(sanitized_mac), 2))
 
 
-def get_mac_oui(mac_address: str, /, separator: str = ""):
+def get_mac_oui(mac_address: str, /, separator: str = ''):
     """Extract the OUI (first three hexadecimal pairs) from a MAC address and formats it with the specified separator."""
     sanitized_mac = sanitize_mac_address(mac_address)
     return separator.join(sanitized_mac[i:i + 2] for i in range(0, 6, 2))

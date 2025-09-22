@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 def get_dependencies_from_pyproject():
     from modules.constants.local import PYPROJECT_DATA
 
-    dependencies = PYPROJECT_DATA.get("project", {}).get("dependencies", [])
+    dependencies = PYPROJECT_DATA.get('project', {}).get('dependencies', [])
 
     return {
         req.name: req for req in map(Requirement, dependencies)
@@ -23,12 +23,12 @@ def get_dependencies_from_requirements():
 
     dependencies: dict[str, Requirement] = {}
 
-    with REQUIREMENTS_PATH.open("r", encoding="utf-8") as f:
+    with REQUIREMENTS_PATH.open('r', encoding='utf-8') as f:
         for line in f:
             stripped_line = line.strip()
             if (
                 not stripped_line
-                or stripped_line.startswith("#")
+                or stripped_line.startswith('#')
             ):
                 continue
 
@@ -39,12 +39,12 @@ def get_dependencies_from_requirements():
 
 
 def check_packages_version(required_packages: dict[str, Requirement]):
-    outdated_packages: list[tuple[str, SpecifierSet, str | Literal["Not Installed"]]] = []  # noqa: PYI051
+    outdated_packages: list[tuple[str, SpecifierSet, str | Literal['Not Installed']]] = []  # noqa: PYI051
     for package_name, requirement in required_packages.items():
         try:
             installed_version = importlib.metadata.version(package_name)
-            if installed_version not in Requirement(f"{package_name}{requirement}").specifier:
+            if installed_version not in Requirement(f'{package_name}{requirement}').specifier:
                 outdated_packages.append((package_name, requirement.specifier, installed_version))
         except importlib.metadata.PackageNotFoundError:
-            outdated_packages.append((package_name, requirement.specifier, "Not Installed"))
+            outdated_packages.append((package_name, requirement.specifier, 'Not Installed'))
     return outdated_packages

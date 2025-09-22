@@ -120,19 +120,19 @@ class PacketCapture:
 
         self._tshark_cmd = (
             str(tshark_path),
-            "-l", "-n", "-Q",
-            "--log-level", "critical",
-            "-B", "1",
-            "-i", interface,
-            *(("-f", capture_filter) if capture_filter else ()),
-            *(("-Y", display_filter) if display_filter else ()),
-            "-T", "fields",
-            "-E", "separator=|",
-            "-e", "frame.time_epoch",
-            "-e", "ip.src",
-            "-e", "ip.dst",
-            "-e", "udp.srcport",
-            "-e", "udp.dstport",
+            '-l', '-n', '-Q',
+            '--log-level', 'critical',
+            '-B', '1',
+            '-i', interface,
+            *(('-f', capture_filter) if capture_filter else ()),
+            *(('-Y', display_filter) if display_filter else ()),
+            '-T', 'fields',
+            '-E', 'separator=|',
+            '-e', 'frame.time_epoch',
+            '-e', 'ip.src',
+            '-e', 'ip.dst',
+            '-e', 'udp.srcport',
+            '-e', 'udp.dstport',
         )
         self._tshark_process: subprocess.Popen[str] | None = None
 
@@ -161,7 +161,7 @@ class PacketCapture:
                 TSharkProcessingError: If IPs or ports are invalid or the number of fields in the line is unexpected.
             """
             # Split the line into fields and limit the split based on the expected number of fields
-            fields = tuple(field.strip() for field in line.split("|", _EXPECTED_TSHARK_PACKET_FIELD_COUNT))
+            fields = tuple(field.strip() for field in line.split('|', _EXPECTED_TSHARK_PACKET_FIELD_COUNT))
             if len(fields) != _EXPECTED_TSHARK_PACKET_FIELD_COUNT:
                 raise UnexpectedFieldCountError(len(fields), fields)
 
@@ -173,7 +173,7 @@ class PacketCapture:
             # Displaying "None" in the Port column should be supported at some point in the future development.
             # Skip processing if source or destination port is missing (last two fields)
             if not fields[-2] or not fields[-1]:
-                print(f"Source or destination port is missing. Packet ignored: [{line}]")
+                print(f'Source or destination port is missing. Packet ignored: [{line}]')
                 return None
 
             return PacketFields(*fields)
@@ -183,7 +183,7 @@ class PacketCapture:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            encoding="utf-8",
+            encoding='utf-8',
         ) as process:
             self._tshark_process = process
 

@@ -12,8 +12,8 @@ from modules.constants.standard import SC_EXE
 from modules.msgbox import MsgBox
 from modules.utils import format_triple_quoted_text
 
-NPCAP_SERVICE_QUERY_CMD = (SC_EXE, "query", "npcap")
-NPCAP_DOWNLOAD_URL = "https://npcap.com/#download"
+NPCAP_SERVICE_QUERY_CMD = (SC_EXE, 'query', 'npcap')
+NPCAP_DOWNLOAD_URL = 'https://npcap.com/#download'
 
 
 def is_npcap_installed():
@@ -94,4 +94,4 @@ def ensure_npcap_installed():
             style=MsgBox.Style.MB_OK | MsgBox.Style.MB_ICONINFORMATION | MsgBox.Style.MB_SETFOREGROUND,
         )
 
-    Thread(target=show_success_message, name="NpcapSuccessMessage", daemon=True).start()
+    Thread(target=show_success_message, name='NpcapSuccessMessage', daemon=True).start()

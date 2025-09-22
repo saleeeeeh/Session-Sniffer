@@ -16,7 +16,7 @@ from urllib3.util import create_urllib3_context
 urllib3.disable_warnings(InsecureRequestWarning)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:140.0) Gecko/20100101 Firefox/140.0",
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:140.0) Gecko/20100101 Firefox/140.0',
 }
 
 
@@ -40,12 +40,12 @@ def create_unsafe_https_session(headers: dict[str, str] | None = None):
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     # Work around unsecure ciphers being rejected
-    context.set_ciphers("DEFAULT@SECLEVEL=0")
+    context.set_ciphers('DEFAULT@SECLEVEL=0')
     # Work around legacy renegotiation being disabled
     context.options |= ssl.OP_LEGACY_SERVER_CONNECT
 
     session = requests.session()
-    session.mount("https://", CustomSSLContextHTTPAdapter(context))
+    session.mount('https://', CustomSSLContextHTTPAdapter(context))
     if headers:
         session.headers.update(headers)
     session.verify = False

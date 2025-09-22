@@ -25,15 +25,15 @@ from modules.networking.unsafe_https import s
 def format_type_error(
     obj: object,
     expected_types: type | tuple[type, ...],
-    suffix: str = "",
+    suffix: str = '',
 ):
     """Generate a formatted error message for a type mismatch."""
     if isinstance(expected_types, tuple):
-        type_names = " or ".join(t.__name__ for t in expected_types)
+        type_names = ' or '.join(t.__name__ for t in expected_types)
     else:
         type_names = expected_types.__name__
 
-    return f"Expected {type_names}, got {type(obj).__name__}: {obj!r}{suffix}"
+    return f'Expected {type_names}, got {type(obj).__name__}: {obj!r}{suffix}'
 
 
 @dataclass(slots=True)
@@ -65,12 +65,12 @@ class EndpointInfo:
     def average_time(self):
         if self.calls > 0:
             return self.total_time / self.calls
-        return float("inf")
+        return float('inf')
 
     def score(self, now: float):
         # If still cooling down, assign an infinite score.
         if now < self.cooldown_until:
-            return float("inf")
+            return float('inf')
         penalty = self.failures * 1000  # Adjust penalty factor as needed.
         return self.average_time() + penalty
 
@@ -89,8 +89,8 @@ class PingResult:
 
     def is_invalid(self, ping_response: str):
         """Return True if the ping data is invalid (missing critical information)."""
-        return ping_response.strip() == "null" or any(
-            getattr(self, attr) is None for attr in ("packets_transmitted", "packets_received", "packet_loss", "packet_errors")
+        return ping_response.strip() == 'null' or any(
+            getattr(self, attr) is None for attr in ('packets_transmitted', 'packets_received', 'packet_loss', 'packet_errors')
         )
 
 
@@ -106,12 +106,12 @@ _endpoints_lock = Lock()
 
 # Create a mapping of endpoint URL to its EndpointInfo instance.
 endpoints_info: dict[str, EndpointInfo] = {
-    "https://steakovercooked.com/api/ping/":    EndpointInfo("https://steakovercooked.com/api/ping/"),
-    "https://helloacm.com/api/ping/":           EndpointInfo("https://helloacm.com/api/ping/"),
-    "https://uploadbeta.com/api/ping/":         EndpointInfo("https://uploadbeta.com/api/ping/"),
-    "https://happyukgo.com/api/ping/":          EndpointInfo("https://happyukgo.com/api/ping/"),
-    "https://isvbscriptdead.com/api/ping/":     EndpointInfo("https://isvbscriptdead.com/api/ping/"),
-    "https://api.justyy.workers.dev/api/ping/": EndpointInfo("https://api.justyy.workers.dev/api/ping/"),
+    'https://steakovercooked.com/api/ping/':    EndpointInfo('https://steakovercooked.com/api/ping/'),
+    'https://helloacm.com/api/ping/':           EndpointInfo('https://helloacm.com/api/ping/'),
+    'https://uploadbeta.com/api/ping/':         EndpointInfo('https://uploadbeta.com/api/ping/'),
+    'https://happyukgo.com/api/ping/':          EndpointInfo('https://happyukgo.com/api/ping/'),
+    'https://isvbscriptdead.com/api/ping/':     EndpointInfo('https://isvbscriptdead.com/api/ping/'),
+    'https://api.justyy.workers.dev/api/ping/': EndpointInfo('https://api.justyy.workers.dev/api/ping/'),
 }
 
 
@@ -137,25 +137,25 @@ def get_sorted_endpoints():
 
 def parse_ping_response(ping_response: str):
     # Extract individual ping times
-    ping_times = [float(match.group("TIME_MS")) for match in RE_BYTES_PATTERN.finditer(ping_response)]
+    ping_times = [float(match.group('TIME_MS')) for match in RE_BYTES_PATTERN.finditer(ping_response)]
 
     # Extract packet statistics
     packets_transmitted = packets_received = packet_loss = packet_errors = None
     packets_match = RE_PACKET_STATS_PATTERN.search(ping_response)
     if packets_match:
-        packets_transmitted =   int(packets_match.group("PACKETS_TRANSMITTED"))
-        packets_received    =   int(packets_match.group("PACKETS_RECEIVED"))
-        packet_loss         = float(packets_match.group("PACKET_LOSS_PERCENTAGE"))
-        packet_errors       =   int(packets_match.group("ERRORS") or 0)
+        packets_transmitted =   int(packets_match.group('PACKETS_TRANSMITTED'))
+        packets_received    =   int(packets_match.group('PACKETS_RECEIVED'))
+        packet_loss         = float(packets_match.group('PACKET_LOSS_PERCENTAGE'))
+        packet_errors       =   int(packets_match.group('ERRORS') or 0)
 
     # Extract RTT statistics
     rtt_min = rtt_avg = rtt_max = rtt_mdev = None
     rtt_match = RE_RTT_STATS_PATTERN.search(ping_response)
     if rtt_match:
-        rtt_min  = float(rtt_match.group("RTT_MIN"))
-        rtt_avg  = float(rtt_match.group("RTT_AVG"))
-        rtt_max  = float(rtt_match.group("RTT_MAX"))
-        rtt_mdev = float(rtt_match.group("RTT_MDEV"))
+        rtt_min  = float(rtt_match.group('RTT_MIN'))
+        rtt_avg  = float(rtt_match.group('RTT_AVG'))
+        rtt_max  = float(rtt_match.group('RTT_MAX'))
+        rtt_mdev = float(rtt_match.group('RTT_MDEV'))
 
     return PingResult(
         ping_times=ping_times,
@@ -192,12 +192,12 @@ def fetch_and_parse_ping(ip: str):
         request_start_time = time.monotonic()
 
         try:
-            response = s.get(f"{endpoint_info.url}?host={ip}", timeout=30)
+            response = s.get(f'{endpoint_info.url}?host={ip}', timeout=30)
             response.raise_for_status()
             if not isinstance(response.content, bytes):
                 raise TypeError(format_type_error(response.content, bytes))
 
-            unescaped_response_text = response.content.decode("utf-8").replace("\\/", "/")
+            unescaped_response_text = response.content.decode('utf-8').replace('\\/', '/')
 
             ping_result = parse_ping_response(unescaped_response_text)
             if ping_result.is_invalid(unescaped_response_text):
@@ -205,7 +205,7 @@ def fetch_and_parse_ping(ip: str):
 
         except exceptions.RequestException as e:
             cooldown = DEFAULT_RETRY_COOLDOWN
-            if e.response is not None and (retry_after := e.response.headers.get("Retry-After")):
+            if e.response is not None and (retry_after := e.response.headers.get('Retry-After')):
                 cooldown = float(retry_after)
 
             with _endpoints_lock:
