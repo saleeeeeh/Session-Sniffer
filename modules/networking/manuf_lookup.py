@@ -3,6 +3,7 @@
 Includes functions to fetch, parse, and search the database with CIDR-aware prefix matching.
 """
 import re
+from typing import TYPE_CHECKING
 
 from pydantic.dataclasses import dataclass
 
@@ -16,7 +17,8 @@ from modules.networking.exceptions import (
 )
 from modules.networking.utils import is_mac_address
 
-ManufDatabaseType = dict[str, list['ManufEntry']]
+if TYPE_CHECKING:
+    ManufDatabaseType = dict[str, list['ManufEntry']]
 
 RE_MANUF_ENTRY_PATTERN = re.compile(
     r"""
