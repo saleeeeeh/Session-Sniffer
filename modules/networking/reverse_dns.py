@@ -23,13 +23,19 @@ def lookup(target_ip: str):
     Returns:
         str: The resolved hostname, or the original IP address if no valid hostname is found.
     """
+    rev_name = dns.reversename.from_address(target_ip)
+
     try:
-        rev_name = dns.reversename.from_address(target_ip)
         answer = resolver.resolve(rev_name, 'PTR')
-    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
+    except (dns.resolver.LifetimeTimeout, dns.resolver.NXDOMAIN, dns.resolver.YXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
         return target_ip
 
-    if answer and answer[0] and (hostname := str(answer[0]).removesuffix('.')):
-        return hostname
+    ptr_record = next(iter(answer), None)
+    if not ptr_record:
+        return target_ip
 
-    return target_ip
+    hostname = str(ptr_record).rstrip('.')
+    if not hostname:
+        return target_ip
+
+    return hostname
