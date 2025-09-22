@@ -132,9 +132,11 @@ def set_working_directory_to_script_location():
 def resource_path(relative_path: Path):
     """Get absolute path to resource, works for dev and for PyInstaller."""
     base_path = getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent)  # .parent twice because of modularizing bruh
-    if not isinstance(base_path, Path):
-        base_path = Path(base_path)
-    return base_path / relative_path
+    if isinstance(base_path, str):
+        return Path(base_path) / relative_path
+    if isinstance(base_path, Path):
+        return base_path / relative_path
+    raise TypeError(format_type_error(base_path, (str, Path)))
 
 
 def get_documents_folder(*, use_alternative_method: bool = False):
