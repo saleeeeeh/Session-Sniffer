@@ -43,7 +43,7 @@ class EndpointInfo:
     failures: int = 0
     total_time: float = 0.0
     cooldown_until: float = 0.0
-    failed_ips: dict[str, int] = dataclasses.field(default_factory=dict)
+    failed_ips: dict[str, int] = dataclasses.field(default_factory=dict)  # pyright: ignore[reportUnknownVariableType]
 
     def update_success(self, duration: float, ip: str) -> None:
         self.calls += 1

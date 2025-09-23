@@ -2,6 +2,11 @@
 
 This module contains custom exception classes for networking operations.
 """
+import dataclasses
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from modules.networking.endpoint_ping_manager import PingResult
 
 
 class InterfaceStateError(Exception):
@@ -96,15 +101,11 @@ class InvalidOrganizationNameError(InvalidManufEntryFieldError):
 class InvalidPingResultError(Exception):
     """Exception raised when the parsed ping result contains invalid or missing data."""
 
-    def __init__(self, ip: str, response_content: str, ping_result: object) -> None:
+    def __init__(self, ip: str, response_content: str, ping_result: 'PingResult') -> None:
         """Initialize the exception with ping result information."""
-        attributes = ''
-        if hasattr(ping_result, '_fields'):
-            try:
-                attributes = '\n'.join(f'{attr}={getattr(ping_result, attr)}'
-                                       for attr in ping_result._fields)  # type: ignore[attr-defined]
-            except (AttributeError, TypeError):
-                attributes = str(ping_result)
+        field_names = [field.name for field in dataclasses.fields(ping_result)]
+        attributes = '\n'.join(f'{attr}={getattr(ping_result, attr)}'
+                               for attr in field_names)
         super().__init__(f'Invalid ping result for {ip}:\n'
                          f'Response: {response_content}\n'
                          f'{attributes}')

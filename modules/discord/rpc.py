@@ -20,7 +20,7 @@ from modules.utils import format_type_error
 
 QueueType = SimpleQueue[str | object]
 
-SHUTDOWN_SIGNAL = sentinel.create('ShutdownSignal')
+SHUTDOWN_SIGNAL = sentinel.create('ShutdownSignal')  # pyright: ignore[reportUnknownMemberType]
 DISCORD_RPC_TITLE = "Sniffin' my babies IPs"
 START_TIME_INT = int(time.time())
 DISCORD_RPC_BUTTONS = [
@@ -100,7 +100,7 @@ def _run(rpc: Presence, queue: QueueType, connection_status: Event) -> None:
                 connection_status.set()
 
         try:
-            rpc.update(
+            rpc.update(  # pyright: ignore[reportUnknownMemberType]
                 state=state_message,
                 details=DISCORD_RPC_TITLE,
                 start=START_TIME_INT,
