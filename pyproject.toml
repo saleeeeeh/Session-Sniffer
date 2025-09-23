@@ -88,6 +88,7 @@ ignore = [
     "scripts",
     "stubs",
 ]
+ignore-patterns = ".*\\.pyi"
 py-version = "3.13"
 recursive = true
 
@@ -117,7 +118,6 @@ stubPath = "stubs"
 
 [tool.ruff]
 target-version = "py313"
-exclude = ["stubs/**"]
 
 [tool.ruff.lint]
 ignore = [
@@ -149,6 +149,12 @@ ignore = [
     "TD005",   # missing-todo-description
 ]
 select = ["ALL"]
+exclude = [
+    ".venv",
+    ".history",
+    "scripts",
+    "stubs",
+]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
