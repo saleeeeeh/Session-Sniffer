@@ -17,7 +17,6 @@
         "GeoLite2 Databases": true,
         "images": true,
         "resources": true,
-        "scripts": true,
         "Session_Sniffer.exe": true,
         "TTS": true
     },
