@@ -1439,10 +1439,11 @@ class SessionHost:
             # However, increasing this value also increases the risk, as the host may have already disconnected.
             or potential_session_host_player.packets < MINIMUM_PACKETS_FOR_SESSION_HOST
         ):
-            return
+            return None
 
         SessionHost.player = potential_session_host_player
         SessionHost.search_player = False
+        return potential_session_host_player
 
 
 @dataclass(frozen=True, config={'arbitrary_types_allowed': True}, slots=True)
