@@ -90,7 +90,7 @@ class InterfaceSelectionDialog(QDialog):
 
         # Table widget for displaying interfaces
         self.table = SafeQTableWidget(0, 7)
-        self.table.setHorizontalHeaderLabels(
+        self.table.setHorizontalHeaderLabels(  # pyright: ignore[reportUnknownMemberType]
             ['Name', 'Description', 'Packets Sent', 'Packets Received', 'IP Address', 'MAC Address', 'Organization Name'],
         )
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -98,7 +98,7 @@ class InterfaceSelectionDialog(QDialog):
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 
         # Connect cell hover to tooltip logic
-        self.table.cellEntered.connect(self.show_tooltip_if_elided)
+        self.table.cellEntered.connect(self.show_tooltip_if_elided)  # pyright: ignore[reportUnknownMemberType]
 
         horizontal_header = self.table.horizontalHeader()
         horizontal_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -154,7 +154,7 @@ class InterfaceSelectionDialog(QDialog):
         # Set fixed size for the button
         self.select_button.setFixedSize(300, 50)  # Adjusted width and height for slightly larger button
 
-        self.select_button.clicked.connect(self.select_interface)
+        self.select_button.clicked.connect(self.select_interface)  # pyright: ignore[reportUnknownMemberType]
 
         bottom_layout.addWidget(instruction_label)
         bottom_layout.addWidget(self.select_button)
@@ -174,7 +174,7 @@ class InterfaceSelectionDialog(QDialog):
 
         # Connect selection change signal to enable/disable Select button
         selection_model = self.table.selectionModel()
-        selection_model.selectionChanged.connect(self.update_select_button_state)
+        selection_model.selectionChanged.connect(self.update_select_button_state)  # pyright: ignore[reportUnknownMemberType]
 
     # Custom Methods:
     def show_tooltip_if_elided(self, row: int, column: int) -> None:

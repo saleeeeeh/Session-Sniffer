@@ -16,9 +16,9 @@ from typing import Any, Literal
 import psutil
 from packaging.version import Version
 from win32com.client import Dispatch
-from win32com.shell import (  # type: ignore[import-error]  # pylint: disable=import-error,no-name-in-module
-    shell,  # type: ignore[import-error]
-    shellcon,  # type: ignore[import-error]
+from win32com.shell import (  # pyright: ignore[reportMissingModuleSource]  # pylint: disable=import-error,no-name-in-module
+    shell,  # pyright: ignore[reportMissingModuleSource]
+    shellcon,  # pyright: ignore[reportMissingModuleSource]
 )
 
 from modules.utils_exceptions import (
@@ -125,7 +125,7 @@ def get_documents_folder(*, use_alternative_method: bool = False) -> Path:
     """
     if use_alternative_method:
         # Alternative method using SHGetKnownFolderPath from WinAPI
-        documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)
+        documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)  # pyright: ignore[reportUnknownMemberType]
     else:
         # Default method using Windows registry
         from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
@@ -234,7 +234,7 @@ def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[st
 
 def get_pid_by_path(filepath: Path, /) -> int | None:
     """Get the process ID (PID) of a running process by its executable path."""
-    for process in psutil.process_iter(['pid', 'exe']):
+    for process in psutil.process_iter(['pid', 'exe']):  # pyright: ignore[reportUnknownMemberType]
         if process.info['exe'] == str(filepath.absolute()):
             return process.pid
     return None

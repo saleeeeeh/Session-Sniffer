@@ -5,7 +5,7 @@ It uses two WMI namespaces: 'root/StandardCimv2' for modern CIM-based network da
 from collections.abc import Generator
 
 import wmi
-from wmi import _wmi_namespace
+from wmi import _wmi_namespace  # pyright: ignore[reportPrivateUsage]
 
 from modules.utils import format_type_error
 
@@ -13,11 +13,11 @@ from modules.utils import format_type_error
 # for legacy management, necessary to retrieve properties like "Manufacturer" and "NetEnabled" not available in the newer namespace.
 #
 # Both namespaces are required for complete network adapter information.
-standard_cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/StandardCimv2')
+standard_cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/StandardCimv2')  # pyright: ignore[reportUnknownMemberType]
 if not isinstance(standard_cimv2_namespace, _wmi_namespace):
     raise TypeError(format_type_error(standard_cimv2_namespace, _wmi_namespace))
 
-cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/Cimv2')
+cimv2_namespace: _wmi_namespace = wmi.WMI(namespace='root/Cimv2')  # pyright: ignore[reportUnknownMemberType]
 if not isinstance(cimv2_namespace, _wmi_namespace):
     raise TypeError(format_type_error(cimv2_namespace, _wmi_namespace))
 

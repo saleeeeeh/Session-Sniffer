@@ -24,7 +24,7 @@ HEADERS = {
 class CustomSSLContextHTTPAdapter(HTTPAdapter):
     def __init__(self, ssl_context: SSLContext | None, **kwargs: object) -> None:
         self.ssl_context = ssl_context
-        super().__init__(**kwargs)  # type: ignore[arg-type]
+        super().__init__(**kwargs)  # pyright: ignore[reportArgumentType]
 
     def init_poolmanager(self, connections: int, maxsize: int, block: bool = False, **pool_kwargs: object) -> None:  # noqa: ARG002, FBT001, FBT002
         self.poolmanager = PoolManager(

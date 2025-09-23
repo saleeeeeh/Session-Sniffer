@@ -1,4 +1,4 @@
-# pylint: disable=missing-module-docstring,too-many-lines,invalid-name  # noqa: D100
+# pylint: disable=missing-module-docstring,too-many-lines  # noqa: D100
 import ast
 import dataclasses
 import enum
@@ -1447,7 +1447,7 @@ class SessionHost:
 
 
 @dataclass(frozen=True, config={'arbitrary_types_allowed': True}, slots=True)
-class UserIPSettings:
+class UserIPSettings:  # pylint: disable=too-many-instance-attributes,invalid-name
     """Class to represent settings with attributes for each setting key."""
     ENABLED: bool
     COLOR: QColor
@@ -2405,7 +2405,7 @@ if not is_pyinstaller_compiled():
     print('\nChecking that your Python packages versions matches with file "requirements.txt" ...\n')
 
     if outdated_packages := check_packages_version(get_dependencies_from_pyproject() or get_dependencies_from_requirements()):
-        msgbox_message = 'The following packages have version mismatches:\n\n'
+        msgbox_message = 'The following packages have version mismatches:\n\n'  # pylint: disable=invalid-name
 
         # Iterate over outdated packages and add each package's information to the message box text
         for package_name, required_version, installed_version in outdated_packages:
@@ -2417,7 +2417,7 @@ if not is_pyinstaller_compiled():
 
         # Show message box
         msgbox_style = MsgBox.Style.MB_YESNO | MsgBox.Style.MB_ICONEXCLAMATION | MsgBox.Style.MB_SETFOREGROUND
-        msgbox_title = TITLE
+        msgbox_title = TITLE  # pylint: disable=invalid-name
         errorlevel = MsgBox.show(msgbox_title, msgbox_message, msgbox_style)
         if errorlevel != MsgBox.ReturnValues.IDYES:
             sys.exit(0)
@@ -2500,7 +2500,7 @@ if not isinstance(selected_interface.name, str):
 clear_screen()
 set_window_title(f'Initializing addresses and establishing connection to your PC / Console - {TITLE}')
 print('\nInitializing addresses and establishing connection to your PC / Console ...\n')
-need_rewrite_settings = False
+need_rewrite_settings = False  # pylint: disable=invalid-name
 fixed__capture_mac_address = selected_interface.mac_address
 fixed__capture_ip_address = selected_interface.ip_address
 
@@ -2509,15 +2509,15 @@ if (
     or selected_interface.name != Settings.CAPTURE_INTERFACE_NAME
 ):
     Settings.CAPTURE_INTERFACE_NAME = selected_interface.name
-    need_rewrite_settings = True
+    need_rewrite_settings = True  # pylint: disable=invalid-name
 
 if fixed__capture_mac_address != Settings.CAPTURE_MAC_ADDRESS:
     Settings.CAPTURE_MAC_ADDRESS = fixed__capture_mac_address
-    need_rewrite_settings = True
+    need_rewrite_settings = True  # pylint: disable=invalid-name
 
 if fixed__capture_ip_address != Settings.CAPTURE_IP_ADDRESS:
     Settings.CAPTURE_IP_ADDRESS = fixed__capture_ip_address
-    need_rewrite_settings = True
+    need_rewrite_settings = True  # pylint: disable=invalid-name
 
 if need_rewrite_settings:
     Settings.reconstruct_settings()
@@ -2532,15 +2532,15 @@ if Settings.CAPTURE_IP_ADDRESS:
 broadcast_support, multicast_support = check_broadcast_multicast_support(TSHARK_PATH, Settings.CAPTURE_INTERFACE_NAME)
 if broadcast_support and multicast_support:
     capture_filter.append('not (broadcast or multicast)')
-    vpn_mode_enabled = False
+    vpn_mode_enabled = False  # pylint: disable=invalid-name
 elif broadcast_support:
     capture_filter.append('not broadcast')
-    vpn_mode_enabled = True
+    vpn_mode_enabled = True  # pylint: disable=invalid-name
 elif multicast_support:
     capture_filter.append('not multicast')
-    vpn_mode_enabled = True
+    vpn_mode_enabled = True  # pylint: disable=invalid-name
 else:
-    vpn_mode_enabled = True
+    vpn_mode_enabled = True  # pylint: disable=invalid-name
 
 capture_filter.append('not (portrange 0-1023 or port 5353)')
 
@@ -2897,9 +2897,9 @@ def iplookup_core() -> None:
         # Following values taken from https://ip-api.com/docs/api:batch the 03/04/2024.
         #MAX_REQUESTS = 15
         #MAX_THROTTLE_TIME = 60
-        MAX_BATCH_IP_API_IPS = 100
-        FIELDS_TO_LOOKUP = 'continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query'
-        FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[str | float | int | bool], ...]]] = {
+        MAX_BATCH_IP_API_IPS = 100  # pylint: disable=invalid-name
+        FIELDS_TO_LOOKUP = 'continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query'  # pylint: disable=invalid-name
+        FIELD_MAPPINGS: dict[str, tuple[str, tuple[type[str | float | int | bool], ...]]] = {  # pylint: disable=invalid-name
             'continent': ('continent', (str,)),
             'continent_code': ('continentCode', (str,)),
             'country': ('country', (str,)),
@@ -3577,6 +3577,7 @@ def rendering_core() -> None:
         def update_userip_databases() -> float:
             from modules.constants.standard import USERIP_DATABASES_PATH
 
+            # pylint: disable=invalid-name
             DEFAULT_USERIP_FILE_HEADER = format_triple_quoted_text(f"""
                 ;;-----------------------------------------------------------------------------
                 ;; {TITLE} User IP default database file
@@ -3655,6 +3656,7 @@ def rendering_core() -> None:
                 # username2=127.0.0.1
                 # username3=255.255.255.255
             """, add_trailing_newline=True)
+            # pylint: enable=invalid-name
 
             USERIP_DATABASES_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -3784,8 +3786,8 @@ def rendering_core() -> None:
 
                 return connected_country_padding, connected_continent_padding, disconnected_country_padding, disconnected_continent_padding
 
-            TABLE_COUNTRY_COLUMN_LENGTH_THRESHOLD = 27
-            TABLE_CONTINENT_COLUMN_LENGTH_THRESHOLD = 13
+            TABLE_COUNTRY_COLUMN_LENGTH_THRESHOLD = 27  # pylint: disable=invalid-name
+            TABLE_CONTINENT_COLUMN_LENGTH_THRESHOLD = 13  # pylint: disable=invalid-name
 
             logging_connected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES, 'Last Rejoin', Qt.SortOrder.DescendingOrder)
             logging_disconnected_players__field_names__with_down_arrow = add_sort_arrow_char_to_sorted_logging_table_field(LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES, 'Last Seen', Qt.SortOrder.AscendingOrder)
@@ -3892,7 +3894,7 @@ def rendering_core() -> None:
             if not SESSIONS_LOGGING_PATH.is_file():
                 SESSIONS_LOGGING_PATH.touch()  # Create the file if it doesn't exist
 
-            SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + '\n' + logging_disconnected_players_table.get_string(), encoding='utf-8')
+            SESSIONS_LOGGING_PATH.write_text(logging_connected_players_table.get_string() + '\n' + logging_disconnected_players_table.get_string(), encoding='utf-8')  # pyright: ignore[reportUnknownMemberType]
 
         def process_gui_session_tables_rendering() -> tuple[int, list[list[str]], list[list[CellColor]], int, list[list[str]], list[list[CellColor]]]:
             def format_player_gui_datetime(datetime_object: datetime) -> str:
@@ -4234,14 +4236,14 @@ def rendering_core() -> None:
         (
             GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
             GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES,
-            LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,
-            LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES,
+            LOGGING_CONNECTED_PLAYERS_TABLE__FIELD_NAMES,  # pylint: disable=invalid-name
+            LOGGING_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES,  # pylint: disable=invalid-name
         ) = compile_tables_header_field_names()
 
         GUIrenderingData.SESSION_CONNECTED_TABLE__NUM_COLS = len(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         GUIrenderingData.SESSION_DISCONNECTED_TABLE__NUM_COLS = len(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)
         # Define the column name to index mapping for connected and disconnected players
-        CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
+        CONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_CONNECTED_PLAYERS_TABLE__FIELD_NAMES)}  # pylint: disable=invalid-name
         # DISCONNECTED_COLUMN_MAPPING = {header: index for index, header in enumerate(GUIrenderingData.GUI_DISCONNECTED_PLAYERS_TABLE__FIELD_NAMES)}
 
         from modules.constants.local import COUNTRY_FLAGS_FOLDER_PATH
@@ -4823,7 +4825,7 @@ class SessionTableView(QTableView):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         horizontal_header = self.horizontalHeader()
         horizontal_header.setSectionsClickable(True)
-        horizontal_header.sectionClicked.connect(self.on_section_clicked)
+        horizontal_header.sectionClicked.connect(self.on_section_clicked)  # pyright: ignore[reportUnknownMemberType]
         horizontal_header.setSectionsMovable(True)
         self.setSelectionMode(QTableView.SelectionMode.NoSelection)
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectItems)
@@ -4836,7 +4838,7 @@ class SessionTableView(QTableView):
         horizontal_header.setSortIndicatorShown(True)
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
+        self.customContextMenuRequested.connect(self.show_context_menu)  # pyright: ignore[reportUnknownMemberType]
 
     # pylint: disable=invalid-name
     def setModel(self, model: QAbstractItemModel | None) -> None:  # noqa: N802
@@ -5091,7 +5093,7 @@ class SessionTableView(QTableView):
             enabled: bool | None = None,
         ):
             """Helper to create and configure a QAction."""
-            action = menu.addAction(label)
+            action = menu.addAction(label)  # pyright: ignore[reportUnknownMemberType]
             if not isinstance(action, QAction):
                 raise TypeError(format_type_error(action, QAction))
 
@@ -5102,7 +5104,7 @@ class SessionTableView(QTableView):
             if enabled is False:
                 action.setEnabled(enabled)
             elif handler:
-                action.triggered.connect(handler)
+                action.triggered.connect(handler)  # pyright: ignore[reportUnknownMemberType]
 
             return action
 
@@ -5130,7 +5132,7 @@ class SessionTableView(QTableView):
         context_menu = QMenu(self)
         context_menu.setStyleSheet(CUSTOM_CONTEXT_MENU_STYLESHEET)
         context_menu.setToolTipsVisible(True)
-        context_menu.hovered.connect(self.handle_menu_hovered)
+        context_menu.hovered.connect(self.handle_menu_hovered)  # pyright: ignore[reportUnknownMemberType]
 
         # Add "Copy Selection" action
         add_action(
@@ -5323,7 +5325,7 @@ class SessionTableView(QTableView):
                 )
 
         # Execute the context menu at the right-click position
-        context_menu.exec(self.mapToGlobal(pos))
+        context_menu.exec(self.mapToGlobal(pos))  # pyright: ignore[reportUnknownMemberType]
 
     def copy_selected_cells(self, selected_model: SessionTableModel, selected_indexes: list[QModelIndex]) -> None:
         """Copy the selected cells data from the table to the clipboard."""
@@ -5735,7 +5737,7 @@ class PersistentMenu(QMenu):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
         """Override mouse release event to prevent auto-closing on checkable actions."""
         if event is None:
             super().mouseReleaseEvent(event)
@@ -5780,24 +5782,24 @@ class MainWindow(QMainWindow):
         # ----- Open Project Repository Button -----
         open_project_repo_action = QAction('Project Repository', self)
         open_project_repo_action.setToolTip('Open the Session Sniffer GitHub repository in your default web browser')
-        open_project_repo_action.triggered.connect(self.open_project_repo)
-        toolbar.addAction(open_project_repo_action)
+        open_project_repo_action.triggered.connect(self.open_project_repo)  # pyright: ignore[reportUnknownMemberType]
+        toolbar.addAction(open_project_repo_action)  # pyright: ignore[reportUnknownMemberType]
 
         toolbar.addSeparator()
 
         # ----- Open Documentation Button -----
         open_documentation_action = QAction('Documentation', self)
         open_documentation_action.setToolTip('View the complete documentation and user guide for Session Sniffer')
-        open_documentation_action.triggered.connect(self.open_documentation)
-        toolbar.addAction(open_documentation_action)
+        open_documentation_action.triggered.connect(self.open_documentation)  # pyright: ignore[reportUnknownMemberType]
+        toolbar.addAction(open_documentation_action)  # pyright: ignore[reportUnknownMemberType]
 
         toolbar.addSeparator()
 
         # ----- Join Discord Button -----
         discord_action = QAction('Discord Server', self)
         discord_action.setToolTip('Join the official Session Sniffer Discord community for support and updates')
-        discord_action.triggered.connect(self.join_discord)
-        toolbar.addAction(discord_action)
+        discord_action.triggered.connect(self.join_discord)  # pyright: ignore[reportUnknownMemberType]
+        toolbar.addAction(discord_action)  # pyright: ignore[reportUnknownMemberType]
 
         toolbar.addSeparator()
 
@@ -5813,24 +5815,24 @@ class MainWindow(QMainWindow):
         self.mobile_detection_action.setToolTip('Get notified when a player joins using a mobile/cellular internet connection')
         self.mobile_detection_action.setCheckable(True)
         self.mobile_detection_action.setChecked(GUIDetectionSettings.mobile_detection_enabled)
-        self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)
-        detection_menu.addAction(self.mobile_detection_action)
+        self.mobile_detection_action.triggered.connect(self.toggle_mobile_detection)  # pyright: ignore[reportUnknownMemberType]
+        detection_menu.addAction(self.mobile_detection_action)  # pyright: ignore[reportUnknownMemberType]
 
         # VPN Detection action
         self.vpn_detection_action = QAction('Proxy, VPN or Tor exit address', self)
         self.vpn_detection_action.setToolTip('Get notified when a player joins using a VPN, proxy, or Tor exit node')
         self.vpn_detection_action.setCheckable(True)
         self.vpn_detection_action.setChecked(GUIDetectionSettings.vpn_detection_enabled)
-        self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)
-        detection_menu.addAction(self.vpn_detection_action)
+        self.vpn_detection_action.triggered.connect(self.toggle_vpn_detection)  # pyright: ignore[reportUnknownMemberType]
+        detection_menu.addAction(self.vpn_detection_action)  # pyright: ignore[reportUnknownMemberType]
 
         # Hosting Detection action
         self.hosting_detection_action = QAction('Hosting, colocated or data center', self)
         self.hosting_detection_action.setToolTip('Get notified when a player joins from a hosting provider or data center')
         self.hosting_detection_action.setCheckable(True)
         self.hosting_detection_action.setChecked(GUIDetectionSettings.hosting_detection_enabled)
-        self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)
-        detection_menu.addAction(self.hosting_detection_action)
+        self.hosting_detection_action.triggered.connect(self.toggle_hosting_detection)  # pyright: ignore[reportUnknownMemberType]
+        detection_menu.addAction(self.hosting_detection_action)  # pyright: ignore[reportUnknownMemberType]
 
         detection_menu.addSeparator()
 
@@ -5839,16 +5841,16 @@ class MainWindow(QMainWindow):
         self.player_join_notification_action.setToolTip('Get notified whenever any player joins your session')
         self.player_join_notification_action.setCheckable(True)
         self.player_join_notification_action.setChecked(GUIDetectionSettings.player_join_notifications_enabled)
-        self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)
-        detection_menu.addAction(self.player_join_notification_action)
+        self.player_join_notification_action.triggered.connect(self.toggle_player_join_notifications)  # pyright: ignore[reportUnknownMemberType]
+        detection_menu.addAction(self.player_join_notification_action)  # pyright: ignore[reportUnknownMemberType]
 
         # Player Leave Notification action
         self.player_leave_notification_action = QAction('Player leave notifications', self)
         self.player_leave_notification_action.setToolTip('Get notified whenever any player leaves your session')
         self.player_leave_notification_action.setCheckable(True)
         self.player_leave_notification_action.setChecked(GUIDetectionSettings.player_leave_notifications_enabled)
-        self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)
-        detection_menu.addAction(self.player_leave_notification_action)
+        self.player_leave_notification_action.triggered.connect(self.toggle_player_leave_notifications)  # pyright: ignore[reportUnknownMemberType]
+        detection_menu.addAction(self.player_leave_notification_action)  # pyright: ignore[reportUnknownMemberType]
 
         detection_menu_button.setMenu(detection_menu)
         toolbar.addWidget(detection_menu_button)
@@ -5880,7 +5882,7 @@ class MainWindow(QMainWindow):
         self.connected_collapse_button = QPushButton('▼')
         self.connected_collapse_button.setToolTip('Hide the connected players table')
         self.connected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
-        self.connected_collapse_button.clicked.connect(self.minimize_connected_section)
+        self.connected_collapse_button.clicked.connect(self.minimize_connected_section)  # pyright: ignore[reportUnknownMemberType]
         self.connected_header_layout.addWidget(self.connected_collapse_button)
 
         # Create the table model and view
@@ -5917,21 +5919,21 @@ class MainWindow(QMainWindow):
         self.disconnected_collapse_button = QPushButton('▼')
         self.disconnected_collapse_button.setToolTip('Hide the disconnected players table')
         self.disconnected_collapse_button.setStyleSheet(COMMON_COLLAPSE_BUTTON_STYLESHEET)
-        self.disconnected_collapse_button.clicked.connect(self.minimize_disconnected_section)
+        self.disconnected_collapse_button.clicked.connect(self.minimize_disconnected_section)  # pyright: ignore[reportUnknownMemberType]
         self.disconnected_header_layout.addWidget(self.disconnected_collapse_button)
 
         # Create expand button for when connected section is hidden
         self.connected_expand_button = QPushButton('▲  Show Connected Players (0)')
         self.connected_expand_button.setToolTip('Show the connected players table')
         self.connected_expand_button.setStyleSheet(CONNECTED_EXPAND_BUTTON_STYLESHEET)
-        self.connected_expand_button.clicked.connect(self.expand_connected_section)
+        self.connected_expand_button.clicked.connect(self.expand_connected_section)  # pyright: ignore[reportUnknownMemberType]
         self.connected_expand_button.setVisible(False)
 
         # Create expand button for when disconnected section is hidden
         self.disconnected_expand_button = QPushButton('▲  Show Disconnected Players (0)')
         self.disconnected_expand_button.setToolTip('Show the disconnected players table')
         self.disconnected_expand_button.setStyleSheet(DISCONNECTED_EXPAND_BUTTON_STYLESHEET)
-        self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)
+        self.disconnected_expand_button.clicked.connect(self.expand_disconnected_section)  # pyright: ignore[reportUnknownMemberType]
         self.disconnected_expand_button.setVisible(False)
 
         # Create the table model and view
@@ -5962,10 +5964,10 @@ class MainWindow(QMainWindow):
         self._disconnected_selected_count = 0
 
         # Connect to selection change signals to track selected cells
-        self.connected_table_view.selectionModel().selectionChanged.connect(
+        self.connected_table_view.selectionModel().selectionChanged.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda: self._update_selection_count(self.connected_table_view, 'connected'),
         )
-        self.disconnected_table_view.selectionModel().selectionChanged.connect(
+        self.disconnected_table_view.selectionModel().selectionChanged.connect(  # pyright: ignore[reportUnknownMemberType]
             lambda: self._update_selection_count(self.disconnected_table_view, 'disconnected'),
         )
 
@@ -5978,10 +5980,10 @@ class MainWindow(QMainWindow):
             self.connected_table_view,
             self.disconnected_table_view,
         )
-        self.worker_thread.update_signal.connect(self.update_gui)
+        self.worker_thread.update_signal.connect(self.update_gui)  # pyright: ignore[reportUnknownMemberType]
         self.worker_thread.start()
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:    # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def closeEvent(self, event: QCloseEvent | None) -> None:    # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
@@ -6200,7 +6202,7 @@ class MainWindow(QMainWindow):
 class ClickableLabel(QLabel):
     clicked = pyqtSignal()
 
-    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         if event is not None and event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
 
@@ -6212,7 +6214,7 @@ class DiscordIntro(QDialog):
         # Ensure the dialog is modal, blocking interaction with the main window
         self.setModal(True)
 
-        WINDOW_TITLE = '🏆 Join our Discord Community! 🤝'
+        WINDOW_TITLE = '🏆 Join our Discord Community! 🤝'  # pylint: disable=invalid-name
 
         # Set up the window
         self.setWindowTitle(WINDOW_TITLE)
@@ -6233,7 +6235,7 @@ class DiscordIntro(QDialog):
         self.exit_button.setToolTip('Close this popup')
         self.exit_button.setStyleSheet(DISCORD_POPUP_EXIT_BUTTON_STYLESHEET)
         self.exit_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.exit_button.clicked.connect(self.close_popup)
+        self.exit_button.clicked.connect(self.close_popup)  # pyright: ignore[reportUnknownMemberType]
 
         # Layout for the window content
         layout = QVBoxLayout()
@@ -6259,7 +6261,7 @@ class DiscordIntro(QDialog):
         self.join_button.setToolTip('Open Discord and join the Session Sniffer community server')
         self.join_button.setStyleSheet(DISCORD_POPUP_JOIN_BUTTON_STYLESHEET)
         self.join_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.join_button.clicked.connect(self.open_discord)
+        self.join_button.clicked.connect(self.open_discord)  # pyright: ignore[reportUnknownMemberType]
 
         # Set button width to 75% of the window width
         self.join_button.setMaximumWidth(int(self.width() * 0.75))
@@ -6277,7 +6279,7 @@ class DiscordIntro(QDialog):
         self.dont_remind_me_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.dont_remind_me_label.setToolTip('Disable Discord popup notifications permanently')
         self.dont_remind_me_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.dont_remind_me_label.clicked.connect(self.dont_remind_me)
+        self.dont_remind_me_label.clicked.connect(self.dont_remind_me)  # pyright: ignore[reportUnknownMemberType]
 
         layout.addItem(QSpacerItem(0, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))  # Spacer
         layout.addWidget(self.dont_remind_me_label)
@@ -6310,7 +6312,7 @@ class DiscordIntro(QDialog):
         self._drag_pos = None
 
     # pylint: disable=invalid-name
-    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         if (
             event is not None
             and event.button() == Qt.MouseButton.LeftButton
@@ -6320,7 +6322,7 @@ class DiscordIntro(QDialog):
 
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mouseMoveEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         if (
             event is not None
             and self._drag_pos is not None  # If mouse is pressed, move the window
@@ -6331,7 +6333,7 @@ class DiscordIntro(QDialog):
 
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # type: ignore[reportIncompatibleMethodOverride]  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802
         self._drag_pos = None  # Reset drag position when mouse is released
 
         super().mouseReleaseEvent(event)
@@ -6369,7 +6371,7 @@ class DiscordIntro(QDialog):
         self.fade_out.setStartValue(1)  # Start from fully opaque
         self.fade_out.setEndValue(0)    # Fade to fully transparent
         self.fade_out.setEasingCurve(QEasingCurve.Type.InCubic)
-        self.fade_out.finished.connect(self.close)  # Close the window after the fade-out finishes
+        self.fade_out.finished.connect(self.close)  # pyright: ignore[reportUnknownMemberType]  # Close the window after the fade-out finishes
         self.fade_out.start()
 
 
@@ -6380,7 +6382,7 @@ if __name__ == '__main__':
 
     if Settings.SHOW_DISCORD_POPUP:
         # Delay the popup opening by 3 seconds
-        QTimer.singleShot(3000, lambda: DiscordIntro().exec())
+        QTimer.singleShot(3000, lambda: DiscordIntro().exec())  # pyright: ignore[reportUnknownMemberType]
 
     # Start the application's event loop
     sys.exit(app.exec())
