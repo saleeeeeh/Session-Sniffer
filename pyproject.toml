@@ -82,7 +82,7 @@ ignore = [
     ".history",
     ".venv",
 ]
-ignore-patterns = ".*\\.pyi"
+ignore-patterns = "^\\.#|.*\\.pyi"
 py-version = "3.13"
 recursive = true
 
