@@ -13,3 +13,4 @@ extend-exclude =
     .history,
     .venv,
     scripts,
+    stubs,

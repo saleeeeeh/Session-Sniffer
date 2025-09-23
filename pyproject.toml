@@ -45,8 +45,10 @@ Discord = "https://discord.gg/hMZ7MsPX7G"
 
 [tool.mypy]
 python_version = "3.13"
+mypy_path = "stubs"
 exclude = [
     "^scripts/$",
+    "^stubs/$",
 ]
 disable_error_code = [
     "arg-type",
@@ -84,6 +86,7 @@ ignore = [
     ".history",
     ".venv",
     "scripts",
+    "stubs",
 ]
 py-version = "3.13"
 recursive = true
@@ -109,11 +112,12 @@ disable = [
 [tool.pyright]
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
-reportMissingTypeStubs = "none"  # Ignore missing type stubs for third-party libraries that don't provide them
+stubPath = "stubs"
 
 
 [tool.ruff]
 target-version = "py313"
+exclude = ["stubs/**"]
 
 [tool.ruff.lint]
 ignore = [
@@ -169,5 +173,6 @@ convention = "google"
 exclude = [
     ".venv",
     ".history",
+    "stubs",
 ]
 min_confidence = 61
