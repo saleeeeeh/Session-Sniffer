@@ -46,10 +46,6 @@ Discord = "https://discord.gg/hMZ7MsPX7G"
 [tool.mypy]
 python_version = "3.13"
 mypy_path = "stubs"
-exclude = [
-    "^scripts/$",
-    "^stubs/$",
-]
 disable_error_code = [
     "arg-type",
     "no-untyped-call",
@@ -85,8 +81,6 @@ ignore = [
     ".dev",
     ".history",
     ".venv",
-    "scripts",
-    "stubs",
 ]
 ignore-patterns = ".*\\.pyi"
 py-version = "3.13"
@@ -152,7 +146,6 @@ select = ["ALL"]
 exclude = [
     ".venv",
     ".history",
-    "scripts",
     "stubs",
 ]
 
@@ -179,6 +172,5 @@ convention = "google"
 exclude = [
     ".venv",
     ".history",
-    "stubs",
 ]
 min_confidence = 61
