@@ -185,8 +185,8 @@ def take[T](n: int, iterable: Iterable[T]) -> list[T]:
 
 def dedup_preserve_order[T](*iterables: Iterable[T]) -> list[T]:
     """Concatenate one or more iterables while removing duplicates and preserving order."""
-    seen = set()
-    unique = []
+    seen: set[T] = set()
+    unique: list[T] = []
 
     for iterable in iterables:
         for item in iterable:
