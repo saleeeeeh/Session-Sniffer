@@ -3076,7 +3076,7 @@ def pinger_core() -> None:
                     pending_ips.remove(ip)
 
                     try:
-                        ping_result: PingResult = future.result()
+                        ping_result = future.result()
                     except AllEndpointsExhaustedError:
                         continue
 
