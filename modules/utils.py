@@ -395,8 +395,8 @@ def validate_and_strip_balanced_outer_parens(expr: str) -> str:
     if not expr:
         return ''
 
-    unmatched_opening = []
-    unmatched_closing = []
+    unmatched_opening: list[int] = []
+    unmatched_closing: list[int] = []
     strip_outer_depth = 0
 
     for idx, char in enumerate(expr):
