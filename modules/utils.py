@@ -220,9 +220,19 @@ def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[st
 
 def get_pid_by_path(filepath: Path, /) -> int | None:
     """Get the process ID (PID) of a running process by its executable path."""
-    for process in psutil.process_iter(['pid', 'exe']):  # pyright: ignore[reportUnknownMemberType]
-        if process.info['exe'] == str(filepath.absolute()):
-            return process.pid
+    absolute_filepath = filepath.resolve()
+
+    for process in psutil.process_iter(['exe', 'pid']):  # pyright: ignore[reportUnknownMemberType]
+        process_exe_info: str | None = process.info.get('exe')
+        if process_exe_info is None:
+            continue
+
+        if Path(process_exe_info).resolve() == absolute_filepath:
+            process_pid_info: int | None = process.info.get('pid')
+            if process_pid_info is None:
+                continue
+            return process_pid_info
+
     return None
 
 
