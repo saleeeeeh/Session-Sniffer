@@ -205,8 +205,8 @@ def terminate_script(
                 if isinstance(thread, Thread) and thread.is_alive():
                     return False
 
-        # TODO(BUZZARDGTA): Gracefully exit the script even when the `cature` module is running.
-        return not ('capture' in globals() and capture is not None and isinstance(capture, PacketCapture))
+        # TODO(BUZZARDGTA): Gracefully exit the script even when the `capture` module is running.
+        return False
 
     ScriptControl.set_crashed(None if stdout_crash_text is None else f'\n\n{stdout_crash_text}\n')
 
