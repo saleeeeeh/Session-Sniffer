@@ -16,10 +16,6 @@ from typing import Any, Literal
 import psutil
 from packaging.version import Version
 from win32com.client import Dispatch
-from win32com.shell import (  # pyright: ignore[reportMissingModuleSource]  # pylint: disable=import-error,no-name-in-module
-    shell,  # pyright: ignore[reportMissingModuleSource]
-    shellcon,  # pyright: ignore[reportMissingModuleSource]
-)
 
 from modules.utils_exceptions import (
     InvalidBooleanValueError,
@@ -110,12 +106,8 @@ def resource_path(relative_path: Path) -> Path:
     raise TypeError(format_type_error(base_path, (str, Path)))
 
 
-def get_documents_folder(*, use_alternative_method: bool = False) -> Path:
+def get_documents_folder() -> Path:
     """Retrieve the Path object to the current user's "Documents" folder by querying the Windows registry.
-
-    Args:
-        use_alternative_method: If set to `True`, the alternative method will be used to retrieve the "Documents" folder.
-        If set to `False` (default), the registry-based method will be used.
 
     Returns:
         Path: A `Path` object pointing to the user's "Documents" folder.
@@ -123,18 +115,12 @@ def get_documents_folder(*, use_alternative_method: bool = False) -> Path:
     Raises:
         TypeError: If the retrieved path is not a string.
     """
-    if use_alternative_method:
-        # Alternative method using SHGetKnownFolderPath from WinAPI
-        documents_path = shell.SHGetKnownFolderPath(shellcon.FOLDERID_Documents, 0)  # pyright: ignore[reportUnknownMemberType]
-    else:
-        # Default method using Windows registry
-        from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
+    from modules.constants.standalone import USER_SHELL_FOLDERS__REG_KEY
 
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
-            documents_path, _ = winreg.QueryValueEx(key, 'Personal')
-
-    if not isinstance(documents_path, str):
-        raise TypeError(format_type_error(documents_path, str))
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, USER_SHELL_FOLDERS__REG_KEY) as key:
+        documents_path, _ = winreg.QueryValueEx(key, 'Personal')
+        if not isinstance(documents_path, str):
+            raise TypeError(format_type_error(documents_path, str))
 
     return Path(documents_path)
 
