@@ -1848,7 +1848,7 @@ def check_for_updates() -> None:
 
                             DEBUG:
                                 Exception: {type(e).__name__}
-                                HTTP Code: {f"{e.response.status_code} - {e.response.reason}" if isinstance(e, requests.exceptions.RequestException) and e.response else "No response"}
+                                HTTP Code: {f"{e.response.status_code} - {e.response.reason}" if e.response else "No response"}
 
                         Please check your internet connection and ensure you have access to:
                         {GITHUB_VERSIONS_URL}
@@ -2495,8 +2495,6 @@ for interface in tshark_interfaces:
             interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ', '.join(interface.descriptions), 'N/A', 'N/A', arp_entry.ip_address, arp_entry.mac_address, organization_name, is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
-if not isinstance(selected_interface.name, str):
-    raise TypeError(format_type_error(selected_interface.name, str))
 
 clear_screen()
 set_window_title(f'Initializing addresses and establishing connection to your PC / Console - {TITLE}')
@@ -4508,8 +4506,6 @@ class SessionTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index_by_name('Country') == col_idx:
                 ip = self._data[row_idx][self.ip_column_index]
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
                 ip = ip.removesuffix(' 👑')
 
                 player = PlayersRegistry.require_player_by_ip(ip)
