@@ -112,6 +112,11 @@ stubPath = "stubs"
 
 [tool.ruff]
 target-version = "py313"
+exclude = [
+    ".venv",
+    ".history",
+    "stubs",
+]
 
 [tool.ruff.lint]
 ignore = [
@@ -143,11 +148,6 @@ ignore = [
     "TD005",   # missing-todo-description
 ]
 select = ["ALL"]
-exclude = [
-    ".venv",
-    ".history",
-    "stubs",
-]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
