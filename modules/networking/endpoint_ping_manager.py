@@ -80,6 +80,7 @@ class PingResult:
     ping_times:          list[float]
     packets_transmitted: int   | None
     packets_received:    int   | None
+    packet_duplicates:   int   | None
     packet_loss:         float | None
     packet_errors:       int   | None
     rtt_min:             float | None
@@ -90,7 +91,7 @@ class PingResult:
     def is_invalid(self, ping_response: str) -> bool:
         """Return True if the ping data is invalid (missing critical information)."""
         return ping_response.strip() == 'null' or any(
-            getattr(self, attr) is None for attr in ('packets_transmitted', 'packets_received', 'packet_loss', 'packet_errors')
+            getattr(self, attr) is None for attr in ('packets_transmitted', 'packets_received', 'packet_duplicates', 'packet_loss', 'packet_errors')
         )
 
 
@@ -140,11 +141,12 @@ def parse_ping_response(ping_response: str) -> PingResult:
     ping_times = [float(match.group('TIME_MS')) for match in RE_BYTES_PATTERN.finditer(ping_response)]
 
     # Extract packet statistics
-    packets_transmitted = packets_received = packet_loss = packet_errors = None
+    packets_transmitted = packets_received = packet_duplicates = packet_loss = packet_errors = None
     packets_match = RE_PACKET_STATS_PATTERN.search(ping_response)
     if packets_match:
         packets_transmitted =   int(packets_match.group('PACKETS_TRANSMITTED'))
         packets_received    =   int(packets_match.group('PACKETS_RECEIVED'))
+        packet_duplicates   =   int(packets_match.group('DUPLICATES') or 0)
         packet_loss         = float(packets_match.group('PACKET_LOSS_PERCENTAGE'))
         packet_errors       =   int(packets_match.group('ERRORS') or 0)
 
@@ -161,6 +163,7 @@ def parse_ping_response(ping_response: str) -> PingResult:
         ping_times=ping_times,
         packets_transmitted=packets_transmitted,
         packets_received=packets_received,
+        packet_duplicates=packet_duplicates,
         packet_loss=packet_loss,
         packet_errors=packet_errors,
         rtt_min=rtt_min,

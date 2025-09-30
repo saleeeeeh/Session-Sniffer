@@ -1170,6 +1170,7 @@ class PlayerPing:  # pylint: disable=too-many-instance-attributes
     ping_times:          Literal['...'] | list[float]  = '...'
     packets_transmitted: Literal['...'] | int   | None = '...'
     packets_received:    Literal['...'] | int   | None = '...'
+    packet_duplicates:   Literal['...'] | int   | None = '...'
     packet_loss:         Literal['...'] | float | None = '...'
     packet_errors:       Literal['...'] | int   | None = '...'
     rtt_min:             Literal['...'] | float | None = '...'
@@ -3086,6 +3087,7 @@ def pinger_core() -> None:
                     player.ping.ping_times = ping_result.ping_times
                     player.ping.packets_transmitted = ping_result.packets_transmitted
                     player.ping.packets_received = ping_result.packets_received
+                    player.ping.packet_duplicates = ping_result.packet_duplicates
                     player.ping.packet_loss = ping_result.packet_loss
                     player.ping.packet_errors = ping_result.packet_errors
                     player.ping.rtt_min = ping_result.rtt_min
