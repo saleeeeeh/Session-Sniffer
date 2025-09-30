@@ -6311,7 +6311,7 @@ class DiscordIntro(QDialog):
         self.activateWindow()
 
         # Initialize variables to track mouse position
-        self._drag_pos = None
+        self._drag_pos: QPoint | None = None
 
     # pylint: disable=invalid-name
     def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802
