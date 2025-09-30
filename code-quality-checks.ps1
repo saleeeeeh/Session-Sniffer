@@ -54,7 +54,7 @@ Show-Header
 $QualityTools = @(
     @{
         ToolName = "ruff"
-        Command = "ruff check . --config pyproject.toml"
+        Command = "ruff check ."
         InstallCommand = "pip install ruff"
         Description = "Fast Python linter and code formatter"
         Category = "LINTING"
@@ -75,7 +75,7 @@ $QualityTools = @(
     },
     @{
         ToolName = "pyright"
-        Command = "pyright . --project pyproject.toml"
+        Command = "pyright"
         InstallCommand = "pip install pyright"
         Description = "Microsoft Python type checker"
         Category = "TYPE CHECKING"
@@ -89,7 +89,7 @@ $QualityTools = @(
     },
     @{
         ToolName = "vulture"
-        Command = "vulture . --config pyproject.toml"
+        Command = "vulture ."
         InstallCommand = "pip install vulture"
         Description = "Dead code detection and analysis"
         Category = "CODE QUALITY"
