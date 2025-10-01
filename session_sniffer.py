@@ -5282,7 +5282,7 @@ class SessionTableView(QTableView):
         ):
             all_ips: list[str] = []
 
-            # Get the IP addreses from the selected cells
+            # Get the IP addresses from the selected cells
             for index in selected_indexes:
                 ip = selected_model.data(index)
                 if ip is None:
