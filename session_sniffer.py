@@ -5797,7 +5797,7 @@ class PersistentMenu(QMenu):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         """Override mouse release event to prevent auto-closing on checkable actions."""
         if event is None:
             super().mouseReleaseEvent(event)
@@ -6043,7 +6043,7 @@ class MainWindow(QMainWindow):
         self.worker_thread.update_signal.connect(self.update_gui)  # pyright: ignore[reportUnknownMemberType]
         self.worker_thread.start()
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:    # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
+    def closeEvent(self, event: QCloseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
