@@ -5257,18 +5257,18 @@ class SessionTableView(QTableView):
                 from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
-                ip = selected_model.get_display_text(selected_indexes[0])
-                if not ip:
+                displayed_ip = selected_model.get_display_text(selected_indexes[0])
+                if not displayed_ip:
                     return
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
-                player = PlayersRegistry.require_player_by_ip(ip)
+                player = PlayersRegistry.require_player_by_ip(displayed_ip)
 
                 add_action(
                     context_menu,
                     'IP Lookup Details',
                     tooltip='Displays a notification with a detailed IP lookup report for selected player.',
-                    handler=lambda: self.show_detailed_ip_lookup_player_cell(ip),
+                    handler=lambda: self.show_detailed_ip_lookup_player_cell(displayed_ip),
                 )
 
                 ping_menu = add_menu(context_menu, 'Ping    ')
@@ -5276,13 +5276,13 @@ class SessionTableView(QTableView):
                     ping_menu,
                     'Normal',
                     tooltip='Checks if selected IP address responds to pings.',
-                    handler=lambda: self.ping(ip),
+                    handler=lambda: self.ping(displayed_ip),
                 )
                 add_action(
                     ping_menu,
                     'TCP Port (paping.exe)',
                     tooltip='Checks if selected IP address responds to TCP pings on a given port.',
-                    handler=lambda: self.tcp_port_ping(ip),
+                    handler=lambda: self.tcp_port_ping(displayed_ip),
                 )
 
                 scripts_menu = add_menu(context_menu, 'User Scripts ')
@@ -5296,11 +5296,14 @@ class SessionTableView(QTableView):
 
                     script_resolved = script.resolve()
 
+                    def create_script_handler(script_path: Path) -> Callable[[], None]:
+                        return lambda: run_cmd_script(script_path, [displayed_ip])  # type: ignore[list-item]
+
                     add_action(
                         scripts_menu,
                         script_resolved.name,
                         tooltip='',
-                        handler=lambda _, s=script_resolved: run_cmd_script(s, [ip]),
+                        handler=create_script_handler(script_resolved),
                     )
 
                 userip_menu = add_menu(context_menu, 'UserIP  ')
@@ -5308,27 +5311,33 @@ class SessionTableView(QTableView):
                 if player.userip is None:
                     add_userip_menu = add_menu(userip_menu, 'Add     ', 'Add selected IP address to UserIP database.')  # Extra spaces for alignment
                     for database_path in userip_database_filepaths:
+                        def create_add_handler(db_path: Path) -> Callable[[], None]:
+                            return lambda: self.userip_manager__add([displayed_ip], db_path)  # type: ignore[list-item]
+
                         add_action(
                             add_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                             tooltip='Add selected IP address to this UserIP database.',
-                            handler=lambda _, database_path=database_path: self.userip_manager__add([ip], database_path),
+                            handler=create_add_handler(database_path),
                         )
                 else:
                     move_userip_menu = add_menu(userip_menu, 'Move    ', 'Move selected IP address to another database.')
                     for database_path in userip_database_filepaths:
+                        def create_move_handler(db_path: Path) -> Callable[[], None]:
+                            return lambda: self.userip_manager__move([displayed_ip], db_path)  # type: ignore[list-item]
+
                         add_action(
                             move_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                             tooltip='Move selected IP address to this UserIP database.',
-                            handler=lambda _, database_path=database_path: self.userip_manager__move([ip], database_path),
+                            handler=create_move_handler(database_path),
                             enabled=player.userip.database_path != database_path,
                         )
                     add_action(
                         userip_menu,
                         'Delete  ',  # Extra spaces for alignment
                         tooltip='Delete selected IP address from UserIP databases.',
-                        handler=lambda: self.userip_manager__del([ip]),
+                        handler=lambda: self.userip_manager__del([displayed_ip]),  # type: ignore[list-item]
                     )
 
         # Check if all selected cells are in the "IP Address" column
@@ -5340,31 +5349,37 @@ class SessionTableView(QTableView):
 
             # Get the IP addresses from the selected cells
             for index in selected_indexes:
-                ip = selected_model.get_display_text(index)
-                if ip:
-                    all_ips.append(ip)
+                displayed_ip = selected_model.get_display_text(index)
+                if displayed_ip:
+                    all_ips.append(displayed_ip)
 
             if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, 'UserIP  ')
 
                 add_userip_menu = add_menu(userip_menu, 'Add Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
+                    def create_multi_add_handler(db_path: Path, ip_list: list[str]) -> Callable[[], None]:
+                        return lambda: self.userip_manager__add(ip_list, db_path)
+
                     add_action(
                         add_userip_menu,
                         str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                         tooltip='Add selected IP addresses to this UserIP database.',
-                        handler=lambda _, database_path=database_path: self.userip_manager__add(all_ips, database_path),
+                        handler=create_multi_add_handler(database_path, all_ips),
                     )
             elif all(ip in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, 'UserIP  ')
 
                 move_userip_menu = add_menu(userip_menu, 'Move Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
+                    def create_multi_move_handler(db_path: Path, ip_list: list[str]) -> Callable[[], None]:
+                        return lambda: self.userip_manager__move(ip_list, db_path)
+
                     add_action(
                         move_userip_menu,
                         str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                         tooltip='Move selected IP addresses to this UserIP database.',
-                        handler=lambda _, database_path=database_path: self.userip_manager__move(all_ips, database_path),
+                        handler=create_multi_move_handler(database_path, all_ips),
                     )
 
                 add_action(
