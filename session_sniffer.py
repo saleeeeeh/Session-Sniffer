@@ -589,13 +589,13 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_INTERFACE_NAME, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_INTERFACE_NAME = setting_value
+                        Settings.CAPTURE_INTERFACE_NAME = setting_value  # pyright: ignore[reportConstantRedefinition]
                 elif setting_name == 'CAPTURE_IP_ADDRESS':
                     try:
                         Settings.CAPTURE_IP_ADDRESS, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         if is_ipv4_address(setting_value):
-                            Settings.CAPTURE_IP_ADDRESS = setting_value
+                            Settings.CAPTURE_IP_ADDRESS = setting_value  # pyright: ignore[reportConstantRedefinition]
                         else:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_MAC_ADDRESS':
@@ -606,7 +606,7 @@ class Settings(DefaultSettings):
                         if is_mac_address(formatted_mac_address):
                             if formatted_mac_address != setting_value:
                                 need_rewrite_settings = True
-                            Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address
+                            Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address  # pyright: ignore[reportConstantRedefinition]
                         else:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_ARP':
@@ -625,7 +625,7 @@ class Settings(DefaultSettings):
                     except InvalidNoneTypeValueError:
                         try:
                             case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('GTA5', 'Minecraft'))
-                            Settings.CAPTURE_PROGRAM_PRESET = normalized_match
+                            Settings.CAPTURE_PROGRAM_PRESET = normalized_match  # pyright: ignore[reportConstantRedefinition]
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
@@ -644,14 +644,14 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)  # pyright: ignore[reportConstantRedefinition]
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER':
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)  # pyright: ignore[reportConstantRedefinition]
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
                             need_rewrite_settings = True
                 elif setting_name == 'GUI_SESSIONS_LOGGING':
@@ -666,16 +666,16 @@ class Settings(DefaultSettings):
                         need_rewrite_settings = True
                 elif setting_name == 'GUI_FIELDS_TO_HIDE':
                     try:
-                        gui_fields_to_hide: tuple[str] = ast.literal_eval(setting_value)
+                        gui_fields_to_hide = ast.literal_eval(setting_value)
                     except (ValueError, SyntaxError):
                         need_rewrite_settings = True
                     else:
-                        if isinstance(gui_fields_to_hide, tuple) and all(isinstance(item, str) for item in gui_fields_to_hide):
+                        if isinstance(gui_fields_to_hide, tuple) and all(isinstance(item, str) for item in gui_fields_to_hide):  # pyright: ignore[reportUnknownVariableType]
                             filtered_gui_fields_to_hide: list[str] = []
 
-                            for value in gui_fields_to_hide:
+                            for value in gui_fields_to_hide:  # pyright: ignore[reportUnknownVariableType]
                                 try:
-                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.GUI_HIDEABLE_FIELDS)
+                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.GUI_HIDEABLE_FIELDS)  # pyright: ignore[reportUnknownArgumentType]
                                     filtered_gui_fields_to_hide.append(normalized_match)
                                     if not case_sensitive_match:
                                         need_rewrite_current_setting = True
@@ -736,7 +736,7 @@ class Settings(DefaultSettings):
                     except InvalidNoneTypeValueError:
                         try:
                             case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('Stable', 'RC'))
-                            Settings.UPDATER_CHANNEL = normalized_match
+                            Settings.UPDATER_CHANNEL = normalized_match  # pyright: ignore[reportConstantRedefinition]
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
@@ -798,9 +798,9 @@ class Interface:
     manufacturer: str  | None    = None
     packets_sent: int  | None    = None
     packets_recv: int  | None    = None
-    descriptions: list[str]      = dataclasses.field(default_factory=list)
-    ip_addresses: list[str]      = dataclasses.field(default_factory=list)
-    arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)
+    descriptions: list[str]      = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    ip_addresses: list[str]      = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
     def add_arp_entry(self, arp_entry: ARPEntry) -> bool:
         """Add an ARP entry for the given interface."""
@@ -1190,7 +1190,7 @@ class PlayerUserIPDetection:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerModMenus:
-    usernames: list[str] = dataclasses.field(default_factory=list)
+    usernames: list[str] = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
 class Player:  # pylint: disable=too-many-instance-attributes
@@ -1874,7 +1874,7 @@ def check_for_updates() -> None:
                 if not isinstance(versions_json, dict):
                     raise TypeError(format_type_error(versions_json, dict))
 
-                return versions_json
+                return versions_json  # pyright: ignore[reportUnknownVariableType]
 
     versions_json = get_updater_json_response()
     if versions_json is None:
@@ -2215,7 +2215,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
             pass
         else:
             if isinstance(loaded_data, dict):
-                for database_name, database_info in loaded_data.items():
+                for database_name, database_info in loaded_data.items():  # pyright: ignore[reportUnknownVariableType]
                     if not isinstance(database_name, str):
                         continue
                     if not isinstance(database_info, dict):
@@ -2223,7 +2223,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
                     if database_name not in geolite2_databases:
                         continue
 
-                    geolite2_databases[database_name]['current_version'] = database_info.get('version', None)
+                    geolite2_databases[database_name]['current_version'] = database_info.get('version', None)  # pyright: ignore[reportUnknownMemberType]
 
         try:
             response = s.get(GITHUB_RELEASE_API__GEOLITE2__URL)
@@ -2239,16 +2239,16 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
         if not isinstance(release_data, dict):
             raise TypeError(format_type_error(release_data, dict))
 
-        for asset in release_data['assets']:
-            asset_name = asset['name']
+        for asset in release_data['assets']:  # pyright: ignore[reportUnknownVariableType]
+            asset_name = asset['name']  # pyright: ignore[reportUnknownVariableType]
             if not isinstance(asset_name, str):
                 continue
             if asset_name not in geolite2_databases:
                 continue
 
             geolite2_databases[asset_name].update({
-                'last_version': asset['updated_at'],
-                'download_url': asset['browser_download_url'],
+                'last_version': asset['updated_at'],  # pyright: ignore[reportUnknownArgumentType]
+                'download_url': asset['browser_download_url'],  # pyright: ignore[reportUnknownArgumentType]
             })
 
         failed_fetching_flag_list: list[str] = []
@@ -2978,17 +2978,17 @@ def iplookup_core() -> None:
             if not isinstance(iplookup_results, list):
                 raise TypeError(format_type_error(iplookup_results, list))
 
-            for iplookup in iplookup_results:
+            for iplookup in iplookup_results:  # pyright: ignore[reportUnknownVariableType]
                 if not isinstance(iplookup, dict):
-                    raise TypeError(format_type_error(iplookup, dict))
+                    raise TypeError(format_type_error(iplookup, dict))  # pyright: ignore[reportUnknownArgumentType]
 
-                player_ip = iplookup.get('query')
+                player_ip = iplookup.get('query')  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
                 if not isinstance(player_ip, str):
-                    raise TypeError(format_type_error(player_ip, str))
+                    raise TypeError(format_type_error(player_ip, str))  # pyright: ignore[reportUnknownArgumentType]
 
                 player = PlayersRegistry.require_player_by_ip(player_ip)
                 for attr, (json_key, expected_types) in FIELD_MAPPINGS.items():
-                    setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
+                    setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))  # pyright: ignore[reportUnknownArgumentType]
                 player.iplookup.ipapi.is_initialized = True
 
             throttle_until(int(response.headers['X-Rl']), int(response.headers['X-Ttl']))
