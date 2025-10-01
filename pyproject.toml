@@ -113,8 +113,8 @@ stubPath = "stubs"
 [tool.ruff]
 target-version = "py313"
 exclude = [
-    ".venv",
     ".history",
+    ".venv",
     "stubs",
 ]
 
@@ -170,7 +170,7 @@ convention = "google"
 
 [tool.vulture]
 exclude = [
-    ".venv",
     ".history",
+    ".venv",
 ]
 min_confidence = 61
