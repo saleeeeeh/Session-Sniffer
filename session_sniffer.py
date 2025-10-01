@@ -4520,8 +4520,7 @@ class SessionTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index_by_name('Country') == col_idx:
-                ip = self._data[row_idx][self.ip_column_index]
-                ip = self.remove_session_host_crown_from_ip(ip)
+                ip = self.get_ip_from_data_safely(self._data[row_idx])
 
                 player = PlayersRegistry.require_player_by_ip(ip)
                 if player.country_flag is not None:
@@ -4635,7 +4634,7 @@ class SessionTableModel(QAbstractTableModel):
                 return player_datetime
 
             combined.sort(
-                key=lambda row: extract_datetime_for_ip(self.remove_session_host_crown_from_ip(row[0][self.ip_column_index])),
+                key=lambda row: extract_datetime_for_ip(self.get_ip_from_data_safely(row[0])),
                 reverse=not sort_order_bool,
             )
         elif sorted_column_name == 'IP Address':
@@ -4643,7 +4642,7 @@ class SessionTableModel(QAbstractTableModel):
             import ipaddress
 
             combined.sort(
-                key=lambda row: ipaddress.ip_address(self.remove_session_host_crown_from_ip(row[0][column])),
+                key=lambda row: ipaddress.ip_address(self.get_ip_from_data_safely(row[0])),
                 reverse=sort_order_bool,
             )
         elif sorted_column_name in {'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM', 'Last Port', 'First Port'}:
@@ -4710,7 +4709,7 @@ class SessionTableModel(QAbstractTableModel):
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if self.remove_session_host_crown_from_ip(row_data[self.ip_column_index]) == ip:
+            if self.get_ip_from_data_safely(row_data) == ip:
                 return row_index
         return None
 
@@ -4949,12 +4948,8 @@ class SessionTableView(QTableView):
                 model = self.model()
 
                 if model.get_column_index_by_name('Country') == index.column():
-                    ip = model.data(model.index(index.row(), model.ip_column_index))
+                    ip = model.get_ip_from_model_data_safely(model.index(index.row(), model.ip_column_index))
                     if ip is not None:
-                        if not isinstance(ip, str):
-                            raise TypeError(format_type_error(ip, str))
-                        ip = model.remove_session_host_crown_from_ip(ip)
-
                         player = PlayersRegistry.require_player_by_ip(ip)
                         if player.country_flag is not None:
                             self.show_flag_tooltip(event, index, player)
@@ -5392,14 +5387,18 @@ class SessionTableView(QTableView):
 
         # Iterate over each selected index and retrieve its display data
         for index in selected_indexes:
-            cell_text = selected_model.data(index)
-            if cell_text is None:
-                continue  # Added this continue cuz some rare times it would raise.
-            if not isinstance(cell_text, str):
-                raise TypeError(format_type_error(cell_text, str))
-
             if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address':
-                cell_text = selected_model.remove_session_host_crown_from_ip(cell_text)
+                # For IP Address columns, use the safe method that handles crown removal
+                cell_text = selected_model.get_ip_from_model_data_safely(index)
+                if cell_text is None:
+                    continue
+            else:
+                # For other columns, use standard data retrieval
+                cell_text = selected_model.data(index)
+                if cell_text is None:
+                    continue  # Added this continue cuz some rare times it would raise.
+                if not isinstance(cell_text, str):
+                    raise TypeError(format_type_error(cell_text, str))
 
             selected_texts.append(cell_text)
 
