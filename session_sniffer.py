@@ -4736,29 +4736,34 @@ class SessionTableModel(QAbstractTableModel):
 
         return self.remove_session_host_crown_from_ip(ip_data)
 
-    def get_ip_from_model_data_safely(self, index: QModelIndex) -> str | None:
-        """Safely extract an IP address as a string from model data.
+    def get_display_text(self, index: QModelIndex) -> str | None:
+        """Extract display text as a string from model data.
 
-        This method ensures the IP address is always returned as a string type
-        when accessing data from Qt model.
+        This method handles the case where model data might return `str`, `QBrush`, `QIcon` or `None` for decoration roles, but we only want the display text as a string.<br>
+        For 'IP Address' column, it automatically removes the session host crown suffix (👑) if present.
 
         Args:
-            index (QModelIndex): The QModelIndex to get IP data from.
+            index (QModelIndex): The QModelIndex to get display text from.
 
         Returns:
-            The IP address as a clean string (with crown suffix removed if present).
-            Returns `None` if model data is None.
+            The display text as a string, or `None` if no valid display text is available.
+            For the 'IP Address' column, the crown suffix is automatically removed.
 
         Raises:
-            TypeError: If the model data is not a string and is not `None`.
+            TypeError: If the display data is not a string and is not `None`.
         """
-        ip_data = self.data(index)
-        if ip_data is None:
+        # Explicitly request DisplayRole to get only the text content
+        display_data = self.data(index, Qt.ItemDataRole.DisplayRole)
+        if display_data is None:
             return None
-        if not isinstance(ip_data, str):
-            raise TypeError(format_type_error(ip_data, str))
+        if not isinstance(display_data, str):
+            raise TypeError(format_type_error(display_data, str))
 
-        return self.remove_session_host_crown_from_ip(ip_data)
+        # If this is an IP Address column, remove the crown suffix
+        if index.column() == self.ip_column_index:
+            return self.remove_session_host_crown_from_ip(display_data)
+
+        return display_data
 
     def sort_current_column(self) -> None:
         """Call the sort method with the current column index and order.
@@ -4948,7 +4953,7 @@ class SessionTableView(QTableView):
                 model = self.model()
 
                 if model.get_column_index_by_name('Country') == index.column():
-                    ip = model.get_ip_from_model_data_safely(model.index(index.row(), model.ip_column_index))
+                    ip = model.get_display_text(model.index(index.row(), model.ip_column_index))
                     if ip is not None:
                         player = PlayersRegistry.require_player_by_ip(ip)
                         if player.country_flag is not None:
@@ -5068,8 +5073,8 @@ class SessionTableView(QTableView):
         found_username = False
         for row in range(model.rowCount()):
             index = model.index(row, model.username_column_index)
-            data = model.data(index)
-            if isinstance(data, str) and data.strip():  # Check for non-empty, non-whitespace
+            data = model.get_display_text(index)
+            if data and data.strip():  # Check for non-empty, non-whitespace
                 found_username = True
                 break
 
@@ -5255,7 +5260,7 @@ class SessionTableView(QTableView):
                 from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
-                ip = selected_model.get_ip_from_model_data_safely(selected_indexes[0])
+                ip = selected_model.get_display_text(selected_indexes[0])
                 if not ip:
                     return
 
@@ -5338,7 +5343,7 @@ class SessionTableView(QTableView):
 
             # Get the IP addresses from the selected cells
             for index in selected_indexes:
-                ip = selected_model.get_ip_from_model_data_safely(index)
+                ip = selected_model.get_display_text(index)
                 if ip:
                     all_ips.append(ip)
 
@@ -5387,18 +5392,10 @@ class SessionTableView(QTableView):
 
         # Iterate over each selected index and retrieve its display data
         for index in selected_indexes:
-            if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address':
-                # For IP Address columns, use the safe method that handles crown removal
-                cell_text = selected_model.get_ip_from_model_data_safely(index)
-                if cell_text is None:
-                    continue
-            else:
-                # For other columns, use standard data retrieval
-                cell_text = selected_model.data(index)
-                if cell_text is None:
-                    continue  # Added this continue cuz some rare times it would raise.
-                if not isinstance(cell_text, str):
-                    raise TypeError(format_type_error(cell_text, str))
+            # Use unified method that automatically handles IP Address crown removal
+            cell_text = selected_model.get_display_text(index)
+            if cell_text is None:
+                continue  # Skip if no valid display text is available
 
             selected_texts.append(cell_text)
 
