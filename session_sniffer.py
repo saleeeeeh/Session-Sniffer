@@ -4441,6 +4441,21 @@ class SessionTableModel(QAbstractTableModel):
     # Public properties
     # --------------------------------------------------------------------------
 
+    @classmethod
+    def remove_session_host_crown_from_ip(cls, ip_address: str) -> str:
+        """Remove the crown suffix from an IP address string if present.
+
+        The crown emoji (👑) is used to indicate that this IP address belongs to the session host.
+        This method removes that visual indicator to get the clean IP address string.
+
+        Args:
+            ip_address (str): The IP address string that may contain a session host crown suffix.
+
+        Returns:
+            str: The IP address string with session host crown suffix removed.
+        """
+        return ip_address.removesuffix(' 👑')
+
     @property
     def view(self) -> 'SessionTableView':
         """Get or attach a `SessionTableView` to this model."""
@@ -4506,7 +4521,7 @@ class SessionTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index_by_name('Country') == col_idx:
                 ip = self._data[row_idx][self.ip_column_index]
-                ip = ip.removesuffix(' 👑')
+                ip = self.remove_session_host_crown_from_ip(ip)
 
                 player = PlayersRegistry.require_player_by_ip(ip)
                 if player.country_flag is not None:
@@ -4620,7 +4635,7 @@ class SessionTableModel(QAbstractTableModel):
                 return player_datetime
 
             combined.sort(
-                key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(' 👑')),
+                key=lambda row: extract_datetime_for_ip(self.remove_session_host_crown_from_ip(row[0][self.ip_column_index])),
                 reverse=not sort_order_bool,
             )
         elif sorted_column_name == 'IP Address':
@@ -4628,7 +4643,7 @@ class SessionTableModel(QAbstractTableModel):
             import ipaddress
 
             combined.sort(
-                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(' 👑')),
+                key=lambda row: ipaddress.ip_address(self.remove_session_host_crown_from_ip(row[0][column])),
                 reverse=sort_order_bool,
             )
         elif sorted_column_name in {'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM', 'Last Port', 'First Port'}:
@@ -4695,9 +4710,56 @@ class SessionTableModel(QAbstractTableModel):
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if row_data[self.ip_column_index].removesuffix(' 👑') == ip:
+            if self.remove_session_host_crown_from_ip(row_data[self.ip_column_index]) == ip:
                 return row_index
         return None
+
+    def get_ip_from_data_safely(self, row_data: list[str]) -> str:
+        """Safely extract an IP address as a string from row data.
+
+        This method ensures the IP address is always returned as a string type.
+
+        Args:
+            row_data (list[str]): The row data list containing the IP address.
+
+        Returns:
+            The IP address as a clean string (with crown suffix removed if present).
+
+        Raises:
+            IndexError: If the IP column index is out of bounds.
+            TypeError: If the IP data is not a string.
+        """
+        if self.ip_column_index >= len(row_data):
+            error_msg = f'IP column index {self.ip_column_index} is out of bounds for row data with {len(row_data)} columns'
+            raise IndexError(error_msg)
+
+        ip_data = row_data[self.ip_column_index]
+
+        return self.remove_session_host_crown_from_ip(ip_data)
+
+    def get_ip_from_model_data_safely(self, index: QModelIndex) -> str | None:
+        """Safely extract an IP address as a string from model data.
+
+        This method ensures the IP address is always returned as a string type
+        when accessing data from Qt model.
+
+        Args:
+            index (QModelIndex): The QModelIndex to get IP data from.
+
+        Returns:
+            The IP address as a clean string (with crown suffix removed if present).
+            Returns `None` if model data is None.
+
+        Raises:
+            TypeError: If the model data is not a string and is not `None`.
+        """
+        ip_data = self.data(index)
+        if ip_data is None:
+            return None
+        if not isinstance(ip_data, str):
+            raise TypeError(format_type_error(ip_data, str))
+
+        return self.remove_session_host_crown_from_ip(ip_data)
 
     def sort_current_column(self) -> None:
         """Call the sort method with the current column index and order.
@@ -4891,7 +4953,7 @@ class SessionTableView(QTableView):
                     if ip is not None:
                         if not isinstance(ip, str):
                             raise TypeError(format_type_error(ip, str))
-                        ip = ip.removesuffix(' 👑')
+                        ip = model.remove_session_host_crown_from_ip(ip)
 
                         player = PlayersRegistry.require_player_by_ip(ip)
                         if player.country_flag is not None:
@@ -5198,12 +5260,9 @@ class SessionTableView(QTableView):
                 from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
-                ip = selected_model.data(selected_indexes[0])
-                if ip is None:
-                    return  # Added this return cuz some rare times it would raise.
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(' 👑')
+                ip = selected_model.get_ip_from_model_data_safely(selected_indexes[0])
+                if not ip:
+                    return
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
                 player = PlayersRegistry.require_player_by_ip(ip)
@@ -5284,13 +5343,9 @@ class SessionTableView(QTableView):
 
             # Get the IP addresses from the selected cells
             for index in selected_indexes:
-                ip = selected_model.data(index)
-                if ip is None:
-                    continue  # Added this continue cuz some rare times it would raise.
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(' 👑')
-                all_ips.append(ip)
+                ip = selected_model.get_ip_from_model_data_safely(index)
+                if ip:
+                    all_ips.append(ip)
 
             if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, 'UserIP  ')
@@ -5344,7 +5399,7 @@ class SessionTableView(QTableView):
                 raise TypeError(format_type_error(cell_text, str))
 
             if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address':
-                cell_text = cell_text.removesuffix(' 👑')
+                cell_text = selected_model.remove_session_host_crown_from_ip(cell_text)
 
             selected_texts.append(cell_text)
 
@@ -6101,7 +6156,7 @@ class MainWindow(QMainWindow):
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
-            ip = processed_data[self.connected_table_model.ip_column_index].removesuffix(' 👑')
+            ip = self.connected_table_model.get_ip_from_data_safely(processed_data)
 
             # Remove from disconnected table (maintain data consistency)
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
@@ -6128,7 +6183,7 @@ class MainWindow(QMainWindow):
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
-            ip = processed_data[self.disconnected_table_model.ip_column_index].removesuffix(' 👑')
+            ip = self.disconnected_table_model.get_ip_from_data_safely(processed_data)
 
             # Remove from connected table (maintain data consistency)
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
