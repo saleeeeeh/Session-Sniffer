@@ -2394,10 +2394,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
 
 colorama.init(autoreset=True)
 
-if is_pyinstaller_compiled():
-    SCRIPT_DIR = Path(sys.executable).parent
-else:
-    SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(sys.executable).parent if is_pyinstaller_compiled() else Path(__file__).resolve().parent
 os.chdir(SCRIPT_DIR)
 
 if not is_pyinstaller_compiled():
