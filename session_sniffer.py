@@ -5392,7 +5392,6 @@ class SessionTableView(QTableView):
 
         # Iterate over each selected index and retrieve its display data
         for index in selected_indexes:
-            # Use unified method that automatically handles IP Address crown removal
             cell_text = selected_model.get_display_text(index)
             if cell_text is None:
                 continue  # Skip if no valid display text is available
