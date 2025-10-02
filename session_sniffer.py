@@ -589,13 +589,13 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_INTERFACE_NAME, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_INTERFACE_NAME = setting_value
+                        Settings.CAPTURE_INTERFACE_NAME = setting_value  # pyright: ignore[reportConstantRedefinition]
                 elif setting_name == 'CAPTURE_IP_ADDRESS':
                     try:
                         Settings.CAPTURE_IP_ADDRESS, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
                         if is_ipv4_address(setting_value):
-                            Settings.CAPTURE_IP_ADDRESS = setting_value
+                            Settings.CAPTURE_IP_ADDRESS = setting_value  # pyright: ignore[reportConstantRedefinition]
                         else:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_MAC_ADDRESS':
@@ -606,7 +606,7 @@ class Settings(DefaultSettings):
                         if is_mac_address(formatted_mac_address):
                             if formatted_mac_address != setting_value:
                                 need_rewrite_settings = True
-                            Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address
+                            Settings.CAPTURE_MAC_ADDRESS = formatted_mac_address  # pyright: ignore[reportConstantRedefinition]
                         else:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_ARP':
@@ -625,7 +625,7 @@ class Settings(DefaultSettings):
                     except InvalidNoneTypeValueError:
                         try:
                             case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('GTA5', 'Minecraft'))
-                            Settings.CAPTURE_PROGRAM_PRESET = normalized_match
+                            Settings.CAPTURE_PROGRAM_PRESET = normalized_match  # pyright: ignore[reportConstantRedefinition]
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
@@ -644,14 +644,14 @@ class Settings(DefaultSettings):
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER = validate_and_strip_balanced_outer_parens(setting_value)  # pyright: ignore[reportConstantRedefinition]
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_CAPTURE_FILTER:
                             need_rewrite_settings = True
                 elif setting_name == 'CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER':
                     try:
                         Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER, need_rewrite_current_setting = custom_str_to_nonetype(setting_value)
                     except InvalidNoneTypeValueError:
-                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)
+                        Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER = validate_and_strip_balanced_outer_parens(setting_value)  # pyright: ignore[reportConstantRedefinition]
                         if setting_value != Settings.CAPTURE_PREPEND_CUSTOM_DISPLAY_FILTER:
                             need_rewrite_settings = True
                 elif setting_name == 'GUI_SESSIONS_LOGGING':
@@ -666,16 +666,16 @@ class Settings(DefaultSettings):
                         need_rewrite_settings = True
                 elif setting_name == 'GUI_FIELDS_TO_HIDE':
                     try:
-                        gui_fields_to_hide: tuple[str] = ast.literal_eval(setting_value)
+                        gui_fields_to_hide = ast.literal_eval(setting_value)
                     except (ValueError, SyntaxError):
                         need_rewrite_settings = True
                     else:
-                        if isinstance(gui_fields_to_hide, tuple) and all(isinstance(item, str) for item in gui_fields_to_hide):
+                        if isinstance(gui_fields_to_hide, tuple) and all(isinstance(item, str) for item in gui_fields_to_hide):  # pyright: ignore[reportUnknownVariableType]
                             filtered_gui_fields_to_hide: list[str] = []
 
-                            for value in gui_fields_to_hide:
+                            for value in gui_fields_to_hide:  # pyright: ignore[reportUnknownVariableType]
                                 try:
-                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.GUI_HIDEABLE_FIELDS)
+                                    case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(value, Settings.GUI_HIDEABLE_FIELDS)  # pyright: ignore[reportUnknownArgumentType]
                                     filtered_gui_fields_to_hide.append(normalized_match)
                                     if not case_sensitive_match:
                                         need_rewrite_current_setting = True
@@ -736,7 +736,7 @@ class Settings(DefaultSettings):
                     except InvalidNoneTypeValueError:
                         try:
                             case_sensitive_match, normalized_match = check_case_insensitive_and_exact_match(setting_value, ('Stable', 'RC'))
-                            Settings.UPDATER_CHANNEL = normalized_match
+                            Settings.UPDATER_CHANNEL = normalized_match  # pyright: ignore[reportConstantRedefinition]
                             if not case_sensitive_match:
                                 need_rewrite_current_setting = True
                         except NoMatchFoundError:
@@ -798,9 +798,9 @@ class Interface:
     manufacturer: str  | None    = None
     packets_sent: int  | None    = None
     packets_recv: int  | None    = None
-    descriptions: list[str]      = dataclasses.field(default_factory=list)
-    ip_addresses: list[str]      = dataclasses.field(default_factory=list)
-    arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)
+    descriptions: list[str]      = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    ip_addresses: list[str]      = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    arp_entries:  list[ARPEntry] = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
     def add_arp_entry(self, arp_entry: ARPEntry) -> bool:
         """Add an ARP entry for the given interface."""
@@ -1170,6 +1170,7 @@ class PlayerPing:  # pylint: disable=too-many-instance-attributes
     ping_times:          Literal['...'] | list[float]  = '...'
     packets_transmitted: Literal['...'] | int   | None = '...'
     packets_received:    Literal['...'] | int   | None = '...'
+    packet_duplicates:   Literal['...'] | int   | None = '...'
     packet_loss:         Literal['...'] | float | None = '...'
     packet_errors:       Literal['...'] | int   | None = '...'
     rtt_min:             Literal['...'] | float | None = '...'
@@ -1189,7 +1190,7 @@ class PlayerUserIPDetection:
 
 @dataclass(kw_only=True, slots=True)
 class PlayerModMenus:
-    usernames: list[str] = dataclasses.field(default_factory=list)
+    usernames: list[str] = dataclasses.field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
 
 
 class Player:  # pylint: disable=too-many-instance-attributes
@@ -1847,7 +1848,7 @@ def check_for_updates() -> None:
 
                             DEBUG:
                                 Exception: {type(e).__name__}
-                                HTTP Code: {f"{e.response.status_code} - {e.response.reason}" if isinstance(e, requests.exceptions.RequestException) and e.response else "No response"}
+                                HTTP Code: {f"{e.response.status_code} - {e.response.reason}" if e.response else "No response"}
 
                         Please check your internet connection and ensure you have access to:
                         {GITHUB_VERSIONS_URL}
@@ -1873,7 +1874,7 @@ def check_for_updates() -> None:
                 if not isinstance(versions_json, dict):
                     raise TypeError(format_type_error(versions_json, dict))
 
-                return versions_json
+                return versions_json  # pyright: ignore[reportUnknownVariableType]
 
     versions_json = get_updater_json_response()
     if versions_json is None:
@@ -2214,7 +2215,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
             pass
         else:
             if isinstance(loaded_data, dict):
-                for database_name, database_info in loaded_data.items():
+                for database_name, database_info in loaded_data.items():  # pyright: ignore[reportUnknownVariableType]
                     if not isinstance(database_name, str):
                         continue
                     if not isinstance(database_info, dict):
@@ -2222,7 +2223,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
                     if database_name not in geolite2_databases:
                         continue
 
-                    geolite2_databases[database_name]['current_version'] = database_info.get('version', None)
+                    geolite2_databases[database_name]['current_version'] = database_info.get('version', None)  # pyright: ignore[reportUnknownMemberType]
 
         try:
             response = s.get(GITHUB_RELEASE_API__GEOLITE2__URL)
@@ -2238,16 +2239,16 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
         if not isinstance(release_data, dict):
             raise TypeError(format_type_error(release_data, dict))
 
-        for asset in release_data['assets']:
-            asset_name = asset['name']
+        for asset in release_data['assets']:  # pyright: ignore[reportUnknownVariableType]
+            asset_name = asset['name']  # pyright: ignore[reportUnknownVariableType]
             if not isinstance(asset_name, str):
                 continue
             if asset_name not in geolite2_databases:
                 continue
 
             geolite2_databases[asset_name].update({
-                'last_version': asset['updated_at'],
-                'download_url': asset['browser_download_url'],
+                'last_version': asset['updated_at'],  # pyright: ignore[reportUnknownArgumentType]
+                'download_url': asset['browser_download_url'],  # pyright: ignore[reportUnknownArgumentType]
             })
 
         failed_fetching_flag_list: list[str] = []
@@ -2393,10 +2394,7 @@ def update_and_initialize_geolite2_readers() -> tuple[bool, geoip2.database.Read
 
 colorama.init(autoreset=True)
 
-if is_pyinstaller_compiled():
-    SCRIPT_DIR = Path(sys.executable).parent
-else:
-    SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(sys.executable).parent if is_pyinstaller_compiled() else Path(__file__).resolve().parent
 os.chdir(SCRIPT_DIR)
 
 if not is_pyinstaller_compiled():
@@ -2494,8 +2492,6 @@ for interface in tshark_interfaces:
             interfaces_selection_data.append(InterfaceSelectionData(len(interfaces_selection_data), interface_name, ', '.join(interface.descriptions), 'N/A', 'N/A', arp_entry.ip_address, arp_entry.mac_address, organization_name, is_arp=True))
 
 selected_interface = select_interface(interfaces_selection_data, screen_width, screen_height)
-if not isinstance(selected_interface.name, str):
-    raise TypeError(format_type_error(selected_interface.name, str))
 
 clear_screen()
 set_window_title(f'Initializing addresses and establishing connection to your PC / Console - {TITLE}')
@@ -2982,17 +2978,17 @@ def iplookup_core() -> None:
             if not isinstance(iplookup_results, list):
                 raise TypeError(format_type_error(iplookup_results, list))
 
-            for iplookup in iplookup_results:
+            for iplookup in iplookup_results:  # pyright: ignore[reportUnknownVariableType]
                 if not isinstance(iplookup, dict):
-                    raise TypeError(format_type_error(iplookup, dict))
+                    raise TypeError(format_type_error(iplookup, dict))  # pyright: ignore[reportUnknownArgumentType]
 
-                player_ip = iplookup.get('query')
+                player_ip = iplookup.get('query')  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
                 if not isinstance(player_ip, str):
-                    raise TypeError(format_type_error(player_ip, str))
+                    raise TypeError(format_type_error(player_ip, str))  # pyright: ignore[reportUnknownArgumentType]
 
                 player = PlayersRegistry.require_player_by_ip(player_ip)
                 for attr, (json_key, expected_types) in FIELD_MAPPINGS.items():
-                    setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))
+                    setattr(player.iplookup.ipapi, attr, validate_and_get_iplookup_field(player_ip, iplookup, json_key, expected_types))  # pyright: ignore[reportUnknownArgumentType]
                 player.iplookup.ipapi.is_initialized = True
 
             throttle_until(int(response.headers['X-Rl']), int(response.headers['X-Ttl']))
@@ -3086,6 +3082,7 @@ def pinger_core() -> None:
                     player.ping.ping_times = ping_result.ping_times
                     player.ping.packets_transmitted = ping_result.packets_transmitted
                     player.ping.packets_received = ping_result.packets_received
+                    player.ping.packet_duplicates = ping_result.packet_duplicates
                     player.ping.packet_loss = ping_result.packet_loss
                     player.ping.packet_errors = ping_result.packet_errors
                     player.ping.rtt_min = ping_result.rtt_min
@@ -4441,6 +4438,21 @@ class SessionTableModel(QAbstractTableModel):
     # Public properties
     # --------------------------------------------------------------------------
 
+    @classmethod
+    def remove_session_host_crown_from_ip(cls, ip_address: str) -> str:
+        """Remove the crown suffix from an IP address string if present.
+
+        The crown emoji (👑) is used to indicate that this IP address belongs to the session host.
+        This method removes that visual indicator to get the clean IP address string.
+
+        Args:
+            ip_address (str): The IP address string that may contain a session host crown suffix.
+
+        Returns:
+            str: The IP address string with session host crown suffix removed.
+        """
+        return ip_address.removesuffix(' 👑')
+
     @property
     def view(self) -> 'SessionTableView':
         """Get or attach a `SessionTableView` to this model."""
@@ -4505,10 +4517,7 @@ class SessionTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DecorationRole:  # noqa: SIM102
             if self.get_column_index_by_name('Country') == col_idx:
-                ip = self._data[row_idx][self.ip_column_index]
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(' 👑')
+                ip = self.get_ip_from_data_safely(self._data[row_idx])
 
                 player = PlayersRegistry.require_player_by_ip(ip)
                 if player.country_flag is not None:
@@ -4622,7 +4631,7 @@ class SessionTableModel(QAbstractTableModel):
                 return player_datetime
 
             combined.sort(
-                key=lambda row: extract_datetime_for_ip(row[0][self.ip_column_index].removesuffix(' 👑')),
+                key=lambda row: extract_datetime_for_ip(self.get_ip_from_data_safely(row[0])),
                 reverse=not sort_order_bool,
             )
         elif sorted_column_name == 'IP Address':
@@ -4630,7 +4639,7 @@ class SessionTableModel(QAbstractTableModel):
             import ipaddress
 
             combined.sort(
-                key=lambda row: ipaddress.ip_address(row[0][column].removesuffix(' 👑')),
+                key=lambda row: ipaddress.ip_address(self.get_ip_from_data_safely(row[0])),
                 reverse=sort_order_bool,
             )
         elif sorted_column_name in {'Rejoins', 'T. Packets', 'Packets', 'PPS', 'PPM', 'Last Port', 'First Port'}:
@@ -4697,9 +4706,61 @@ class SessionTableModel(QAbstractTableModel):
             The index of the row containing the IP address, or None if not found.
         """
         for row_index, row_data in enumerate(self._data):
-            if row_data[self.ip_column_index].removesuffix(' 👑') == ip:
+            if self.get_ip_from_data_safely(row_data) == ip:
                 return row_index
         return None
+
+    def get_ip_from_data_safely(self, row_data: list[str]) -> str:
+        """Safely extract an IP address as a string from row data.
+
+        This method ensures the IP address is always returned as a string type.
+
+        Args:
+            row_data (list[str]): The row data list containing the IP address.
+
+        Returns:
+            The IP address as a clean string (with crown suffix removed if present).
+
+        Raises:
+            IndexError: If the IP column index is out of bounds.
+            TypeError: If the IP data is not a string.
+        """
+        if self.ip_column_index >= len(row_data):
+            error_msg = f'IP column index {self.ip_column_index} is out of bounds for row data with {len(row_data)} columns'
+            raise IndexError(error_msg)
+
+        ip_data = row_data[self.ip_column_index]
+
+        return self.remove_session_host_crown_from_ip(ip_data)
+
+    def get_display_text(self, index: QModelIndex) -> str | None:
+        """Extract display text as a string from model data.
+
+        This method handles the case where model data might return `str`, `QBrush`, `QIcon` or `None` for decoration roles, but we only want the display text as a string.<br>
+        For 'IP Address' column, it automatically removes the session host crown suffix (👑) if present.
+
+        Args:
+            index (QModelIndex): The QModelIndex to get display text from.
+
+        Returns:
+            The display text as a string, or `None` if no valid display text is available.
+            For the 'IP Address' column, the crown suffix is automatically removed.
+
+        Raises:
+            TypeError: If the display data is not a string and is not `None`.
+        """
+        # Explicitly request DisplayRole to get only the text content
+        display_data = self.data(index, Qt.ItemDataRole.DisplayRole)
+        if display_data is None:
+            return None
+        if not isinstance(display_data, str):
+            raise TypeError(format_type_error(display_data, str))
+
+        # If this is an IP Address column, remove the crown suffix
+        if index.column() == self.ip_column_index:
+            return self.remove_session_host_crown_from_ip(display_data)
+
+        return display_data
 
     def sort_current_column(self) -> None:
         """Call the sort method with the current column index and order.
@@ -4889,12 +4950,8 @@ class SessionTableView(QTableView):
                 model = self.model()
 
                 if model.get_column_index_by_name('Country') == index.column():
-                    ip = model.data(model.index(index.row(), model.ip_column_index))
+                    ip = model.get_display_text(model.index(index.row(), model.ip_column_index))
                     if ip is not None:
-                        if not isinstance(ip, str):
-                            raise TypeError(format_type_error(ip, str))
-                        ip = ip.removesuffix(' 👑')
-
                         player = PlayersRegistry.require_player_by_ip(ip)
                         if player.country_flag is not None:
                             self.show_flag_tooltip(event, index, player)
@@ -5013,8 +5070,8 @@ class SessionTableView(QTableView):
         found_username = False
         for row in range(model.rowCount()):
             index = model.index(row, model.username_column_index)
-            data = model.data(index)
-            if isinstance(data, str) and data.strip():  # Check for non-empty, non-whitespace
+            data = model.get_display_text(index)
+            if data and data.strip():  # Check for non-empty, non-whitespace
                 found_username = True
                 break
 
@@ -5200,21 +5257,18 @@ class SessionTableView(QTableView):
                 from modules.constants.local import SCRIPTS_FOLDER_PATH
 
                 # Get the IP address from the selected cell
-                ip = selected_model.data(selected_indexes[0])
-                if ip is None:
-                    return  # Added this return cuz some rare times it would raise.
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(' 👑')
+                displayed_ip = selected_model.get_display_text(selected_indexes[0])
+                if not displayed_ip:
+                    return
 
                 userip_database_filepaths = UserIPDatabases.get_userip_database_filepaths()
-                player = PlayersRegistry.require_player_by_ip(ip)
+                player = PlayersRegistry.require_player_by_ip(displayed_ip)
 
                 add_action(
                     context_menu,
                     'IP Lookup Details',
                     tooltip='Displays a notification with a detailed IP lookup report for selected player.',
-                    handler=lambda: self.show_detailed_ip_lookup_player_cell(ip),
+                    handler=lambda: self.show_detailed_ip_lookup_player_cell(displayed_ip),
                 )
 
                 ping_menu = add_menu(context_menu, 'Ping    ')
@@ -5222,13 +5276,13 @@ class SessionTableView(QTableView):
                     ping_menu,
                     'Normal',
                     tooltip='Checks if selected IP address responds to pings.',
-                    handler=lambda: self.ping(ip),
+                    handler=lambda: self.ping(displayed_ip),
                 )
                 add_action(
                     ping_menu,
                     'TCP Port (paping.exe)',
                     tooltip='Checks if selected IP address responds to TCP pings on a given port.',
-                    handler=lambda: self.tcp_port_ping(ip),
+                    handler=lambda: self.tcp_port_ping(displayed_ip),
                 )
 
                 scripts_menu = add_menu(context_menu, 'User Scripts ')
@@ -5242,11 +5296,14 @@ class SessionTableView(QTableView):
 
                     script_resolved = script.resolve()
 
+                    def create_script_handler(script_path: Path) -> Callable[[], None]:
+                        return lambda: run_cmd_script(script_path, [displayed_ip])  # type: ignore[list-item]
+
                     add_action(
                         scripts_menu,
                         script_resolved.name,
                         tooltip='',
-                        handler=lambda _, s=script_resolved: run_cmd_script(s, [ip]),
+                        handler=create_script_handler(script_resolved),
                     )
 
                 userip_menu = add_menu(context_menu, 'UserIP  ')
@@ -5254,27 +5311,33 @@ class SessionTableView(QTableView):
                 if player.userip is None:
                     add_userip_menu = add_menu(userip_menu, 'Add     ', 'Add selected IP address to UserIP database.')  # Extra spaces for alignment
                     for database_path in userip_database_filepaths:
+                        def create_add_handler(db_path: Path) -> Callable[[], None]:
+                            return lambda: self.userip_manager__add([displayed_ip], db_path)  # type: ignore[list-item]
+
                         add_action(
                             add_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                             tooltip='Add selected IP address to this UserIP database.',
-                            handler=lambda _, database_path=database_path: self.userip_manager__add([ip], database_path),
+                            handler=create_add_handler(database_path),
                         )
                 else:
                     move_userip_menu = add_menu(userip_menu, 'Move    ', 'Move selected IP address to another database.')
                     for database_path in userip_database_filepaths:
+                        def create_move_handler(db_path: Path) -> Callable[[], None]:
+                            return lambda: self.userip_manager__move([displayed_ip], db_path)  # type: ignore[list-item]
+
                         add_action(
                             move_userip_menu,
                             str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                             tooltip='Move selected IP address to this UserIP database.',
-                            handler=lambda _, database_path=database_path: self.userip_manager__move([ip], database_path),
+                            handler=create_move_handler(database_path),
                             enabled=player.userip.database_path != database_path,
                         )
                     add_action(
                         userip_menu,
                         'Delete  ',  # Extra spaces for alignment
                         tooltip='Delete selected IP address from UserIP databases.',
-                        handler=lambda: self.userip_manager__del([ip]),
+                        handler=lambda: self.userip_manager__del([displayed_ip]),  # type: ignore[list-item]
                     )
 
         # Check if all selected cells are in the "IP Address" column
@@ -5284,37 +5347,39 @@ class SessionTableView(QTableView):
         ):
             all_ips: list[str] = []
 
-            # Get the IP addreses from the selected cells
+            # Get the IP addresses from the selected cells
             for index in selected_indexes:
-                ip = selected_model.data(index)
-                if ip is None:
-                    continue  # Added this continue cuz some rare times it would raise.
-                if not isinstance(ip, str):
-                    raise TypeError(format_type_error(ip, str))
-                ip = ip.removesuffix(' 👑')
-                all_ips.append(ip)
+                displayed_ip = selected_model.get_display_text(index)
+                if displayed_ip:
+                    all_ips.append(displayed_ip)
 
             if all(ip not in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, 'UserIP  ')
 
                 add_userip_menu = add_menu(userip_menu, 'Add Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
+                    def create_multi_add_handler(db_path: Path, ip_list: list[str]) -> Callable[[], None]:
+                        return lambda: self.userip_manager__add(ip_list, db_path)
+
                     add_action(
                         add_userip_menu,
                         str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                         tooltip='Add selected IP addresses to this UserIP database.',
-                        handler=lambda _, database_path=database_path: self.userip_manager__add(all_ips, database_path),
+                        handler=create_multi_add_handler(database_path, all_ips),
                     )
             elif all(ip in UserIPDatabases.ips_set for ip in all_ips):
                 userip_menu = add_menu(context_menu, 'UserIP  ')
 
                 move_userip_menu = add_menu(userip_menu, 'Move Selected')
                 for database_path in UserIPDatabases.get_userip_database_filepaths():
+                    def create_multi_move_handler(db_path: Path, ip_list: list[str]) -> Callable[[], None]:
+                        return lambda: self.userip_manager__move(ip_list, db_path)
+
                     add_action(
                         move_userip_menu,
                         str(database_path.relative_to(USERIP_DATABASES_PATH).with_suffix('')),
                         tooltip='Move selected IP addresses to this UserIP database.',
-                        handler=lambda _, database_path=database_path: self.userip_manager__move(all_ips, database_path),
+                        handler=create_multi_move_handler(database_path, all_ips),
                     )
 
                 add_action(
@@ -5339,14 +5404,9 @@ class SessionTableView(QTableView):
 
         # Iterate over each selected index and retrieve its display data
         for index in selected_indexes:
-            cell_text = selected_model.data(index)
+            cell_text = selected_model.get_display_text(index)
             if cell_text is None:
-                continue  # Added this continue cuz some rare times it would raise.
-            if not isinstance(cell_text, str):
-                raise TypeError(format_type_error(cell_text, str))
-
-            if selected_model.headerData(index.column(), Qt.Orientation.Horizontal) == 'IP Address':
-                cell_text = cell_text.removesuffix(' 👑')
+                continue  # Skip if no valid display text is available
 
             selected_texts.append(cell_text)
 
@@ -5737,7 +5797,7 @@ class PersistentMenu(QMenu):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         """Override mouse release event to prevent auto-closing on checkable actions."""
         if event is None:
             super().mouseReleaseEvent(event)
@@ -5983,7 +6043,7 @@ class MainWindow(QMainWindow):
         self.worker_thread.update_signal.connect(self.update_gui)  # pyright: ignore[reportUnknownMemberType]
         self.worker_thread.start()
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:    # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802  # pylint: disable=invalid-name
+    def closeEvent(self, event: QCloseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # pylint: disable=invalid-name  # noqa: N802
         gui_closed__event.set()  # Signal the thread to stop
         self.worker_thread.quit()  # Stop the QThread
         self.worker_thread.wait()  # Wait for the thread to finish
@@ -6103,7 +6163,7 @@ class MainWindow(QMainWindow):
 
         # Process connected players data
         for processed_data, compiled_colors in connected_rows:
-            ip = processed_data[self.connected_table_model.ip_column_index].removesuffix(' 👑')
+            ip = self.connected_table_model.get_ip_from_data_safely(processed_data)
 
             # Remove from disconnected table (maintain data consistency)
             disconnected_row_index = self.disconnected_table_model.get_row_index_by_ip(ip)
@@ -6130,7 +6190,7 @@ class MainWindow(QMainWindow):
 
         # Process disconnected players data
         for processed_data, compiled_colors in disconnected_rows:
-            ip = processed_data[self.disconnected_table_model.ip_column_index].removesuffix(' 👑')
+            ip = self.disconnected_table_model.get_ip_from_data_safely(processed_data)
 
             # Remove from connected table (maintain data consistency)
             connected_row_index = self.connected_table_model.get_row_index_by_ip(ip)
@@ -6309,7 +6369,7 @@ class DiscordIntro(QDialog):
         self.activateWindow()
 
         # Initialize variables to track mouse position
-        self._drag_pos = None
+        self._drag_pos: QPoint | None = None
 
     # pylint: disable=invalid-name
     def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: N802
