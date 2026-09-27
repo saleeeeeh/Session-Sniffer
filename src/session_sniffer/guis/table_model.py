@@ -192,7 +192,7 @@ def sort_table_rows(
         )
     elif resolved_column_name in {'First Seen', 'Last Rejoin', 'Last Seen'}:
         datetime_attr = {'First Seen': 'first_seen', 'Last Rejoin': 'last_rejoin', 'Last Seen': 'last_seen'}[resolved_column_name]
-        default_datetime = datetime.min.replace(tzinfo=UTC)
+        default_datetime = datetime.max.replace(tzinfo=UTC) if sort_order_bool else datetime.min.replace(tzinfo=UTC)
         ip_datetime_map: dict[str, datetime] = {
             _extract_ip(row): (
                 getattr(matched_player.datetime, datetime_attr) if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else default_datetime
