@@ -5,6 +5,7 @@ import math
 import re
 import time
 from dataclasses import dataclass
+from datetime import UTC
 from typing import TYPE_CHECKING, ClassVar
 
 import requests
@@ -210,7 +211,17 @@ def lookup_ip(ip: str, api_key: str, version: str = 'both') -> list[LookyPlayer]
     """
     response = session.get(f'{LOOKY_SEARCH_URL}/{ip}', headers=_auth_headers(api_key), params={'version': version}, timeout=(3.0, 10.0))
     response.raise_for_status()
-    return _RESPONSE_ADAPTER.validate_json(response.content)
+    results = _RESPONSE_ADAPTER.validate_json(response.content)
+    return _sort_looky_players(results)
+
+
+def _sort_looky_players(players: list[LookyPlayer]) -> list[LookyPlayer]:
+    """Sort Looky players from most recent to oldest by `lastSeen`."""
+    return sorted(
+        players,
+        key=lambda player: player.lastSeen.astimezone(UTC) if player.lastSeen.tzinfo is not None else player.lastSeen.replace(tzinfo=UTC),
+        reverse=True,
+    )
 
 
 def lookup_ip_batch(ip_addresses: list[str], api_key: str, version: str = 'both') -> dict[str, list[LookyPlayer]]:
@@ -238,7 +249,7 @@ def lookup_ip_batch(ip_addresses: list[str], api_key: str, version: str = 'both'
     )
     response.raise_for_status()
     parsed = _BATCH_RESPONSE_ADAPTER.validate_json(response.content)
-    return {item.ip: item.players for item in parsed}
+    return {item.ip: _sort_looky_players(item.players) for item in parsed}
 
 
 def send_crawlme_instruction(api_key: str, version: str) -> str:

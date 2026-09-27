@@ -187,9 +187,16 @@ def show_looky_lookup(parent: QWidget, player: Player) -> None:
     worker = _LookyFetchWorker(player.ip, api_key)
 
     def _on_fetch_succeeded() -> None:
+        unique_results: list[LookyPlayer] = []
+        seen_pairs: set[tuple[str, int]] = set()
+        for entry in worker.results:
+            pair = (entry.name, entry.rockstarid)
+            if pair not in seen_pairs:
+                seen_pairs.add(pair)
+                unique_results.append(entry)
         with player.looky_system.lock:
-            player.looky_system.usernames = [entry.name for entry in worker.results]
-            player.looky_system.rockstarids = [entry.rockstarid for entry in worker.results]
+            player.looky_system.usernames = [entry.name for entry in unique_results]
+            player.looky_system.rockstarids = [entry.rockstarid for entry in unique_results]
             player.looky_system.needs_refresh = False
             player.looky_system.last_fetched_at = time.monotonic()
             player.looky_system.is_initialized = True

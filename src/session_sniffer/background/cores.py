@@ -32,6 +32,7 @@ from session_sniffer.settings import Settings
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from session_sniffer.models.looky_system import LookyPlayer
     from session_sniffer.models.player import Player
     from session_sniffer.networking.endpoint_ping_manager import PingResult
 
@@ -553,9 +554,16 @@ def looky_core() -> None:
                     matched_player = PlayersRegistry.get_player_by_ip(ip)
                     if matched_player is not None:
                         players = results.get(ip, [])
+                        unique_players: list[LookyPlayer] = []
+                        seen_pairs: set[tuple[str, int]] = set()
+                        for player in players:
+                            pair = (player.name, player.rockstarid)
+                            if pair not in seen_pairs:
+                                seen_pairs.add(pair)
+                                unique_players.append(player)
                         with matched_player.looky_system.lock:
-                            matched_player.looky_system.usernames = [player.name for player in players]
-                            matched_player.looky_system.rockstarids = [player.rockstarid for player in players]
+                            matched_player.looky_system.usernames = [player.name for player in unique_players]
+                            matched_player.looky_system.rockstarids = [player.rockstarid for player in unique_players]
                             matched_player.looky_system.needs_refresh = False
                             matched_player.looky_system.last_fetched_at = time.monotonic()
                             matched_player.looky_system.is_initialized = True
