@@ -441,10 +441,13 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
                 else:
                     return
         horizontal_header = self.horizontalHeader()
+        sort_column_changed = self._previous_sort_section_index != column_index
         horizontal_header.setSortIndicator(column_index, order)
         self._previous_sort_section_index = column_index
         self.sort_current_column()
         self._push_sort_state(reset_page=False)
+        if sort_column_changed:
+            self.setup_static_column_resizing()
 
     def sort_current_column(self) -> None:
         """Sort the table by the currently indicated header column and order, preserving scroll position."""
@@ -539,6 +542,8 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
         model = self.model()
         horizontal_header = self.horizontalHeader()
 
+        sort_column_changed = self._previous_sort_section_index != section_index
+
         # If it's the first click or sorting is being toggled
         if self._previous_sort_section_index is None or self._previous_sort_section_index != section_index:
             horizontal_header.setSortIndicator(section_index, Qt.SortOrder.DescendingOrder)
@@ -547,6 +552,8 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
         model.sort(section_index, horizontal_header.sortIndicatorOrder())
         self._previous_sort_section_index = section_index
         self._push_sort_state(reset_page=True)
+        if sort_column_changed:
+            self.setup_static_column_resizing()
         self.horizontalScrollBar().setValue(h_scroll)
         self.verticalScrollBar().setValue(v_scroll)
 

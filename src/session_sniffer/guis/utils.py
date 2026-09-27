@@ -833,13 +833,17 @@ def setup_static_table_column_resizing(
     widths_map = min_column_widths or {}
     max_bounds_map = max_column_widths or {}
 
+    is_sort_active = horizontal_header.isSortIndicatorShown()
+    sorted_column_index = horizontal_header.sortIndicatorSection() if is_sort_active else -1
+
     visible_columns: list[tuple[int, str, int, int]] = []
     for column in range(table_model.columnCount()):
         if horizontal_header.isSectionHidden(column):
             continue
         header_label = str(table_model.headerData(column, Qt.Orientation.Horizontal) or '')
+        sort_padding = header_sort_padding if column == sorted_column_index else 0
         header_needed = max(
-            header_font_metrics.horizontalAdvance(header_label) + header_sort_padding,
+            header_font_metrics.horizontalAdvance(header_label) + sort_padding,
             horizontal_header.sectionSizeFromContents(column).width(),
         )
         min_width = max(scale_by_ui(widths_map.get(header_label, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
@@ -889,10 +893,12 @@ def setup_static_table_column_resizing(
     if total_deficit > surplus:
         for col, _, _, needed in visible_columns:
             header_text = str(table_model.headerData(col, Qt.Orientation.Horizontal) or '')
-            min_bound = max(
-                scale_by_ui(widths_map.get(header_text, DEFAULT_MIN_COLUMN_WIDTH)),
+            sort_padding = header_sort_padding if col == sorted_column_index else 0
+            header_needed = max(
+                header_font_metrics.horizontalAdvance(header_text) + sort_padding,
                 horizontal_header.sectionSizeFromContents(col).width(),
             )
+            min_bound = max(scale_by_ui(widths_map.get(header_text, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
             reclaim_limit = max(min_bound, needed)
             if final_widths[col] > reclaim_limit:
                 reclaimed = final_widths[col] - reclaim_limit
