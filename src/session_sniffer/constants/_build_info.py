@@ -7,6 +7,7 @@ so the frozen exe always carries the correct release info.
 
 import os
 import platform
+import sys
 import tomllib
 from pathlib import Path
 
@@ -30,9 +31,15 @@ def _read_pyside6_version() -> str:
 
 
 def _compute_os_info() -> str:
+    if sys.platform == 'win32':
+        winver = sys.getwindowsversion()
+        raw_arch = os.environ.get('PROCESSOR_ARCHITEW6432') or os.environ.get('PROCESSOR_ARCHITECTURE', '')
+        arch = 'x64' if raw_arch in ('AMD64', 'x86_64') else (raw_arch or 'x64')
+        return f'{os.environ.get("OS", "Windows")} {arch} {winver.major}.{winver.minor}.{winver.build}'
+
     machine = platform.machine()
     arch = 'x64' if machine in ('AMD64', 'x86_64') else machine
-    return f'{os.environ.get("OS", platform.system())} {arch} {platform.version()}'
+    return f'{platform.system()} {arch} {platform.version()}'
 
 
 RELEASE_TAG = '-'

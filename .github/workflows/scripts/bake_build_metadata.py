@@ -69,9 +69,15 @@ def extract_pyside6_version(dependencies: list[str]) -> str:
 
 def compute_os_info() -> str:
     """Compute normalized operating system and architecture description."""
+    if sys.platform == 'win32':
+        winver = sys.getwindowsversion()
+        raw_arch = os.environ.get('PROCESSOR_ARCHITEW6432') or os.environ.get('PROCESSOR_ARCHITECTURE', '')
+        architecture = 'x64' if raw_arch in ('AMD64', 'x86_64') else (raw_arch or 'x64')
+        return f'{os.environ.get("OS", "Windows")} {architecture} {winver.major}.{winver.minor}.{winver.build}'
+
     machine = platform.machine()
     architecture = 'x64' if machine in ('AMD64', 'x86_64') else machine
-    return f'{os.environ.get("OS", platform.system())} {architecture} {platform.version()}'
+    return f'{platform.system()} {architecture} {platform.version()}'
 
 
 def bake_metadata(repo_root: Path) -> None:
