@@ -85,10 +85,11 @@ def main() -> None:
     """Run environment checks, initialize dependencies, and start the GUI."""
     if is_pyinstaller_compiled():
         old_exe = Path(sys.executable).with_name(f'{Path(sys.executable).name}.old')
-        try:
-            old_exe.unlink()
-        except OSError as e:
-            logger.debug('Failed to remove old executable %s: %s', old_exe, e)
+        if old_exe.is_file():
+            try:
+                old_exe.unlink()
+            except OSError as e:
+                logger.debug('Failed to remove old executable %s: %s', old_exe, e)
 
     hide_console_window()
 
