@@ -77,17 +77,20 @@ class FileSyncMixin(QDialog):
 
     def _sync_from_disk(self) -> None:
         """Reconcile the entries view and stats with the current on-disk state."""
-        self._rebuild_fs_watch()
-        self._refresh_stats()
-
         if self._global_search_active:
+            self._rebuild_fs_watch()
+            self._refresh_stats()
             self._load_all_databases()
             return
 
         if self._current_path is None:
+            self._rebuild_fs_watch()
+            self._refresh_stats()
             return
 
         if not self._current_path.is_file():
+            self._rebuild_fs_watch()
+            self._refresh_stats()
             self._model.removeRows(0, self._model.rowCount())
             self._settings_container.setVisible(False)
             self._clear_dirty_state()
@@ -99,6 +102,9 @@ class FileSyncMixin(QDialog):
         current_text = self._current_path.read_text('utf-8')
         if current_text == self._disk_snapshot:
             return  # No real change (or our own write).
+
+        self._rebuild_fs_watch()
+        self._refresh_stats()
 
         if self._dirty:
             self._update_file_info(self._current_path)

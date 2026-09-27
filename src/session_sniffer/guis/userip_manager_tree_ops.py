@@ -158,7 +158,7 @@ class TreeOperationsMixin(QDialog):
         self._load_database(path)
         self._open_db_button.setEnabled(True)
         self._add_button.setEnabled(True)
-        self._save_button.setEnabled(True)
+        self._save_button.setEnabled(self._dirty)
         if self._export_selected_action is not None:
             self._export_selected_action.setEnabled(True)
 
