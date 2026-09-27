@@ -84,6 +84,7 @@ from session_sniffer.guis.utils import (
 )
 from session_sniffer.networking.looky_system import LookyState
 from session_sniffer.networking.utils import format_mac_address, is_ipv4_address, is_mac_address
+from session_sniffer.player import run_userip_backup_async
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import SETTING_CATEGORIES_ORDER, SETTING_DEFAULTS, SETTING_METADATA, SettingMeta, SettingType
 from session_sniffer.settings.settings import Settings
@@ -737,6 +738,9 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
             clear_voice_notification_queue()
 
         prompt_to_disable_gta5_relay_if_filtered(self, context='settings')
+
+        if Settings.userip_backup_frequency != 'Disabled':
+            run_userip_backup_async()
 
         self._changed_settings = {key for key, value in new_values.items() if value != self._initial_values.get(key)}
         self._saved = True

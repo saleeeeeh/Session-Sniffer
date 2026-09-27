@@ -22,6 +22,7 @@ from session_sniffer.constants.standalone import (
     DEFAULT_DETECTED_SERVER_COLOR,
     MAX_PORT,
     MIN_PORT,
+    USERIP_BACKUP_FREQUENCIES,
     WEBSERVER_DEFAULT_HOST,
 )
 from session_sniffer.networking.ip_range import parse_ip_range
@@ -147,6 +148,7 @@ class SettingsIniModel(BaseModel):
     WEBSERVER_USERNAME: str | None
     WEBSERVER_PASSWORD: str | None
     UPDATER_CHANNEL: str | None
+    USERIP_BACKUP_FREQUENCY: str
     LOOKY_ENABLED: bool
     LOOKY_EXCLUSIVE_GTA5_PROCESS: bool
     LOOKY_GAME_VERSION: str
@@ -1214,6 +1216,21 @@ class SettingsIniModel(BaseModel):
             return none_value
         cls._set_flag(info, 'should_rewrite', value=True)
         return cast('str | None', cls._get_default_for_field(info))
+
+    @field_validator('USERIP_BACKUP_FREQUENCY', mode='before')
+    @classmethod
+    def _parse_userip_backup_frequency(cls, value: object, info: ValidationInfo) -> str:
+        if isinstance(value, str):
+            try:
+                case_match, normalized = check_case_insensitive_and_exact_match(value, USERIP_BACKUP_FREQUENCIES)
+            except NoMatchFoundError:
+                cls._set_flag(info, 'should_rewrite', value=True)
+                return cast('str', cls._get_default_for_field(info))
+            if not case_match:
+                cls._record_rewrite(info, normalized)
+            return normalized
+        cls._set_flag(info, 'should_rewrite', value=True)
+        return cast('str', cls._get_default_for_field(info))
 
     @model_validator(mode='after')
     def _check_datetime_columns(self, info: ValidationInfo) -> Self:

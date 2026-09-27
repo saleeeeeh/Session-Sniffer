@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Tree-panel operations mixin for the UserIP Databases Manager dialog."""
 
 import logging
@@ -11,7 +12,7 @@ from PySide6.QtCore import QFileSystemWatcher, QPoint, Qt, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon, QStandardItemModel
 from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog, QFileSystemModel, QFrame, QInputDialog, QLineEdit, QMenu, QMessageBox, QPushButton, QTreeView
 
-from session_sniffer.constants.local import RESOURCES_DIR_PATH, USERIP_DATABASES_DIR_PATH
+from session_sniffer.constants.local import RESOURCES_DIR_PATH, USERIP_DATABASES_BACKUP_DIR_PATH, USERIP_DATABASES_DIR_PATH
 from session_sniffer.constants.standalone import GITHUB_WIKI_USERIP_CONFIG_URL, TITLE
 from session_sniffer.guis.looky_text import (
     configure_looky_action,
@@ -27,6 +28,7 @@ from session_sniffer.guis.userip_manager_helpers import (
     parse_settings_from_lines,
     read_preserved_sections,
 )
+from session_sniffer.player import backup_userip_databases
 from session_sniffer.settings.settings import Settings
 from session_sniffer.text_templates import DEFAULT_USERIP_FILES_SETTINGS_INI, USERIP_DEFAULT_DB_FOOTER_TEMPLATE, USERIP_DEFAULT_DB_HEADER_TEMPLATE
 from session_sniffer.text_utils import format_triple_quoted_text
@@ -319,6 +321,16 @@ class TreeOperationsMixin(QDialog):
             import_action.triggered.connect(self._import_database_files)
             menu.addAction(import_action)
 
+            menu.addSeparator()
+
+            backup_now_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'export.svg')), 'Backup Databases Now', self)
+            backup_now_action.triggered.connect(self._backup_databases_now)
+            menu.addAction(backup_now_action)
+
+            open_backups_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Backups Folder', self)
+            open_backups_action.triggered.connect(self._open_backups_folder)
+            menu.addAction(open_backups_action)
+
         viewport = self._tree.viewport()
         if viewport:
             menu.popup(viewport.mapToGlobal(position))
@@ -589,6 +601,21 @@ class TreeOperationsMixin(QDialog):
                 zf.write(str(ini_path), str(arcname))
 
         self._set_status(f'Exported {len(ini_files)} database{"s" if len(ini_files) != 1 else ""} to {dest_path}')
+
+    def _backup_databases_now(self) -> None:
+        """Create a backup of all UserIP databases immediately."""
+        backup_path = backup_userip_databases(force=True)
+        if backup_path is not None:
+            self._set_status(f'Backup created: {backup_path.name}')
+            QMessageBox.information(self, TITLE, f'UserIP databases backup successfully created at:\n{backup_path}')
+        else:
+            self._set_status('Backup failed or no databases found.')
+            QMessageBox.warning(self, TITLE, 'Could not create UserIP databases backup (no database files found).')
+
+    def _open_backups_folder(self) -> None:
+        """Open the UserIP databases backup directory."""
+        USERIP_DATABASES_BACKUP_DIR_PATH.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(USERIP_DATABASES_BACKUP_DIR_PATH)))
 
     def _reset_all_databases(self) -> None:
         """Delete every .ini database file in the databases directory after user confirmation.

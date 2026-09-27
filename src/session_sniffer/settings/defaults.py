@@ -15,6 +15,7 @@ from session_sniffer.constants.standalone import (
     RAKNET_PORT,
     SSDPP_PORT,
     UAUDP_PORT,
+    USERIP_BACKUP_FREQUENCIES,
     WEBSERVER_DEFAULT_HOST,
     WEBSERVER_DEFAULT_PORT,
 )
@@ -148,6 +149,14 @@ SETTING_METADATA: dict[str, SettingMeta] = {
         setting_type=SettingType.ENUM,
         tooltip='Release channel to check for updates.',
         allowed_values=('Stable', 'Pre-release'),
+    ),
+    'userip_backup_frequency': SettingMeta(
+        category='General',
+        group='UserIP Databases',
+        display_label='Backup Frequency',
+        setting_type=SettingType.ENUM,
+        tooltip='Frequency for automatically backing up UserIP databases to ZIP archives in Roaming AppData.',
+        allowed_values=USERIP_BACKUP_FREQUENCIES,
     ),
     'capture_interface_name': SettingMeta(
         category='Capture',
@@ -1010,6 +1019,7 @@ class SettingDefaults(TypedDict):
     webserver_username: str | None
     webserver_password: str | None
     updater_channel: str | None
+    userip_backup_frequency: str
     looky_enabled: bool
     looky_exclusive_gta5_process: bool
     looky_game_version: str
@@ -1150,6 +1160,7 @@ SETTING_DEFAULTS: SettingDefaults = {
     'webserver_username': None,
     'webserver_password': None,
     'updater_channel': 'Stable',
+    'userip_backup_frequency': 'Daily',
     'looky_enabled': True,
     'looky_exclusive_gta5_process': True,
     'looky_game_version': 'Both',

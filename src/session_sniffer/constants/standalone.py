@@ -50,3 +50,12 @@ MAX_SUSPEND_DURATION_SECONDS: int = 3600
 
 # Default display color for detected server table rows.
 DEFAULT_DETECTED_SERVER_COLOR: str = 'purple'
+
+# UserIP database backup frequencies and retention.
+USERIP_BACKUP_FREQUENCIES: tuple[str, ...] = (
+    'Disabled',
+    'Every 6 Hours',
+    'Daily',
+    'Weekly',
+)
+MAX_USERIP_BACKUPS: int = 10

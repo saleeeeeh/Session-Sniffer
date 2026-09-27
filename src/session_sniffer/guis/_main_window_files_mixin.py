@@ -29,6 +29,7 @@ from session_sniffer.constants.local import (
     SESSIONS_LOGGING_DIR_PATH,
     SETTINGS_PATH,
     USER_SCRIPTS_DIR_PATH,
+    USERIP_DATABASES_BACKUP_DIR_PATH,
     USERIP_DATABASES_DIR_PATH,
     USERIP_LOGGING_PATH,
     VERSION,
@@ -166,6 +167,10 @@ class FilesMixin(QMainWindow):
     def _open_userip_databases_folder(self) -> None:
         """Open the UserIP databases directory."""
         self.open_directory(USERIP_DATABASES_DIR_PATH)
+
+    def _open_userip_databases_backups_folder(self) -> None:
+        """Open the UserIP databases backups directory."""
+        self.open_directory(USERIP_DATABASES_BACKUP_DIR_PATH)
 
     def _open_sessions_logging_folder(self) -> None:
         """Open the sessions logging directory."""

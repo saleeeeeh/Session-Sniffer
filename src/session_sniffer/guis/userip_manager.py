@@ -277,6 +277,13 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         export_zip_action = export_menu.addAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'export.svg')), 'Export all as ZIP…')
         if export_zip_action:
             export_zip_action.triggered.connect(self._export_all_as_zip)
+        export_menu.addSeparator()
+        backup_databases_action = export_menu.addAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'export.svg')), 'Backup databases now')
+        if backup_databases_action:
+            backup_databases_action.triggered.connect(self._backup_databases_now)
+        open_backups_action = export_menu.addAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open backups folder')
+        if open_backups_action:
+            open_backups_action.triggered.connect(self._open_backups_folder)
 
         export_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'export.svg')), ' Export…')
         export_button.setAutoDefault(False)

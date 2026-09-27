@@ -312,6 +312,11 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         open_userip_databases_action.triggered.connect(self._open_userip_databases_folder)
         data_menu.addAction(open_userip_databases_action)
 
+        open_userip_databases_backups_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open UserIP Backups Folder', self)
+        open_userip_databases_backups_action.setToolTip('Open Roaming AppData\\Session Sniffer\\UserIP Databases Backups')
+        open_userip_databases_backups_action.triggered.connect(self._open_userip_databases_backups_folder)
+        data_menu.addAction(open_userip_databases_backups_action)
+
         open_user_scripts_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open User Scripts Folder', self)
         open_user_scripts_action.setToolTip('Open Roaming AppData\\Session Sniffer\\scripts')
         open_user_scripts_action.triggered.connect(self._open_user_scripts_folder)
