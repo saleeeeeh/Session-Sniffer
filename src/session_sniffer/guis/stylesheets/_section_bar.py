@@ -98,6 +98,14 @@ def section_bar_qss(accent: str) -> str:
         border: none;
         border-left: 1px solid rgba(255, 255, 255, 0.55);
     }}
+    QSpinBox::up-arrow {{
+        right: 1px;
+        top: 1px;
+    }}
+    QSpinBox::down-arrow {{
+        right: 1px;
+        bottom: 1px;
+    }}
     QComboBox QAbstractItemView {{
         background-color: #2a2a2a; color: #e0e0e0;
         border: 1px solid rgba(128, 128, 128, 0.5);
