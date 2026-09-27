@@ -71,3 +71,5 @@ The release build uses the project's one-file PyInstaller configuration, so runt
 Keep diffs focused.
 
 Do not reformat unrelated code or modify unrelated configuration simply because a quality tool reports existing issues outside the scope of the change.
+
+Always verify that all modified or newly generated files (including `uv.lock` and configuration files) have CRLF (`\r\n`) line endings.

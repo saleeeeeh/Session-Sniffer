@@ -29,17 +29,18 @@ Use this skill when the user wants to prepare and commit a new Session Sniffer r
    `+YYYYMMDD.HHMM`
 10. Review the resulting diff.
 11. Run the relevant project validation before committing.
-12. Show the user:
+12. Verify CRLF (`\r\n`) line endings on all modified files, especially `uv.lock` (which `uv` defaults to LF) and `pyproject.toml`.
+13. Show the user:
    - previous version,
    - new version,
    - changed files,
    - validation performed.
-13. Create exactly one version-bump commit using:
+14. Create exactly one version-bump commit using:
 
    `build: bump version to <new-version>`
 
-14. Ensure the version-bump commit is pushed before creating any GitHub tag or release. The release tag MUST match `version` in `pyproject.toml` exactly.
-15. Do not amend, reset, rebase, force-push, or otherwise rewrite Git history.
+15. Ensure the version-bump commit is pushed before creating any GitHub tag or release. The release tag MUST match `version` in `pyproject.toml` exactly.
+16. Do not amend, reset, rebase, force-push, or otherwise rewrite Git history.
 
 ## Version Format
 

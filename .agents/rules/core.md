@@ -33,7 +33,8 @@ When replacing, renaming, or removing something:
 
 ## Line Endings
 
-- Always use CRLF (`\r\n`) line endings for all files in the repository, including SVG assets, Python source files, configuration, and documentation. Never use or commit LF line endings.
+- Always use CRLF (`\r\n`) line endings for all files in the repository, including SVG assets, Python source files, configuration, documentation, and lockfiles (such as `uv.lock`). Never use or commit LF line endings.
+- Tools like `uv` (e.g. `uv lock`, `uv sync`) write LF line endings by default. Whenever `uv.lock` or any other lockfile/generated file is touched, modified, or generated, immediately verify and ensure that it retains CRLF (`\r\n`) line endings across the entire file before completing the task.
 
 ## Investigation
 
