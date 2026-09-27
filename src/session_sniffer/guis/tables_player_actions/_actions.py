@@ -48,9 +48,9 @@ def build_discord_player_report(player: Player) -> str:
     usernames = ', '.join(player.usernames) if player.usernames else 'N/A'
     lines.append(f'> **Username{pluralize(len(player.usernames))}:** {usernames}')
     lines.append(f'> **First Port:** {player.ports.first}  |  **Last Port:** {player.ports.last}')
-    middle_ports = ', '.join(map(str, player.ports.middle))
+    middle_ports = ', '.join(map(str, reversed(player.ports.middle)))
     if middle_ports:
-        lines.append(f'> **Middle Port(s):** {middle_ports}')
+        lines.append(f'> **Middle Port{pluralize(len(player.ports.middle))}:** {middle_ports}')
     db_text = userip_database_text(player)
     if db_text != 'No':
         lines.append(f'> **UserIP Database:** {db_text}')

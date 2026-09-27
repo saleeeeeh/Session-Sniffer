@@ -133,7 +133,7 @@ _HEADERS = (
 _HEADER_TOOLTIPS = (
     'Leaderboard position (row number) for the current sort order, time period and count mode.',
     'Current session connection status (Connected, Disconnected, or not in the active session).',
-    'In-game usernames seen for this player across all recorded sessions.',
+    'In-game usernames seen for this player across all recorded sessions, ordered from most recent to oldest seen (left to right).',
     "The player's IP address.",
     'How often this player was seen within the selected time period.',
     'The earliest time this player was ever recorded across all session logs.',

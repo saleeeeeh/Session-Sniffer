@@ -2,6 +2,7 @@
 
 import dataclasses
 from dataclasses import dataclass
+from datetime import datetime
 from threading import Lock
 from typing import ClassVar, Literal, override
 
@@ -318,4 +319,5 @@ class PlayerLooky:
     last_fetched_at: float = 0.0
     usernames: list[str] = dataclasses.field(default_factory=list[str])
     rockstarids: list[int] = dataclasses.field(default_factory=list[int])
+    last_seens: list[datetime] = dataclasses.field(default_factory=list[datetime])
     lock: Lock = dataclasses.field(default_factory=Lock)

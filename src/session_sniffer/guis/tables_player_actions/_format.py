@@ -1,11 +1,14 @@
 """Private value-formatting helpers for player action dialogs."""
 
+from datetime import UTC
 from typing import TYPE_CHECKING, cast
 
 from session_sniffer.constants.local import USERIP_DATABASES_DIR_PATH
+from session_sniffer.settings.settings import Settings
 
 if TYPE_CHECKING:
     from session_sniffer.models.player import Player
+    from session_sniffer.models.player_lookup import PlayerLooky
     from session_sniffer.player.userip import UserIP
 
 _UNSET_SENTINEL = '...'
@@ -124,3 +127,54 @@ def userip_database_text(player: Player) -> str:
     if player.userip_detection is None or player.userip is None:
         return 'No'
     return format_userip_database(player.userip)
+
+
+def format_looky_usernames(looky: PlayerLooky) -> str:
+    """Format Looky System usernames for display."""
+    with looky.lock:
+        if looky.usernames:
+            return ', '.join(looky.usernames)
+        if not Settings.is_gta5_feature_set() or not Settings.looky_enabled or not Settings.looky_api_key:
+            return 'N/A'
+        if not looky.is_initialized:
+            return '...'
+        return 'N/A'
+
+
+def format_looky_rockstarids(looky: PlayerLooky) -> str:
+    """Format Looky System Rockstar IDs for display."""
+    with looky.lock:
+        if looky.rockstarids:
+            return ', '.join(map(str, looky.rockstarids))
+        if not Settings.is_gta5_feature_set() or not Settings.looky_enabled or not Settings.looky_api_key:
+            return 'N/A'
+        if not looky.is_initialized:
+            return '...'
+        return 'N/A'
+
+
+def format_looky_last_seens(looky: PlayerLooky) -> str:
+    """Format Looky System last seen timestamps for display."""
+    with looky.lock:
+        if not looky.last_seens:
+            if not Settings.is_gta5_feature_set() or not Settings.looky_enabled or not Settings.looky_api_key:
+                return 'N/A'
+            if not looky.is_initialized:
+                return '...'
+            return 'N/A'
+        if len(looky.last_seens) == 1:
+            last_seen = looky.last_seens[0]
+            last_seen_dt = last_seen if last_seen.tzinfo is None else last_seen.astimezone(UTC)
+            return last_seen_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+        lines: list[str] = []
+        for i, last_seen in enumerate(looky.last_seens):
+            last_seen_dt = last_seen if last_seen.tzinfo is None else last_seen.astimezone(UTC)
+            formatted_dt = last_seen_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+            name = looky.usernames[i] if i < len(looky.usernames) else ''
+            rid = str(looky.rockstarids[i]) if i < len(looky.rockstarids) else ''
+            identifier = name or rid
+            if identifier:
+                lines.append(f'{identifier}: {formatted_dt}')
+            else:
+                lines.append(formatted_dt)
+        return '\n'.join(lines)

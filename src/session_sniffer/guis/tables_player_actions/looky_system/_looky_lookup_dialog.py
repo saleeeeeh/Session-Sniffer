@@ -30,6 +30,7 @@ from session_sniffer.guis.stylesheets import (
 from session_sniffer.guis.tables_player_actions._player_info_dialog_mixin import PlayerInfoDialogMixin
 from session_sniffer.guis.tables_player_actions.looky_system._looky_helpers import check_looky_prerequisites
 from session_sniffer.guis.utils import ActiveDialogRegistry, set_dialog_window_flags
+from session_sniffer.models.player import Player
 from session_sniffer.networking.looky_system import (
     extract_rate_limit_message,
     extract_rate_limit_wait_seconds,
@@ -42,8 +43,8 @@ from session_sniffer.text_utils import pluralize
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from session_sniffer.guis.tables_player_actions._ip_lookup_dialog import StandaloneIPLookup
     from session_sniffer.models.looky_system import LookyPlayer
-    from session_sniffer.models.player import Player
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class _LookyFetchWorker(CrashingQThread):
 class LookyLookupDialog(PlayerInfoDialogMixin):
     """Non-modal dialog that renders pre-fetched Looky System player results."""
 
-    def __init__(self, parent: QWidget | None, player: Player, results: list[LookyPlayer]) -> None:
+    def __init__(self, parent: QWidget | None, player: Player | StandaloneIPLookup, results: list[LookyPlayer]) -> None:
         """Render *results* for *player*."""
         super().__init__(parent)
         self._ip = player.ip
@@ -172,12 +173,13 @@ def close_all_lookup_dialogs() -> None:
     _active_dialogs.close_all()
 
 
-def show_looky_lookup(parent: QWidget, player: Player) -> None:
+def show_looky_lookup(parent: QWidget, player: Player | StandaloneIPLookup) -> None:
     """Validate and fetch Looky System IP lookup results for *player*; open a results dialog or show an error."""
     if _active_dialogs.focus(player.ip):
         return
 
-    api_key = check_looky_prerequisites(parent, player=player)
+    target_player: Player | None = player if isinstance(player, Player) else None
+    api_key = check_looky_prerequisites(parent, player=target_player)
     if api_key is None:
         return
 
@@ -197,6 +199,7 @@ def show_looky_lookup(parent: QWidget, player: Player) -> None:
         with player.looky_system.lock:
             player.looky_system.usernames = [entry.name for entry in unique_results]
             player.looky_system.rockstarids = [entry.rockstarid for entry in unique_results]
+            player.looky_system.last_seens = [entry.lastSeen for entry in unique_results]
             player.looky_system.needs_refresh = False
             player.looky_system.last_fetched_at = time.monotonic()
             player.looky_system.is_initialized = True

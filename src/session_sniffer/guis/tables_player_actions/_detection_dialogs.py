@@ -199,7 +199,7 @@ class PlayerDetectionDialog(PlayerInfoDialogMixin):
         self._add_row(form, 'IP Address', player.ip)
         self._add_row(form, 'Hostname', format_text(player.reverse_dns.hostname))
         self._add_row(form, 'First Port', str(player.ports.first))
-        self._add_row(form, 'Middle Port(s)', ', '.join(map(str, reversed(player.ports.middle))) or '')
+        self._add_row(form, f'Middle Port{pluralize(len(player.ports.middle))}', ', '.join(map(str, reversed(player.ports.middle))) or '')
         self._add_row(form, 'Last Port', str(player.ports.last))
         self._add_row(form, 'Total Packets Exchanged', str(player.packets.total_exchanged))
         self._add_row(form, 'Session Packets', str(player.packets.exchanged))

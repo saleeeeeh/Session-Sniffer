@@ -564,6 +564,7 @@ def looky_core() -> None:
                         with matched_player.looky_system.lock:
                             matched_player.looky_system.usernames = [player.name for player in unique_players]
                             matched_player.looky_system.rockstarids = [player.rockstarid for player in unique_players]
+                            matched_player.looky_system.last_seens = [player.lastSeen for player in unique_players]
                             matched_player.looky_system.needs_refresh = False
                             matched_player.looky_system.last_fetched_at = time.monotonic()
                             matched_player.looky_system.is_initialized = True

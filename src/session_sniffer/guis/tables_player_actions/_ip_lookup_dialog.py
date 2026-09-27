@@ -4,13 +4,14 @@ import dataclasses
 import logging
 import time
 from dataclasses import dataclass
+from http import HTTPStatus
 from threading import Event, Thread
 from typing import TYPE_CHECKING, override
 
 import requests
 from pydantic import ValidationError
-from PySide6.QtCore import QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
@@ -21,11 +22,14 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
-from session_sniffer.constants.standalone import TITLE
+from session_sniffer.constants.standalone import LOOKY_BASE_HOST, TITLE
 from session_sniffer.guis.stylesheets import PLAYER_INFO_FORM_LABEL_STYLESHEET
 from session_sniffer.guis.tables_player_actions._actions import ping_ip, tcp_port_ping, web_ping
 from session_sniffer.guis.tables_player_actions._format import (
     format_bool,
+    format_looky_last_seens,
+    format_looky_rockstarids,
+    format_looky_usernames,
     format_packets_and_stats,
     format_ping_status,
     format_ping_times,
@@ -34,6 +38,7 @@ from session_sniffer.guis.tables_player_actions._format import (
     format_userip_database,
 )
 from session_sniffer.guis.tables_player_actions._player_info_dialog_mixin import PlayerInfoDialogMixin
+from session_sniffer.guis.tables_player_actions.looky_system._looky_lookup_dialog import show_looky_lookup
 from session_sniffer.guis.utils import (
     ActiveDialogRegistry,
     apply_adaptive_window_size,
@@ -43,6 +48,7 @@ from session_sniffer.guis.utils import (
 from session_sniffer.models import IpApiResponse
 from session_sniffer.models.player_lookup import (
     PlayerIPLookup,
+    PlayerLooky,
     PlayerPing,
     PlayerReverseDNS,
 )
@@ -53,16 +59,20 @@ from session_sniffer.networking.geolite2 import (
     query_geolite2_country,
 )
 from session_sniffer.networking.http_session import session
+from session_sniffer.networking.looky_system import get_looky_user_url, lookup_ip
 from session_sniffer.networking.ping import ping_player
 from session_sniffer.networking.reverse_dns import reverse_dns_lookup
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.player.userip import UserIP, UserIPDatabases
+from session_sniffer.settings.settings import Settings
+from session_sniffer.text_utils import pluralize
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from PySide6.QtGui import QCloseEvent
 
+    from session_sniffer.models.looky_system import LookyPlayer
     from session_sniffer.models.player import Player
 
 logger = logging.getLogger(__name__)
@@ -84,6 +94,7 @@ class StandaloneIPLookup:
     ip: str
     usernames: list[str] = dataclasses.field(default_factory=list[str])
     reverse_dns: PlayerReverseDNS = dataclasses.field(default_factory=PlayerReverseDNS)
+    looky_system: PlayerLooky = dataclasses.field(default_factory=PlayerLooky)
     iplookup: PlayerIPLookup = dataclasses.field(default_factory=PlayerIPLookup)
     ping: PlayerPing = dataclasses.field(default_factory=PlayerPing)
     ports: _StandalonePorts = dataclasses.field(default_factory=_StandalonePorts)
@@ -157,6 +168,39 @@ def _resolve_standalone_lookup(lookup: StandaloneIPLookup) -> None:
             lookup.ping.is_pinging = False
             lookup.ping.is_initialized = True
 
+    # 6. Looky System
+    if not lookup.looky_system.is_initialized and Settings.looky_enabled and Settings.looky_api_key and Settings.is_gta5_feature_set():
+        try:
+            looky_players = lookup_ip(lookup.ip, Settings.looky_api_key, Settings.looky_game_version.lower())
+            unique_results: list[LookyPlayer] = []
+            seen_pairs: set[tuple[str, int]] = set()
+            for entry in looky_players:
+                pair = (entry.name, entry.rockstarid)
+                if pair not in seen_pairs:
+                    seen_pairs.add(pair)
+                    unique_results.append(entry)
+            with lookup.looky_system.lock:
+                lookup.looky_system.usernames = [entry.name for entry in unique_results]
+                lookup.looky_system.rockstarids = [entry.rockstarid for entry in unique_results]
+                lookup.looky_system.last_seens = [entry.lastSeen for entry in unique_results]
+                lookup.looky_system.needs_refresh = False
+                lookup.looky_system.last_fetched_at = time.monotonic()
+                lookup.looky_system.is_initialized = True
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == HTTPStatus.NOT_FOUND:
+                with lookup.looky_system.lock:
+                    lookup.looky_system.needs_refresh = False
+                    lookup.looky_system.last_fetched_at = time.monotonic()
+                    lookup.looky_system.is_initialized = True
+            else:
+                logger.debug('Looky lookup HTTP error for standalone IP %s: %s', lookup.ip, e)
+                with lookup.looky_system.lock:
+                    lookup.looky_system.is_initialized = True
+        except (requests.exceptions.RequestException, ValidationError) as e:
+            logger.debug('Looky lookup failed for standalone IP %s: %s', lookup.ip, e)
+            with lookup.looky_system.lock:
+                lookup.looky_system.is_initialized = True
+
 
 def _start_standalone_lookup(lookup: StandaloneIPLookup) -> None:
     """Launch background resolution thread for a standalone IP lookup."""
@@ -178,7 +222,7 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         super().__init__(parent)
         set_dialog_window_flags(self)
         self._target: IPLookupTarget = target
-        self._rows: list[tuple[QLabel, Callable[[IPLookupTarget], str]]] = []
+        self._rows: list[tuple[QLabel, Callable[[IPLookupTarget], str], QLabel, Callable[[IPLookupTarget], str] | None]] = []
         self._closed_event = Event()
 
         self.setWindowTitle(f'{TITLE} - IP Lookup Details ({format_player_display(self._target.ip, self._target.usernames)})')
@@ -198,6 +242,7 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         scroll_layout = self._init_scroll_area(outer_layout)
 
         self._build_player_info_group(scroll_layout)
+        self._build_looky_group(scroll_layout)
         self._build_iplookup_group(scroll_layout)
         self._build_ping_group(scroll_layout)
         scroll_layout.addStretch(1)
@@ -239,11 +284,57 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         group, form = self._make_group('Player Info', accent='#2b6cb0')
         self._add_live_row(form, 'IP Address', lambda target: target.ip)
         self._add_live_row(form, 'Hostname', lambda target: format_text(target.reverse_dns.hostname))
-        self._add_live_row(form, 'Usernames', lambda target: ', '.join(target.usernames) or 'N/A')
+        self._add_live_row(form, lambda target: f'Username{pluralize(len(target.usernames))}', lambda target: ', '.join(target.usernames) or 'N/A')
         self._add_live_row(form, 'In UserIP database', lambda target: format_userip_database(target.userip))
         self._add_live_row(form, 'First Port', lambda target: str(target.ports.first))
-        self._add_live_row(form, 'Middle Port(s)', lambda target: ', '.join(map(str, target.ports.middle)) or '')
+        self._add_live_row(
+            form,
+            lambda target: f'Middle Port{pluralize(len(target.ports.middle))}',
+            lambda target: ', '.join(map(str, reversed(target.ports.middle))) or '',
+        )
         self._add_live_row(form, 'Last Port', lambda target: str(target.ports.last))
+        parent_layout.addWidget(group)
+
+    def _build_looky_group(self, parent_layout: QVBoxLayout) -> None:
+        """Add the 'Looky System' section to the scroll layout."""
+        group, form = self._make_group('Looky System', accent='#4c1d95')
+
+        def _looky_usernames_label(target: IPLookupTarget) -> str:
+            with target.looky_system.lock:
+                return f'Username{pluralize(len(target.looky_system.usernames))}'
+
+        def _looky_rockstarids_label(target: IPLookupTarget) -> str:
+            with target.looky_system.lock:
+                return f'Rockstar ID{pluralize(len(target.looky_system.rockstarids))}'
+
+        self._add_live_row(form, _looky_usernames_label, lambda target: format_looky_usernames(target.looky_system))
+        self._add_live_row(form, _looky_rockstarids_label, lambda target: format_looky_rockstarids(target.looky_system))
+        self._add_live_row(form, 'Last Seen', lambda target: format_looky_last_seens(target.looky_system))
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setContentsMargins(0, 6, 0, 0)
+        buttons_layout.setSpacing(10)
+
+        lookup_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'search.svg')), ' Looky Lookup…')
+        lookup_button.setToolTip('Query the Looky System API to view full player details for this IP.')
+        lookup_button.clicked.connect(lambda: show_looky_lookup(self, self._target))
+        buttons_layout.addWidget(lookup_button)
+
+        website_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'website.svg')), ' Looky Website')
+        website_button.setToolTip('Open the Looky System website in your default browser.')
+
+        def _on_website_clicked() -> None:
+            with self._target.looky_system.lock:
+                rids = list(self._target.looky_system.rockstarids)
+            if len(rids) == 1:
+                QDesktopServices.openUrl(QUrl(get_looky_user_url(rids[0])))
+            else:
+                QDesktopServices.openUrl(QUrl(LOOKY_BASE_HOST))
+
+        website_button.clicked.connect(_on_website_clicked)
+        buttons_layout.addWidget(website_button)
+
+        form.addRow('', buttons_layout)
         parent_layout.addWidget(group)
 
     def _build_iplookup_group(self, parent_layout: QVBoxLayout) -> None:
@@ -313,13 +404,20 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         form.addRow('', buttons_layout)
         parent_layout.addWidget(group)
 
-    def _add_live_row(self, form: QFormLayout, label_text: str, provider: Callable[[IPLookupTarget], str]) -> None:
+    def _add_live_row(
+        self,
+        form: QFormLayout,
+        label: str | Callable[[IPLookupTarget], str],
+        provider: Callable[[IPLookupTarget], str],
+    ) -> None:
         """Append a label / copyable-value row to *form* and register it for refresh."""
-        label_widget = QLabel(f'{label_text}:')
+        initial_label = label(self._target) if callable(label) else label
+        label_widget = QLabel(f'{initial_label}:')
         label_widget.setStyleSheet(PLAYER_INFO_FORM_LABEL_STYLESHEET)
         value_widget = self._make_value_label()
         form.addRow(label_widget, value_widget)
-        self._rows.append((value_widget, provider))
+        label_provider = label if callable(label) else None
+        self._rows.append((value_widget, provider, label_widget, label_provider))
 
     def _refresh(self) -> None:
         """Re-evaluate every row provider and update the value widget text."""
@@ -328,10 +426,14 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         if self.windowTitle() != new_title:
             self.setWindowTitle(new_title)
             self._header_label.setText(f'IP Lookup Details — {display}')
-        for value_widget, provider in self._rows:
+        for value_widget, provider, label_widget, label_provider in self._rows:
             text = provider(self._target)
             if value_widget.text() != text:
                 value_widget.setText(text)
+            if label_provider is not None:
+                new_label = f'{label_provider(self._target)}:'
+                if label_widget.text() != new_label:
+                    label_widget.setText(new_label)
 
     @override
     def closeEvent(self, event: QCloseEvent) -> None:

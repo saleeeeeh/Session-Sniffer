@@ -67,7 +67,8 @@ if TYPE_CHECKING:
 
 GUI_COLUMN_HEADERS_TOOLTIPS = {
     'Usernames': (
-        'Displays the usernames of players from your UserIP database files.\n\n'
+        'Displays the usernames of players, ordered from most recent to oldest seen (left to right).\n\n'
+        'Usernames are resolved from your UserIP database files, Looky System, and mod menu logs.\n'
         'For GTA V PC users who have used the Session Sniffer mod menu plugin,\n'
         'it automatically resolves usernames while the plugin is running,\n'
         'or shows previously resolved players that were seen by the plugin.'
@@ -104,7 +105,7 @@ GUI_COLUMN_HEADERS_TOOLTIPS = {
     'Hostname': "The domain name associated with the player's IP address, resolved through a reverse DNS lookup.",
     'Ports': 'All ports used by the player, ordered from first to last discovered (left to right).',
     'Last Port': "The port used by the player's last captured packet.",
-    'Middle Ports': 'The ports used by the player between the first and last captured packets.',
+    'Middle Ports': 'The ports used by the player between the first and last captured packets, ordered from last to first discovered (left to right).',
     'First Port': "The port used by the player's first captured packet.",
     'Continent': "The continent of the player's IP location.",
     'Country': "The country of the player's IP location.",
