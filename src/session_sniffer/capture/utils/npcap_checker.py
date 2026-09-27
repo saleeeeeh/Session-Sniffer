@@ -349,7 +349,6 @@ def ensure_npcap_installed() -> None:
         return
 
     _tracker.reset()
-    open_npcap_download_page()
 
     if not show_dependency_prompt(
         title='Npcap Driver Required',
