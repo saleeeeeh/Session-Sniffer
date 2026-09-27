@@ -62,6 +62,7 @@ from session_sniffer.guis._settings_widget_builders import (
     create_string_tuple_widget,
     create_text_widget,
     create_third_party_servers_split_widget,
+    format_setting_tooltip,
     get_line_edit,
 )
 from session_sniffer.guis.color_picker_dialog import ColorPickerButton
@@ -226,6 +227,12 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
         if isinstance(disconnected_enabled_widget, QCheckBox):
             disconnected_enabled_widget.toggled.connect(self._on_disconnected_players_enabled_toggled)
             self._on_disconnected_players_enabled_toggled(disconnected_enabled_widget.isChecked())
+
+        # Enable/disable High Rate Monitor threshold fields based on Smart vs Manual mode.
+        hrm_mode_widget = self._widgets.get('high_rate_monitor_mode')
+        if isinstance(hrm_mode_widget, QComboBox):
+            hrm_mode_widget.currentTextChanged.connect(self._on_high_rate_monitor_mode_changed)
+            self._on_high_rate_monitor_mode_changed(hrm_mode_widget.currentText())
 
     # ------------------------------------------------------------------
     # Tab / widget construction
@@ -448,6 +455,33 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
             if (sort_widget := self._widgets.get(sort_key)) is not None:
                 sort_widget.setEnabled(checked)
 
+    def _on_high_rate_monitor_mode_changed(self, mode: str) -> None:
+        """Enable or disable manual threshold inputs based on whether High Rate Monitor is in Smart or Manual mode."""
+        is_manual = mode == 'Manual'
+        for setting_key in ('high_rate_monitor_pps_threshold', 'high_rate_monitor_bps_threshold'):
+            label = self._labels.get(setting_key)
+            widget = self._widgets.get(setting_key)
+            meta = SETTING_METADATA.get(setting_key)
+            if label is not None:
+                label.setEnabled(is_manual)
+            if widget is not None:
+                widget.setEnabled(is_manual)
+            if meta is not None:
+                tooltip = format_setting_tooltip(meta) or ''
+                if not is_manual:
+                    disabled_note = 'Disabled in Smart mode (packet rate thresholds are calculated dynamically from the session average).'
+                    tooltip = f'{tooltip}\n\n{disabled_note}' if tooltip else disabled_note
+                if label is not None:
+                    label.setToolTip(tooltip)
+                if widget is not None:
+                    widget.setToolTip(tooltip)
+
+    def _update_high_rate_monitor_mode_state(self) -> None:
+        """Update enabled state of High Rate Monitor threshold fields based on current combo selection."""
+        hrm_mode_widget = self._widgets.get('high_rate_monitor_mode')
+        if isinstance(hrm_mode_widget, QComboBox):
+            self._on_high_rate_monitor_mode_changed(hrm_mode_widget.currentText())
+
     def _create_widget(self, key: str, meta: SettingMeta) -> QWidget:
         """Return the appropriate input widget for a single setting."""
         if key == 'capture_filter_process_pid':
@@ -484,6 +518,7 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
                 value = cast('SettingValue', getattr(Settings, key))
                 self._set_widget_value(key, widget, value)
             self._update_sort_column_options()
+            self._update_high_rate_monitor_mode_state()
         finally:
             self._loading_settings = False
 
@@ -719,6 +754,7 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
             if key in defaults_dict and SETTING_METADATA[key].category == category:
                 self._set_widget_value(key, widget, defaults_dict[key])
         self._update_sort_column_options()
+        self._update_high_rate_monitor_mode_state()
         self._update_restart_notice()
 
     def _reset_current_tab(self) -> None:
@@ -735,6 +771,7 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
             if key in defaults_dict:
                 self._set_widget_value(key, widget, defaults_dict[key])
         self._update_sort_column_options()
+        self._update_high_rate_monitor_mode_state()
         self._update_restart_notice()
 
     def _export_settings(self) -> None:
