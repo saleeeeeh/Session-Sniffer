@@ -411,12 +411,16 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
         provider: Callable[[IPLookupTarget], str],
     ) -> None:
         """Append a label / copyable-value row to *form* and register it for refresh."""
-        initial_label = label(self._target) if callable(label) else label
+        if isinstance(label, str):
+            initial_label = label
+            label_provider = None
+        else:
+            initial_label = label(self._target)
+            label_provider = label
         label_widget = QLabel(f'{initial_label}:')
         label_widget.setStyleSheet(PLAYER_INFO_FORM_LABEL_STYLESHEET)
         value_widget = self._make_value_label()
         form.addRow(label_widget, value_widget)
-        label_provider = label if callable(label) else None
         self._rows.append((value_widget, provider, label_widget, label_provider))
 
     def _refresh(self) -> None:
