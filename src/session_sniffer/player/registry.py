@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 9
-MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 20
+MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 40
 SESSION_HOST_MAX_PACKETS_FOR_DETECTION = 1000
 SESSION_HOST_CANDIDATE_PLAYERS_COUNT = 2
 SESSION_HOST_AMBIGUITY_MIN_THRESHOLD_MS = 100
@@ -537,7 +537,7 @@ class SessionHost:
             raise UnexpectedPlayerCountError(len(connected_players))
 
         # Both sole-candidate and two-candidate paths use MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST.
-        # GTA5 matchmaking briefly probes other sessions' hosts (9-20 sent packet transient handshakes)
+        # GTA5 matchmaking briefly probes other sessions' hosts (9-40 sent packet transient handshakes)
         # — a lone candidate in that range could be a probe, but it could equally be a relay host
         # that disconnected while alone in the session. Using the minimum threshold for both paths
         # ensures relay hosts with few packets are detected rather than silently missed.
