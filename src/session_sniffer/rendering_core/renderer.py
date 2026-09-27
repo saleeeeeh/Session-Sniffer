@@ -534,15 +534,19 @@ def rendering_core(
                 p2p_session_connected = [player for player in session_connected if not is_third_party_server_ip(player.ip)]
                 current_session_host = SessionHost.get_player()
                 if current_session_host is not None and current_session_host.left_event.is_set():
-                    if current_session_host.packets.exchanged <= MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST and _relay_host_logged_ip != current_session_host.ip:
+                    if (
+                        not current_session_host.packets.received
+                        and current_session_host.packets.sent <= MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST
+                        and _relay_host_logged_ip != current_session_host.ip
+                    ):
                         logger.debug(
-                            '[SessionHost] Current host %s disconnected but is relayed (%d packets <= %d), keeping as host until session clears',
+                            '[SessionHost] Current host %s disconnected but is relayed (%d sent packets <= %d), keeping as host until session clears',
                             current_session_host.ip,
-                            current_session_host.packets.exchanged,
+                            current_session_host.packets.sent,
                             MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
                         )
                         _relay_host_logged_ip = current_session_host.ip
-                    elif current_session_host.packets.exchanged > MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
+                    elif current_session_host.packets.received or current_session_host.packets.sent > MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
                         logger.debug('[SessionHost] Current host %s left_event is set, clearing host', current_session_host.ip)
                         _relay_host_logged_ip = None
                         SessionHost.set_player(None)
@@ -628,11 +632,11 @@ def rendering_core(
                             len(SessionHost.players_pending_for_disconnection),
                         )
                         SessionHost.clear_session_host_data()
-                    elif len(p2p_session_connected) == 1 and p2p_session_connected[0].packets.exchanged < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
+                    elif len(p2p_session_connected) == 1 and p2p_session_connected[0].packets.sent < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
                         logger.debug(
-                            '[SessionHost] Sole candidate %s has %d packets, waiting for >= %d before searching',
+                            '[SessionHost] Sole candidate %s has %d sent packets, waiting for >= %d before searching',
                             p2p_session_connected[0].ip,
-                            p2p_session_connected[0].packets.exchanged,
+                            p2p_session_connected[0].packets.sent,
                             MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
                         )
                     else:
@@ -659,9 +663,9 @@ def rendering_core(
                             SESSION_HOST_MAX_PACKETS_FOR_DETECTION,
                         )
                         SessionHost.last_timing_gap_candidate = None
-                    elif top2[0].packets.exchanged >= MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
+                    elif top2[0].packets.sent >= MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
                         logger.debug(
-                            '[SessionHost] Timing gap candidate[0] %s now has >= %d packets, re-triggering search',
+                            '[SessionHost] Timing gap candidate[0] %s now has >= %d sent packets, re-triggering search',
                             top2[0].ip,
                             MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
                         )

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 10
+MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 9
 MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST = 20
 SESSION_HOST_MAX_PACKETS_FOR_DETECTION = 1000
 SESSION_HOST_CANDIDATE_PLAYERS_COUNT = 2
@@ -273,8 +273,8 @@ def _format_host_debug_details(
         '',
         '--- Detection Criteria ---',
         f'- Candidate Timing Gap Window: {SESSION_HOST_AMBIGUITY_MIN_THRESHOLD_MS}ms - {SESSION_HOST_AMBIGUITY_MAX_THRESHOLD_MS}ms',
-        f'- Minimum Packets Required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}',
-        f'- Maximum Packets Limit: {SESSION_HOST_MAX_PACKETS_FOR_DETECTION}',
+        f'- Minimum Sent Packets Required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}',
+        f'- Maximum Exchanged Packets Limit: {SESSION_HOST_MAX_PACKETS_FOR_DETECTION}',
     ]
     if timing_gap is not None:
         gap_milliseconds = timing_gap * 1000
@@ -319,10 +319,10 @@ def _format_host_debug_details(
         for index, player in enumerate(candidates, start=1):
             rejoin_time = player.datetime.last_rejoin.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             rejoin_ago = format_elapsed_time(datetime.now(tz=LOCAL_TZ) - player.datetime.last_rejoin)
-            if player.packets.exchanged < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
-                packets_status = 'Not enough'
+            if player.packets.sent < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST:
+                packets_status = 'Not enough sent'
             elif player.packets.exchanged > SESSION_HOST_MAX_PACKETS_FOR_DETECTION:
-                packets_status = 'Exceeds maximum'
+                packets_status = 'Exceeds maximum exchanged'
             else:
                 packets_status = 'Enough'
             username_suffix = f' ({", ".join(player.usernames)})' if player.usernames else ''
@@ -330,10 +330,14 @@ def _format_host_debug_details(
                 f'Candidate #{index}:',
                 f'  IP Address: {player.ip}{username_suffix}',
                 f'  Last Rejoin: {rejoin_time} ({rejoin_ago} ago)',
-                f'  Packets Exchanged: {player.packets.exchanged} ({packets_status})',
+                f'  Packets Sent: {player.packets.sent} ({packets_status})',
+                f'  Packets Received: {player.packets.received}',
+                f'  Packets Exchanged: {player.packets.exchanged}',
             ]
             if player in SessionHost.players_pending_for_disconnection:
                 candidate_lines.append('  Note: Pending Disconnection')
+            if not player.packets.received:
+                candidate_lines.append('  Note: Relayed (0 received packets)')
             lines.extend(candidate_lines)
 
     return '\n'.join(lines)
@@ -533,7 +537,7 @@ class SessionHost:
             raise UnexpectedPlayerCountError(len(connected_players))
 
         # Both sole-candidate and two-candidate paths use MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST.
-        # GTA5 matchmaking briefly probes other sessions' hosts (10-20 packet transient handshakes)
+        # GTA5 matchmaking briefly probes other sessions' hosts (9-20 sent packet transient handshakes)
         # — a lone candidate in that range could be a probe, but it could equally be a relay host
         # that disconnected while alone in the session. Using the minimum threshold for both paths
         # ensures relay hosts with few packets are detected rather than silently missed.
@@ -546,7 +550,7 @@ class SessionHost:
             # The lower this value, the riskier it becomes, as it could potentially flag a player who ultimately isn't part of the newly discovered session.
             # In such scenarios, a better approach might involve checking around 25-100 packets.
             # However, increasing this value also increases the risk, as the host may have already disconnected.
-            or potential_session_host_player.packets.exchanged < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST
+            or potential_session_host_player.packets.sent < MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST
             # A candidate with too many packets has been connected far too long to be the host of a
             # newly joined session — host detection only applies at session join time.
             # Skip this check for manual re-detects: the user explicitly requested re-detection,
@@ -600,47 +604,47 @@ class SessionHost:
                 )
             elif is_sole_p2p_candidate:
                 logger.debug(
-                    '[SessionHost] Rejected: sole candidate %s has %d packets (need >= %d)',
+                    '[SessionHost] Rejected: sole candidate %s has %d sent packets (need >= %d)',
                     potential_session_host_player.ip,
-                    potential_session_host_player.packets.exchanged,
+                    potential_session_host_player.packets.sent,
                     MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
                 )
                 cls.last_rejection_reason = (
-                    f'Not enough network packets exchanged yet with candidate {potential_session_host_player.ip} '
-                    f'({potential_session_host_player.packets.exchanged} / {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST} packets).\n\n'
-                    'Please wait a few moments for packets to exchange and try again.'
+                    f'Not enough network packets sent yet to candidate {potential_session_host_player.ip} '
+                    f'({potential_session_host_player.packets.sent} / {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST} sent packets).\n\n'
+                    'Please wait a few moments for packets to be sent and try again.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
                     session_connected,
                     p2p_players,
                     connected_players,
                     outcome=(
-                        f'Candidate {potential_session_host_player.ip} has only exchanged {potential_session_host_player.packets.exchanged} '
-                        f'packets (minimum required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}).'
+                        f'Candidate {potential_session_host_player.ip} has only sent {potential_session_host_player.packets.sent} '
+                        f'packets (minimum sent required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}).'
                     ),
                 )
             else:
                 logger.debug(
-                    '[SessionHost] Rejected: candidate %s has %d packets (need >= %d)',
+                    '[SessionHost] Rejected: candidate %s has %d sent packets (need >= %d)',
                     potential_session_host_player.ip,
-                    potential_session_host_player.packets.exchanged,
+                    potential_session_host_player.packets.sent,
                     MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
                 )
                 cls.last_timing_gap_candidate = (connected_players[0].ip, connected_players[1].ip)
                 cls.search_player = False
                 cls.search_start_time = None
                 cls.last_rejection_reason = (
-                    f'Not enough network packets exchanged yet with candidate {potential_session_host_player.ip} '
-                    f'({potential_session_host_player.packets.exchanged} / {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST} packets).\n\n'
-                    'Please wait a few moments for packets to exchange and try again.'
+                    f'Not enough network packets sent yet to candidate {potential_session_host_player.ip} '
+                    f'({potential_session_host_player.packets.sent} / {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST} sent packets).\n\n'
+                    'Please wait a few moments for packets to be sent and try again.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
                     session_connected,
                     p2p_players,
                     connected_players,
                     outcome=(
-                        f'Candidate {potential_session_host_player.ip} has only exchanged {potential_session_host_player.packets.exchanged} '
-                        f'packets (minimum required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}).'
+                        f'Candidate {potential_session_host_player.ip} has only sent {potential_session_host_player.packets.sent} '
+                        f'packets (minimum sent required: {MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST}).'
                     ),
                     timing_gap=gap_seconds,
                 )
