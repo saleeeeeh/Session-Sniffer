@@ -103,8 +103,10 @@ SESSION_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
     'Offset': 89,
     'Currency': 106,
     'Organization': 131,
-    'ISP': 70,
-    'ASN / ISP': 110,
+    'ISP': 140,
+    'ASN / ISP': 160,
+    'AS': 95,
+    'ASN': 120,
 }
 
 # Hardcoded maximum column widths for auto-sizing (in unscaled logical pixels) per table.
@@ -170,7 +172,7 @@ PLAYER_LEADERBOARD_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
     'First Seen': 111,
     'Last Seen': 109,
     'Country': 102,
-    'ISP': 70,
+    'ISP': 140,
     'Mobile': 94,
     'VPN': 78,
     'Hosting': 100,
