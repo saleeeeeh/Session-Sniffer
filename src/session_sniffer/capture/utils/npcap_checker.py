@@ -4,11 +4,9 @@ This module provides a utility function to check whether Npcap is installed on t
 Npcap is required for network packet capturing in Windows environments.
 """
 
-import ctypes
 import enum
 import os
 import socket
-import subprocess
 import sys
 import time
 import webbrowser
@@ -17,17 +15,15 @@ from pathlib import Path
 
 if sys.platform == 'win32':
     import winreg
-    from ctypes import wintypes
 else:
     winreg = None  # type: ignore[assignment]  # pylint: disable=invalid-name
-    wintypes = None  # type: ignore[assignment]  # pylint: disable=invalid-name
 
 # pylint: disable=wrong-import-position
 import logging
 
 from session_sniffer.capture.pcap import is_pcap_library_available
 from session_sniffer.capture.process import iter_running_processes
-from session_sniffer.constants.standard import SC_EXE
+from session_sniffer.capture.utils.ctypes_win32 import is_npcap_setup_window_visible, is_service_running
 from session_sniffer.error_messages import format_npcap_required_message
 from session_sniffer.guis.dependency_prompt_dialog import show_dependency_prompt
 
@@ -35,7 +31,6 @@ from session_sniffer.guis.dependency_prompt_dialog import show_dependency_prompt
 
 logger = logging.getLogger(__name__)
 
-NPCAP_SERVICE_QUERY_CMD = (SC_EXE, 'query', 'npcap')
 NPCAP_DOWNLOAD_URL = 'https://npcap.com/#download'
 
 LIBPCAP_REQUIRED_MESSAGE = (
@@ -97,38 +92,12 @@ def ensure_libpcap_installed() -> None:
         sys.exit(1)
 
 
-def _is_npcap_setup_window_visible() -> bool:
-    """Check if any visible window belongs to the Npcap setup wizard."""
-    if sys.platform != 'win32' or wintypes is None:
-        return False
-
-    found = False
-    window_enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-    def enum_windows_callback(hwnd: wintypes.HWND, _lparam: wintypes.LPARAM) -> bool:
-        nonlocal found
-        if not ctypes.windll.user32.IsWindowVisible(hwnd):
-            return True
-        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-        if length > 0:
-            title_buffer = ctypes.create_unicode_buffer(length + 1)
-            ctypes.windll.user32.GetWindowTextW(hwnd, title_buffer, length + 1)
-            title = title_buffer.value.lower()
-            if 'npcap' in title and 'setup' in title:
-                found = True
-                return False
-        return True
-
-    ctypes.windll.user32.EnumWindows(window_enum_proc(enum_windows_callback), 0)
-    return found
-
-
 def _is_npcap_setup_in_progress() -> bool:
     """Check if an Npcap installer process or setup window is currently active."""
     if sys.platform != 'win32':
         return False
 
-    if _is_npcap_setup_window_visible():
+    if is_npcap_setup_window_visible():
         return True
 
     for _pid, process_name in iter_running_processes():
@@ -208,27 +177,15 @@ _tracker = _NpcapInstallTracker()
 
 def _is_npcap_service_running(*, force: bool = False) -> bool:
     """Check if the npcap kernel driver service is currently active and running with throttling."""
+    if sys.platform != 'win32':
+        return False
+
     now = time.monotonic()
     if not force and (now - _tracker.last_service_query_time) < SERVICE_STEP_MIN_DURATION_SECONDS:
         return _tracker.last_service_query_result
 
     _tracker.last_service_query_time = now
-    creationflags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-    try:
-        result = subprocess.run(
-            NPCAP_SERVICE_QUERY_CMD,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-            creationflags=creationflags,
-        )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        logger.debug('Npcap service query failed: %s', e)
-        is_running = False
-    else:
-        is_running = 'RUNNING' in result.stdout or ' 4 ' in result.stdout
-
+    is_running = is_service_running('npcap')
     _tracker.last_service_query_result = is_running
     return is_running
 
