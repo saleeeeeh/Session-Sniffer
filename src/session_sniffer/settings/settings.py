@@ -116,6 +116,7 @@ class Settings:
     webserver_password: str | None = SETTING_DEFAULTS['webserver_password']
     updater_channel: str | None = SETTING_DEFAULTS['updater_channel']
     userip_backup_frequency: str = SETTING_DEFAULTS['userip_backup_frequency']
+    userip_backup_retention_limit: int = SETTING_DEFAULTS['userip_backup_retention_limit']
     looky_enabled: bool = SETTING_DEFAULTS['looky_enabled']
     looky_exclusive_gta5_process: bool = SETTING_DEFAULTS['looky_exclusive_gta5_process']
     looky_game_version: str = SETTING_DEFAULTS['looky_game_version']
@@ -209,6 +210,7 @@ class Settings:
         'WEBSERVER_PASSWORD',
         'UPDATER_CHANNEL',
         'USERIP_BACKUP_FREQUENCY',
+        'USERIP_BACKUP_RETENTION_LIMIT',
         'LOOKY_ENABLED',
         'LOOKY_EXCLUSIVE_GTA5_PROCESS',
         'LOOKY_GAME_VERSION',

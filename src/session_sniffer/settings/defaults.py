@@ -158,6 +158,17 @@ SETTING_METADATA: dict[str, SettingMeta] = {
         tooltip='Frequency for automatically backing up UserIP databases to ZIP archives in Roaming AppData.',
         allowed_values=USERIP_BACKUP_FREQUENCIES,
     ),
+    'userip_backup_retention_limit': SettingMeta(
+        category='General',
+        group='UserIP Databases',
+        display_label='Backup Retention Limit',
+        setting_type=SettingType.INTEGER_OR_ALL,
+        special_value_text='Keep All',
+        min_value=0,
+        max_value=100,
+        step=1,
+        tooltip='Maximum number of UserIP database backup archives to retain in Roaming AppData (0 = Keep All).',
+    ),
     'capture_interface_name': SettingMeta(
         category='Capture',
         group='Interface',
@@ -1020,6 +1031,7 @@ class SettingDefaults(TypedDict):
     webserver_password: str | None
     updater_channel: str | None
     userip_backup_frequency: str
+    userip_backup_retention_limit: int
     looky_enabled: bool
     looky_exclusive_gta5_process: bool
     looky_game_version: str
@@ -1161,6 +1173,7 @@ SETTING_DEFAULTS: SettingDefaults = {
     'webserver_password': None,
     'updater_channel': 'Stable',
     'userip_backup_frequency': 'Daily',
+    'userip_backup_retention_limit': 10,
     'looky_enabled': True,
     'looky_exclusive_gta5_process': True,
     'looky_game_version': 'Both',

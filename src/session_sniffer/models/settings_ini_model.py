@@ -149,6 +149,7 @@ class SettingsIniModel(BaseModel):
     WEBSERVER_PASSWORD: str | None
     UPDATER_CHANNEL: str | None
     USERIP_BACKUP_FREQUENCY: str
+    USERIP_BACKUP_RETENTION_LIMIT: int
     LOOKY_ENABLED: bool
     LOOKY_EXCLUSIVE_GTA5_PROCESS: bool
     LOOKY_GAME_VERSION: str
@@ -1231,6 +1232,39 @@ class SettingsIniModel(BaseModel):
             return normalized
         cls._set_flag(info, 'should_rewrite', value=True)
         return cast('str', cls._get_default_for_field(info))
+
+    @field_validator('USERIP_BACKUP_RETENTION_LIMIT', mode='before')
+    @classmethod
+    def _parse_userip_backup_retention_limit(cls, value: object, info: ValidationInfo) -> int:
+        min_val = 0  # 0 = Keep All
+        max_val = 100
+        default = cls._get_default_for_field(info)
+        default_int = default if isinstance(default, int) else 10
+
+        parsed: int | None = None
+        if isinstance(value, (int, float)):
+            parsed = int(value)
+        elif isinstance(value, str):
+            stripped = value.strip()
+            if stripped.lower() in ('keep all', 'keepall', 'all'):
+                cls._set_flag(info, 'should_rewrite', value=True)
+                parsed = 0
+            else:
+                try:
+                    parsed = int(float(stripped))
+                except ValueError:
+                    parsed = None
+
+        if parsed is None:
+            cls._set_flag(info, 'should_rewrite', value=True)
+            return default_int
+        if parsed < min_val:
+            cls._set_flag(info, 'should_rewrite', value=True)
+            return min_val
+        if parsed > max_val:
+            cls._set_flag(info, 'should_rewrite', value=True)
+            return max_val
+        return parsed
 
     @model_validator(mode='after')
     def _check_datetime_columns(self, info: ValidationInfo) -> Self:

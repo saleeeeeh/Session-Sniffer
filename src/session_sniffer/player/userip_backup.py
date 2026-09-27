@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from session_sniffer.background.events import gui_closed__event
 from session_sniffer.constants.local import USERIP_DATABASES_BACKUP_DIR_PATH, USERIP_DATABASES_DIR_PATH
-from session_sniffer.constants.standalone import MAX_USERIP_BACKUPS
 from session_sniffer.settings.settings import Settings
 from session_sniffer.text_utils import pluralize
 
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_backup_lock = threading.Lock()
+_backup_lock = threading.RLock()
 
 BACKUP_INTERVALS_SECONDS: dict[str, int] = {
     'Every 6 Hours': 6 * 3600,
@@ -27,30 +26,35 @@ BACKUP_INTERVALS_SECONDS: dict[str, int] = {
 }
 
 
-def prune_old_backups(*, max_backups: int = MAX_USERIP_BACKUPS) -> None:
-    """Retain only the most recent `max_backups` backup archives in the backup directory."""
-    if not USERIP_DATABASES_BACKUP_DIR_PATH.is_dir():
-        return
+def prune_old_backups(*, max_backups: int | None = None) -> None:
+    """Retain only the most recent backup archives in the backup directory based on retention settings."""
+    with _backup_lock:
+        if not USERIP_DATABASES_BACKUP_DIR_PATH.is_dir():
+            return
 
-    # Clean up stale .tmp files
-    for temporary_file in USERIP_DATABASES_BACKUP_DIR_PATH.glob('UserIP_Databases_*.tmp'):
-        try:
-            temporary_file.unlink()
-        except OSError as e:
-            logger.warning('Failed to remove stale UserIP backup temporary file %s: %s', temporary_file.name, e)
-
-    existing_backups = sorted(
-        USERIP_DATABASES_BACKUP_DIR_PATH.glob('UserIP_Databases_*.zip'),
-        key=lambda path: path.stat().st_mtime,
-    )
-    if len(existing_backups) > max_backups:
-        backups_to_delete = existing_backups[:-max_backups]
-        for old_backup in backups_to_delete:
+        # Clean up stale .tmp files
+        for temporary_file in USERIP_DATABASES_BACKUP_DIR_PATH.glob('UserIP_Databases_*.tmp'):
             try:
-                old_backup.unlink()
-                logger.info('Pruned old UserIP backup: %s', old_backup.name)
+                temporary_file.unlink()
             except OSError as e:
-                logger.warning('Failed to delete old UserIP backup %s: %s', old_backup.name, e)
+                logger.warning('Failed to remove stale UserIP backup temporary file %s: %s', temporary_file.name, e)
+
+        limit = Settings.userip_backup_retention_limit if max_backups is None else max_backups
+        if limit <= 0:
+            return
+
+        existing_backups = sorted(
+            USERIP_DATABASES_BACKUP_DIR_PATH.glob('UserIP_Databases_*.zip'),
+            key=lambda path: path.stat().st_mtime,
+        )
+        if len(existing_backups) > limit:
+            backups_to_delete = existing_backups[:-limit]
+            for old_backup in backups_to_delete:
+                try:
+                    old_backup.unlink()
+                    logger.info('Pruned old UserIP backup: %s', old_backup.name)
+                except OSError as e:
+                    logger.warning('Failed to delete old UserIP backup %s: %s', old_backup.name, e)
 
 
 def _has_database_changes_since(latest_backup: Path, ini_files: list[Path]) -> bool:
@@ -115,6 +119,8 @@ def backup_userip_databases(*, force: bool = False) -> Path | None:
         if not USERIP_DATABASES_DIR_PATH.is_dir():
             return None
 
+        prune_old_backups()
+
         ini_files = sorted(USERIP_DATABASES_DIR_PATH.rglob('*.ini'))
         if not ini_files:
             logger.debug('No UserIP database files found to back up.')
@@ -147,7 +153,7 @@ def backup_userip_databases(*, force: bool = False) -> Path | None:
 
         count = len(ini_files)
         logger.info('Created UserIP database backup at "%s" containing %s database%s.', backup_path.name, count, pluralize(count))
-        prune_old_backups(max_backups=MAX_USERIP_BACKUPS)
+        prune_old_backups()
         return backup_path
 
 
