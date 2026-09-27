@@ -24,6 +24,7 @@ from session_sniffer.guis.html_templates import generate_gui_header_html
 from session_sniffer.models import SessionLogFile
 from session_sniffer.models.player import Player, PlayerBandwidth, PlayerCountryFlag, PlayerModMenus
 from session_sniffer.networking.geolite2 import extract_asn_info, extract_city_info, extract_country_info
+from session_sniffer.networking.port_scanner import get_active_port_scan_threads
 from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import (
     MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
@@ -454,8 +455,9 @@ def rendering_core(
                 RDR2SuspendManager.wake()
 
         _active_threads = threading.active_count()
-        if _active_threads > _THREAD_COUNT_WARN_THRESHOLD:
-            logger.warning('High thread count detected: %d active threads (threshold: %d)', _active_threads, _THREAD_COUNT_WARN_THRESHOLD)
+        _effective_threshold = _THREAD_COUNT_WARN_THRESHOLD + get_active_port_scan_threads()
+        if _active_threads > _effective_threshold:
+            logger.warning('High thread count detected: %d active threads (threshold: %d)', _active_threads, _effective_threshold)
 
         # Remove disconnected players from session_connected in reverse index order
         for i in reversed(players_to_disconnect):

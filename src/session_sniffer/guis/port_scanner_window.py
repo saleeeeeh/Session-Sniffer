@@ -60,6 +60,7 @@ from session_sniffer.networking.port_scanner import (
     PortScanState,
     PortScanStatistics,
     parse_port_specification,
+    port_scan_execution,
     probe_single_target,
 )
 
@@ -111,7 +112,7 @@ class PortScannerWorkerThread(CrashingQThread):
 
         worker_count = min(max(1, config.threads), total_probes, MAX_SCAN_THREADS)
 
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        with port_scan_execution(worker_count), ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix='PortScan') as executor:
             future_to_task: dict[Future[PortScanResult], tuple[int, str]] = {}
             for port, protocol in probe_tasks:
                 if self._abort_signal.is_set():

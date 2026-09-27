@@ -5,10 +5,67 @@ import logging
 import re
 import socket
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Final
+from threading import Lock
+from typing import TYPE_CHECKING, ClassVar, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
+
+
+class _ActiveScanTracker:
+    """Thread-safe tracker for the number of worker threads allocated to port scans."""
+
+    _lock: ClassVar[Lock] = Lock()
+    _active_threads: ClassVar[int] = 0
+
+    @classmethod
+    def get_threads(cls) -> int:
+        """Return the current count of active scan worker threads."""
+        with cls._lock:
+            return cls._active_threads
+
+    @classmethod
+    def is_active(cls) -> bool:
+        """Return True if any port scan is currently in progress."""
+        with cls._lock:
+            return cls._active_threads > 0
+
+    @classmethod
+    def add_threads(cls, thread_count: int) -> None:
+        """Register newly started scan worker threads."""
+        with cls._lock:
+            cls._active_threads += thread_count
+
+    @classmethod
+    def remove_threads(cls, thread_count: int) -> None:
+        """Unregister finished scan worker threads."""
+        with cls._lock:
+            cls._active_threads = max(0, cls._active_threads - thread_count)
+
+
+def get_active_port_scan_threads() -> int:
+    """Return the total number of worker threads currently allocated to active port scans."""
+    return _ActiveScanTracker.get_threads()
+
+
+def is_port_scan_active() -> bool:
+    """Return whether a port scan is currently executing."""
+    return _ActiveScanTracker.is_active()
+
+
+@contextmanager
+def port_scan_execution(thread_count: int) -> Generator[None]:
+    """Track actively executing port scan worker threads for diagnostic monitors."""
+    _ActiveScanTracker.add_threads(thread_count)
+    try:
+        yield
+    finally:
+        _ActiveScanTracker.remove_threads(thread_count)
+
 
 MIN_PORT: Final[int] = 1
 MAX_PORT: Final[int] = 65535
