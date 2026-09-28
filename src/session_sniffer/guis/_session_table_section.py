@@ -269,10 +269,10 @@ class SessionTableSection(QWidget):
                 self._get_highlight_search_column,
             ),
         )
-        arrow_up_path = (RESOURCES_DIR_PATH / 'icons' / 'arrow_up.svg').as_posix()
-        arrow_down_path = (RESOURCES_DIR_PATH / 'icons' / 'arrow_down.svg').as_posix()
-        arrow_left_path = (RESOURCES_DIR_PATH / 'icons' / 'arrow_left.svg').as_posix()
-        arrow_right_path = (RESOURCES_DIR_PATH / 'icons' / 'arrow_right.svg').as_posix()
+        scrollbar_arrow_up_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_up.svg').as_posix()
+        scrollbar_arrow_down_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_down.svg').as_posix()
+        scrollbar_arrow_left_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_left.svg').as_posix()
+        scrollbar_arrow_right_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_right.svg').as_posix()
 
         # Dynamic "glassmorphism" tint to match the container's accent color perfectly
         if is_connected:
@@ -394,12 +394,12 @@ class SessionTableSection(QWidget):
                 border-radius: 3px;
             }}
             QScrollBar::up-arrow:vertical {{
-                image: url("{arrow_up_path}");
+                image: url("{scrollbar_arrow_up_path}");
                 width: 8px;
                 height: 8px;
             }}
             QScrollBar::down-arrow:vertical {{
-                image: url("{arrow_down_path}");
+                image: url("{scrollbar_arrow_down_path}");
                 width: 8px;
                 height: 8px;
             }}
@@ -458,12 +458,12 @@ class SessionTableSection(QWidget):
                 border-radius: 3px;
             }}
             QScrollBar::left-arrow:horizontal {{
-                image: url("{arrow_left_path}");
+                image: url("{scrollbar_arrow_left_path}");
                 width: 8px;
                 height: 8px;
             }}
             QScrollBar::right-arrow:horizontal {{
-                image: url("{arrow_right_path}");
+                image: url("{scrollbar_arrow_right_path}");
                 width: 8px;
                 height: 8px;
             }}
