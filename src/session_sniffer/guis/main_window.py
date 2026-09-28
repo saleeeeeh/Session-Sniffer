@@ -117,7 +117,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._disconnected.expand_button.setVisible(not disconnected_expanded)
         self._tables_splitter.setVisible(connected_expanded or disconnected_expanded)
 
-        if connected_expanded and disconnected_expanded:
+        if connected_expanded and disconnected_expanded and self.isVisible():
             if self._saved_splitter_sizes:
                 total_height = sum(self._tables_splitter.sizes())
                 saved_total = sum(self._saved_splitter_sizes)
@@ -677,11 +677,12 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
     @override
     def showEvent(self, a0: QShowEvent) -> None:
-        """Handle the window show event and maximize if required."""
+        """Handle the window show event, maximize if required, and restore table splitter layout."""
         super().showEvent(a0)
         if self.property('_should_maximize_on_show') is True:
             self.setProperty('_should_maximize_on_show', False)  # noqa: FBT003
             self.showMaximized()
+        self._update_splitter_visibility()
 
     def _open_port_scanner(self) -> None:
         """Open the Port Scanner tool window."""
