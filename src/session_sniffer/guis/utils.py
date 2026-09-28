@@ -877,73 +877,86 @@ def setup_static_table_column_resizing(
     if not visible_columns:
         return
 
-    final_widths: dict[int, int] = {col: floor for col, _, floor, _ in visible_columns}
+    final_widths: dict[int, int] = {column_index: floor_width for column_index, _, floor_width, _ in visible_columns}
     total_allocated = sum(final_widths.values())
     surplus = viewport_width - total_allocated
 
     # Detect truncated columns: columns whose needed content width exceeds currently allocated floor width
     truncated_columns: dict[int, int] = {}
-    for col, _, floor, needed in visible_columns:
-        if needed > floor:
-            truncated_columns[col] = needed - floor
+    for column_index, _, floor_width, needed_width in visible_columns:
+        if needed_width > floor_width:
+            truncated_columns[column_index] = needed_width - floor_width
 
     total_deficit = sum(truncated_columns.values())
 
     # If there is a deficit and surplus is insufficient, reclaim excess width from columns sitting above their needed width
-    if total_deficit > surplus:
-        for col, _, _, needed in visible_columns:
-            header_text = str(table_model.headerData(col, Qt.Orientation.Horizontal) or '')
-            sort_padding = header_sort_padding if col == sorted_column_index else 0
+    if total_deficit > 0 and surplus < total_deficit:
+        deficit_to_cover = total_deficit - max(0, surplus)
+        for column_index, header_label, _, needed_width in visible_columns:
+            if custom_widths is not None and header_label in custom_widths:
+                continue
+            if deficit_to_cover <= 0:
+                break
+            sort_padding = header_sort_padding if column_index == sorted_column_index else 0
             header_needed = max(
-                header_font_metrics.horizontalAdvance(header_text) + sort_padding,
-                horizontal_header.sectionSizeFromContents(col).width(),
+                header_font_metrics.horizontalAdvance(header_label) + sort_padding,
+                horizontal_header.sectionSizeFromContents(column_index).width(),
             )
-            min_bound = max(scale_by_ui(widths_map.get(header_text, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
-            reclaim_limit = max(min_bound, needed)
-            if final_widths[col] > reclaim_limit:
-                reclaimed = final_widths[col] - reclaim_limit
-                final_widths[col] -= reclaimed
-                surplus += reclaimed
+            min_bound = max(scale_by_ui(widths_map.get(header_label, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
+            reclaim_limit = max(min_bound, needed_width)
+            if final_widths[column_index] > reclaim_limit:
+                available_to_reclaim = final_widths[column_index] - reclaim_limit
+                reclaimed_amount = min(available_to_reclaim, deficit_to_cover)
+                final_widths[column_index] -= reclaimed_amount
+                surplus += reclaimed_amount
+                deficit_to_cover -= reclaimed_amount
 
     # Allocate surplus to truncated columns to eliminate or reduce text clipping
     if surplus > 0 and total_deficit > 0:
         if surplus >= total_deficit:
-            for col, deficit in truncated_columns.items():
-                final_widths[col] += deficit
+            for column_index, deficit in truncated_columns.items():
+                final_widths[column_index] += deficit
             surplus -= total_deficit
         else:
             allocated = 0
-            for col, deficit in truncated_columns.items():
+            for column_index, deficit in truncated_columns.items():
                 share = (surplus * deficit) // total_deficit
-                final_widths[col] += share
+                final_widths[column_index] += share
                 allocated += share
             remainder = surplus - allocated
             if remainder > 0:
-                top_col = max(truncated_columns, key=lambda c: truncated_columns[c])
-                final_widths[top_col] += remainder
+                top_column = max(truncated_columns, key=lambda col_idx: truncated_columns[col_idx])
+                final_widths[top_column] += remainder
             surplus = 0
 
     # Distribute any remaining surplus across flexible stretch columns to fill the table to the right edge
     if surplus > 0:
-        flexible_columns = [(col, label) for col, label, _, _ in visible_columns if label in FLEXIBLE_STRETCH_COLUMNS]
+        flexible_columns = [
+            (column_index, label)
+            for column_index, label, _, _ in visible_columns
+            if label in FLEXIBLE_STRETCH_COLUMNS and (custom_widths is None or label not in custom_widths)
+        ]
         if not flexible_columns:
-            flexible_columns = [(visible_columns[-1][0], visible_columns[-1][1])]
+            flexible_columns = [(column_index, label) for column_index, label, _, _ in visible_columns if label in FLEXIBLE_STRETCH_COLUMNS]
+        if not flexible_columns:
+            non_custom_visible = [(column_index, label) for column_index, label, _, _ in visible_columns if custom_widths is None or label not in custom_widths]
+            flexible_columns = [non_custom_visible[-1]] if non_custom_visible else [(visible_columns[-1][0], visible_columns[-1][1])]
 
         total_weight = sum(FLEXIBLE_COLUMN_WEIGHTS.get(label, 1) for _, label in flexible_columns)
         if total_weight <= 0:
             total_weight = len(flexible_columns)
 
         allocated = 0
-        for col, label in flexible_columns:
+        for column_index, label in flexible_columns:
             weight = FLEXIBLE_COLUMN_WEIGHTS.get(label, 1)
             share = (surplus * weight) // total_weight
-            final_widths[col] += share
+            final_widths[column_index] += share
             allocated += share
 
         remainder = surplus - allocated
         if remainder > 0:
-            top_col = max(flexible_columns, key=lambda item: FLEXIBLE_COLUMN_WEIGHTS.get(item[1], 1))[0]
-            final_widths[top_col] += remainder
+            top_column = max(flexible_columns, key=lambda item: FLEXIBLE_COLUMN_WEIGHTS.get(item[1], 1))[0]
+            final_widths[top_column] += remainder
 
     for column, width in final_widths.items():
         horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
