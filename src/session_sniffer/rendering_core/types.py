@@ -90,42 +90,41 @@ class PaginationState:
 
 
 class SearchState:
-    """Thread-safe search filter text and column shared between the GUI and the worker thread."""
+    """Thread-safe search filter query and target column shared between the GUI and the worker thread."""
 
     _lock: ClassVar[Lock] = Lock()
-    _connected_text: ClassVar[str] = ''
-    _disconnected_text: ClassVar[str] = ''
-    _connected_column: ClassVar[int] = -1  # -1 = all columns
-    _disconnected_column: ClassVar[int] = -1
+    _text: ClassVar[str] = ''
+    _column_name: ClassVar[str] = ''
     _version: ClassVar[int] = 0
 
     @classmethod
-    def set_connected(cls, text: str, column: int) -> None:
-        """Update the connected-table search text and column, then bump the version."""
+    def set_search(cls, text: str, column_name: str) -> None:
+        """Update global search query and target column name, then bump the version."""
         with cls._lock:
-            if cls._connected_text == text and cls._connected_column == column:
+            if cls._text == text and cls._column_name == column_name:
                 return
-            cls._connected_text = text
-            cls._connected_column = column
+            cls._text = text
+            cls._column_name = column_name
             cls._version += 1
         GUIRenderingState.wake()
 
     @classmethod
-    def set_disconnected(cls, text: str, column: int) -> None:
-        """Update the disconnected-table search text and column, then bump the version."""
+    def get(cls) -> tuple[str, str, int]:
+        """Return (text, column_name, version)."""
         with cls._lock:
-            if cls._disconnected_text == text and cls._disconnected_column == column:
-                return
-            cls._disconnected_text = text
-            cls._disconnected_column = column
-            cls._version += 1
-        GUIRenderingState.wake()
+            return cls._text, cls._column_name, cls._version
 
     @classmethod
-    def get(cls) -> tuple[str, int, str, int, int]:
-        """Return (connected_text, connected_column, disconnected_text, disconnected_column, version)."""
+    def get_text(cls) -> str:
+        """Return the active search query text."""
         with cls._lock:
-            return cls._connected_text, cls._connected_column, cls._disconnected_text, cls._disconnected_column, cls._version
+            return cls._text
+
+    @classmethod
+    def get_column_name(cls) -> str:
+        """Return the active search column name."""
+        with cls._lock:
+            return cls._column_name
 
 
 class SortState:

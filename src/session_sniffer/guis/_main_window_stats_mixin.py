@@ -1,5 +1,6 @@
 """Statistics windows and player-display mixin for `MainWindow`."""
 
+import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QItemSelection, QItemSelectionModel
@@ -24,6 +25,8 @@ from session_sniffer.rendering_core.types import CaptureStats
 from session_sniffer.settings import Settings
 
 if TYPE_CHECKING:
+    from session_sniffer.capture.packet_capture import CaptureHolder
+    from session_sniffer.guis._main_header import SessionHeader
     from session_sniffer.guis._session_table_section import SessionTableSection
     from session_sniffer.models.player import Player
 
@@ -43,6 +46,8 @@ class StatsMixin(QMainWindow):
     # -- Attribute stubs for type checkers --
     _connected: SessionTableSection
     _disconnected: SessionTableSection
+    _header: SessionHeader
+    capture: CaptureHolder
     _leaderboard_window: PlayerLeaderboardWindow | None
     _session_rate_graph_window: SessionRateGraphWindow | None
     _session_pps_graph_window: SessionPpsGraphWindow | None
@@ -149,6 +154,9 @@ class StatsMixin(QMainWindow):
 
     def _tick_stats(self) -> None:
         """Tick all open statistics windows with the latest data."""
+        uptime = max(0, int(time.monotonic() - CaptureStats.capture_started_at)) if self.capture.is_running() and CaptureStats.capture_started_at > 0 else 0
+        self._header.update_stats(uptime_seconds=uptime, total_packets=CaptureStats.total_packets_captured)
+
         CaptureStats.capture_health_samples.append(
             (
                 CaptureStats.global_avg_latency_ms,
@@ -216,6 +224,7 @@ class StatsMixin(QMainWindow):
 
     def _open_capture_health(self) -> None:
         """Open or focus the capture statistics window."""
+
         def _factory() -> CaptureStatisticsWindow:
             window = CaptureStatisticsWindow()
             window.open_session_pps_graph_requested.connect(self._open_session_pps_graph)

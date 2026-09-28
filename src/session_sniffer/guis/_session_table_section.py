@@ -3,15 +3,13 @@
 from typing import TYPE_CHECKING, cast, override
 
 from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QPushButton,
     QSpinBox,
     QStatusBar,
@@ -21,7 +19,6 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
-from session_sniffer.constants.tables import SEARCHABLE_COLUMN_EXCLUSIONS
 from session_sniffer.guis.stylesheets import (
     CONNECTED_EXPAND_BUTTON_STYLESHEET,
     DISCONNECTED_EXPAND_BUTTON_STYLESHEET,
@@ -36,7 +33,7 @@ from session_sniffer.guis.stylesheets import (
 )
 from session_sniffer.guis.table_model import SessionTableModel
 from session_sniffer.guis.tables import COLUMN_FORMAT_SETTING_TO_COLUMNS, SessionTableView
-from session_sniffer.guis.utils import SearchHighlightDelegate, apply_search_icon, make_padded_icon, scale_by_ui
+from session_sniffer.guis.utils import SearchHighlightDelegate, make_padded_icon, scale_by_ui
 from session_sniffer.rendering_core.types import PaginationState, SearchState
 from session_sniffer.settings import Settings
 
@@ -191,40 +188,6 @@ class SessionTableSection(QWidget):
         header_layout.addLayout(icon_title_pair)
         header_layout.addStretch(1)
 
-        # Search controls — text input and column selector
-        self._search_combo = QComboBox()
-        self._search_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self._search_combo.addItem('All Columns')
-        self._search_combo.setItemData(0, -1)
-        for column_index, column_name in enumerate(column_names):
-            if column_name not in SEARCHABLE_COLUMN_EXCLUSIONS:
-                self._search_combo.addItem(column_name)
-                self._search_combo.setItemData(self._search_combo.count() - 1, column_index)
-        if not is_connected:
-            search_table_name = 'disconnected players'
-        elif Settings.gui_disconnected_players_enabled:
-            search_table_name = 'connected players'
-        else:
-            search_table_name = 'players'
-        self._search_combo.setToolTip(
-            f'Select which column to search in the {search_table_name} table',
-        )
-        self._search_combo.currentIndexChanged.connect(self._on_search_column_changed)
-
-        self._search_bar = QLineEdit()
-        self._search_bar.setPlaceholderText('Search...')
-        self._search_bar.setMinimumWidth(160)
-        self._search_bar.textChanged.connect(self._on_search_changed)
-        apply_search_icon(self._search_bar)
-
-        search_pair = QHBoxLayout()
-        search_pair.setSpacing(3)
-        search_pair.setContentsMargins(0, 0, 0, 0)
-        search_pair.addWidget(self._search_bar)
-        search_pair.addWidget(self._search_combo)
-        header_layout.addLayout(search_pair)
-        header_layout.addStretch(1)
-
         # Pagination controls — rows per page
         rows_label = QLabel('Rows:')
         rows_label.setToolTip('Rows per page (0 = show all)')
@@ -302,8 +265,8 @@ class SessionTableSection(QWidget):
         self.table_view.setItemDelegate(
             SearchHighlightDelegate(
                 self.table_view,
-                self._search_bar.text,
-                self._get_active_search_column,
+                SearchState.get_text,
+                self._get_highlight_search_column,
             ),
         )
         arrow_up_path = (RESOURCES_DIR_PATH / 'icons' / 'arrow_up.svg').as_posix()
@@ -516,10 +479,6 @@ class SessionTableSection(QWidget):
         self.table_view.setup_static_column_resizing()
         self.table_model.view = self.table_view
 
-        search_shortcut = QShortcut(QKeySequence('Ctrl+F'), self.table_view)
-        search_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        search_shortcut.activated.connect(self._search_bar.setFocus)
-
         # Expand button (shown when section is collapsed; laid out by MainWindow, not this section)
         self.expand_button = QPushButton(f'Show {self._expand_button_noun()} (0)')
         _expand_icon = QIcon((RESOURCES_DIR_PATH / 'icons' / 'expand_table.svg').as_posix())
@@ -619,22 +578,6 @@ class SessionTableSection(QWidget):
         self.table_view.request_column_recalculation()
         self.table_view.setup_static_column_resizing()
 
-        # Refresh search combo to match new column set, preserving current selection
-        self._search_combo.blockSignals(True)  # noqa: FBT003
-        current_text = self._search_combo.currentText()
-        self._search_combo.clear()
-        self._search_combo.addItem('All Columns')
-        self._search_combo.setItemData(0, -1)
-        for column_index, column_name in enumerate(column_names):
-            if column_name not in SEARCHABLE_COLUMN_EXCLUSIONS:
-                self._search_combo.addItem(column_name)
-                self._search_combo.setItemData(self._search_combo.count() - 1, column_index)
-        restored_index = self._search_combo.findText(current_text)
-        self._search_combo.setCurrentIndex(max(0, restored_index))
-        self._search_combo.blockSignals(False)  # noqa: FBT003
-        # Resync SearchState in case the column index shifted after rebuild
-        self._on_search_column_changed(self._search_combo.currentIndex())
-
     def apply_sort_from_settings(self) -> None:
         """Apply sort column and order from current Settings."""
         if self._section_name == 'Connected':
@@ -657,8 +600,6 @@ class SessionTableSection(QWidget):
         if self._is_connected:
             disconnected_enabled = Settings.gui_disconnected_players_enabled
             self._clear_button.setToolTip('Clear all connected players' if disconnected_enabled else 'Clear all players')
-            search_table_name = 'connected players' if disconnected_enabled else 'players'
-            self._search_combo.setToolTip(f'Select which column to search in the {search_table_name} table')
             self._rows_per_page_spinbox.setToolTip(f'Limit how many {self._rows_per_page_tooltip_noun()} are shown per page. Set 0 to show all.')
 
     def _expand_button_noun(self) -> str:
@@ -725,10 +666,7 @@ class SessionTableSection(QWidget):
         """Handle column formatting and visibility settings changes saved from SettingsDialog."""
         shown_setting = 'gui_columns_connected_shown' if self._is_connected else 'gui_columns_disconnected_shown'
         affected_columns: set[str] = {
-            column_name
-            for setting_key, column_names in COLUMN_FORMAT_SETTING_TO_COLUMNS.items()
-            if changed is None or setting_key in changed
-            for column_name in column_names
+            column_name for setting_key, column_names in COLUMN_FORMAT_SETTING_TO_COLUMNS.items() if changed is None or setting_key in changed for column_name in column_names
         }
         if affected_columns:
             self.table_view.clear_custom_column_widths(affected_columns)
@@ -849,29 +787,14 @@ class SessionTableSection(QWidget):
         """Set the keyboard editing state for the rows-per-page spinbox."""
         self._rows_keyboard_editing = is_editing
 
-    def _get_active_search_column(self) -> int:
-        raw_column = self._search_combo.itemData(self._search_combo.currentIndex())
-        return raw_column if isinstance(raw_column, int) else -1
+    def get_search_column_index(self, column_name: str) -> int:
+        """Return the column index for `column_name`, or -1 if 'All Columns' or not found."""
+        if not column_name or column_name == 'All Columns':
+            return -1
+        try:
+            return self.table_model.column_names.index(column_name)
+        except ValueError:
+            return -1
 
-    def _on_search_changed(self, text: str) -> None:
-        raw = self._search_combo.itemData(self._search_combo.currentIndex())
-        column = raw if isinstance(raw, int) else -1
-        if self._is_connected:
-            SearchState.set_connected(text, column)
-            PaginationState.set_connected_page(1)
-        else:
-            SearchState.set_disconnected(text, column)
-            PaginationState.set_disconnected_page(1)
-        self.table_view.viewport().update()
-
-    def _on_search_column_changed(self, index: int) -> None:
-        raw = self._search_combo.itemData(index)
-        column = raw if isinstance(raw, int) else -1
-        text = self._search_bar.text()
-        if self._is_connected:
-            SearchState.set_connected(text, column)
-            PaginationState.set_connected_page(1)
-        else:
-            SearchState.set_disconnected(text, column)
-            PaginationState.set_disconnected_page(1)
-        self.table_view.viewport().update()
+    def _get_highlight_search_column(self) -> int:
+        return self.get_search_column_index(SearchState.get_column_name())

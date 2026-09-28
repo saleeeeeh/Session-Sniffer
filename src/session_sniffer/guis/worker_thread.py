@@ -17,6 +17,9 @@ from session_sniffer.rendering_core.types import (
     SortState,
 )
 
+_COLUMN_ALL = -1
+_COLUMN_NOT_FOUND = -2
+
 
 def _search_filter(
     rows: list[tuple[list[str], list[CellColor]]],
@@ -73,7 +76,7 @@ class GUIWorkerThread(CrashingQThread):
                 last_seen_version=last_seen_version,
             )
 
-            connected_search_text, connected_column, disconnected_search_text, disconnected_column, search_version = SearchState.get()
+            search_text, search_column_name, search_version = SearchState.get()
             connected_rows_per_page, connected_page, disconnected_rows_per_page, disconnected_page, pagination_version = PaginationState.get()
             connected_sort_col, connected_sort_order, disconnected_sort_col, disconnected_sort_order, sort_version = SortState.get()
 
@@ -97,11 +100,24 @@ class GUIWorkerThread(CrashingQThread):
             ]
 
             # Apply search filter (before sorting and pagination so counts and pages stay accurate)
-            if connected_search_text:
-                connected_rows_with_colors = _search_filter(connected_rows_with_colors, connected_search_text, connected_column)
+            if search_text:
+                if search_column_name and search_column_name != 'All Columns':
+                    try:
+                        connected_col = last_snapshot.column_config.connected_column_names.index(search_column_name)
+                    except ValueError:
+                        connected_col = _COLUMN_NOT_FOUND
+                    try:
+                        disconnected_col = last_snapshot.column_config.disconnected_column_names.index(search_column_name)
+                    except ValueError:
+                        disconnected_col = _COLUMN_NOT_FOUND
+                else:
+                    connected_col = _COLUMN_ALL
+                    disconnected_col = _COLUMN_ALL
+
+                connected_rows_with_colors = [] if connected_col == _COLUMN_NOT_FOUND else _search_filter(connected_rows_with_colors, search_text, connected_col)
                 connected_count = len(connected_rows_with_colors)
-            if disconnected_search_text:
-                disconnected_rows_with_colors = _search_filter(disconnected_rows_with_colors, disconnected_search_text, disconnected_column)
+
+                disconnected_rows_with_colors = [] if disconnected_col == _COLUMN_NOT_FOUND else _search_filter(disconnected_rows_with_colors, search_text, disconnected_col)
                 disconnected_count = len(disconnected_rows_with_colors)
 
             # Apply sorting (before pagination so each page contains the correct slice of sorted data)

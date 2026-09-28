@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QFont, QIcon, QShowEvent
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
-    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -21,13 +20,13 @@ from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.core import terminate_script
 from session_sniffer.gta5.suspend_manager import GTASuspendManager
+from session_sniffer.guis._main_header import SessionHeader
 from session_sniffer.guis._main_window_files_mixin import FilesMixin
 from session_sniffer.guis._main_window_game_mixin import GameMixin
 from session_sniffer.guis._main_window_looky_mixin import LookyMixin
 from session_sniffer.guis._main_window_stats_mixin import StatsMixin
 from session_sniffer.guis._session_table_section import SessionStatusBar, SessionTableSection
 from session_sniffer.guis.discord_intro import DiscordIntro
-from session_sniffer.guis.html_templates import generate_gui_header_html
 from session_sniffer.guis.ping_window import PingWindow
 from session_sniffer.guis.player_resolver import PlayerResolverWindow
 from session_sniffer.guis.port_scanner_window import PortScannerWindow
@@ -47,7 +46,13 @@ from session_sniffer.models import GUIState
 from session_sniffer.player.registry import PlayersRegistry, SessionHost
 from session_sniffer.rdr2.suspend_manager import RDR2SuspendManager
 from session_sniffer.rendering_core.status_bar_renderer import build_gui_status_text
-from session_sniffer.rendering_core.types import CaptureState, GUIRenderingState, GUIUpdatePayload
+from session_sniffer.rendering_core.types import (
+    CaptureState,
+    GUIRenderingState,
+    GUIUpdatePayload,
+    PaginationState,
+    SearchState,
+)
 from session_sniffer.settings import Settings
 
 if TYPE_CHECKING:
@@ -457,11 +462,12 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)
 
-        self._header = QLabel()
-        self._header.setTextFormat(Qt.TextFormat.RichText)
-        self._header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._header.setWordWrap(True)
-        self._header.setFont(QFont('Courier', 10, QFont.Weight.Bold))
+        self._header = SessionHeader(self)
+        self._header.search_changed.connect(self._on_global_search_changed)
+
+        search_shortcut = QShortcut(QKeySequence('Ctrl+F'), self)
+        search_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        search_shortcut.activated.connect(self._header.focus_search)
 
         connected_column_names = [
             column for column in Settings.GUI_ALL_CONNECTED_COLUMNS if column in set(Settings.gui_columns_connected_shown) or column in Settings.GUI_FORCED_COLUMNS
@@ -511,7 +517,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
         main_layout.addSpacing(4)
         main_layout.addWidget(self._header)
-        main_layout.addSpacing(14)
+        main_layout.addSpacing(6)
         main_layout.addWidget(self._tables_splitter, 1)
         main_layout.addWidget(self._connected.expand_button)
         main_layout.addWidget(self._disconnected.expand_button)
@@ -687,7 +693,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
     def _update_gui(self, payload: GUIUpdatePayload) -> None:
         self._sync_capture_toggle_action()
-        self._header.setText(payload.header_text)
+        self._header.set_capture_running(is_running=self.capture.is_running())
         self._status_bar.set_texts(
             capture=payload.status_capture_text,
             config=payload.status_config_text,
@@ -879,9 +885,17 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         """Open the Player Resolver window, or focus the existing one."""
         self._player_resolver_window.show_and_focus()
 
+    def _on_global_search_changed(self, text: str, column_name: str) -> None:
+        """Update global search state across connected and disconnected tables."""
+        SearchState.set_search(text, column_name)
+        PaginationState.set_connected_page(1)
+        PaginationState.set_disconnected_page(1)
+        self._connected.table_view.viewport().update()
+        self._disconnected.table_view.viewport().update()
+
     def _update_header_capture_status(self) -> None:
-        """Immediately update the header text to reflect current capture state."""
-        self._header.setText(generate_gui_header_html(capture=self.capture.get()))
+        """Immediately update the header to reflect current capture state."""
+        self._header.set_capture_running(is_running=self.capture.is_running())
 
     def _update_status_bar(self) -> None:
         """Immediately render the status bar with current capture state."""
