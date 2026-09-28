@@ -1,9 +1,26 @@
 """Session table view for connected and disconnected players tables."""
 
+# pylint: disable=too-many-lines
+
 from typing import TYPE_CHECKING, cast, override
 
-from PySide6.QtCore import QAbstractItemModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QRect, QSize, Qt
-from PySide6.QtGui import QAction, QClipboard, QHoverEvent, QIcon, QKeyEvent, QMouseEvent, QResizeEvent, QShowEvent
+from PySide6.QtCore import QAbstractItemModel, QEvent, QItemSelection, QItemSelectionModel, QModelIndex, QObject, QPoint, QRect, QRectF, QSize, Qt
+from PySide6.QtGui import (
+    QAction,
+    QClipboard,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QHoverEvent,
+    QIcon,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QResizeEvent,
+    QShowEvent,
+)
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QHeaderView,
     QMenu,
@@ -33,7 +50,7 @@ from session_sniffer.guis.tables_context_menu_mixin import TableContextMenuMixin
 from session_sniffer.guis.utils import ElidedTextTooltipDelegate, PersistentMenu, scale_by_ui, setup_static_table_column_resizing
 from session_sniffer.models import GUIState
 from session_sniffer.player.registry import PlayersRegistry
-from session_sniffer.rendering_core.types import PaginationState, SortState
+from session_sniffer.rendering_core.types import PaginationState, SearchState, SortState
 from session_sniffer.settings.defaults import SETTING_DEFAULTS
 from session_sniffer.settings.settings import Settings
 
@@ -127,6 +144,8 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
         self._is_programmatic_resizing: bool = False
         self._has_auto_sized_with_data: bool = False
         self._recalculation_payloads_remaining: int = 0
+        empty_icon_filename = 'empty_connected_players.svg' if is_connected_table else 'empty_disconnected_players.svg'
+        self._empty_icon_renderer = QSvgRenderer((RESOURCES_DIR_PATH / 'icons' / empty_icon_filename).as_posix())
 
         self.setModel(model)
         self.setMouseTracking(True)  # Track mouse without clicks
@@ -306,6 +325,78 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
         """Handle table view becoming visible."""
         super().showEvent(event)
         self.check_initial_data_column_sizing()
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint table contents or empty-state placeholder when there are no rows."""
+        super().paintEvent(event)
+
+        if not self.model().rowCount():
+            self._paint_empty_state()
+
+    def _paint_empty_state(self) -> None:
+        """Render a centered icon, title, and subtitle when the table has no rows."""
+        viewport_rect = self.viewport().rect()
+        if viewport_rect.height() < scale_by_ui(50):
+            return
+
+        painter = QPainter(self.viewport())
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+            icon_size = scale_by_ui(38)
+            icon_spacing = scale_by_ui(14)
+            title_spacing = scale_by_ui(6)
+
+            title_font = QFont('Segoe UI', scale_by_ui(11), QFont.Weight.DemiBold)
+            subtitle_font = QFont('Segoe UI', scale_by_ui(9))
+
+            title_fm = QFontMetrics(title_font)
+            subtitle_fm = QFontMetrics(subtitle_font)
+
+            total_height = icon_size + icon_spacing + title_fm.height() + title_spacing + subtitle_fm.height()
+            start_y = max(scale_by_ui(10), (viewport_rect.height() - total_height) // 2)
+
+            icon_x = (viewport_rect.width() - icon_size) // 2
+            icon_rect = QRectF(icon_x, start_y, icon_size, icon_size)
+            self._empty_icon_renderer.render(painter, icon_rect)
+
+            search_text = SearchState.get_text()
+            has_registry_players = bool(
+                PlayersRegistry.get_default_sorted_players(
+                    include_connected=self.is_connected_table,
+                    include_disconnected=not self.is_connected_table,
+                ),
+            )
+
+            if search_text and has_registry_players:
+                if self.is_connected_table:
+                    title = 'No matching connected players' if Settings.gui_disconnected_players_enabled else 'No matching players'
+                else:
+                    title = 'No matching disconnected players'
+                subtitle = 'No players match the current search filter.'
+            elif self.is_connected_table:
+                title = 'No connected players' if Settings.gui_disconnected_players_enabled else 'No players'
+                subtitle = 'Connected players will appear here.' if Settings.gui_disconnected_players_enabled else 'Players will appear here.'
+            else:
+                title = 'No disconnected players'
+                subtitle = 'Disconnected players will appear here.'
+
+            curr_y = start_y + icon_size + icon_spacing
+            title_rect = QRect(0, curr_y, viewport_rect.width(), title_fm.height())
+            painter.setFont(title_font)
+            painter.setPen(QColor('#8dadeb'))
+            painter.drawText(title_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, title)
+
+            curr_y += title_fm.height() + title_spacing
+            subtitle_rect = QRect(0, curr_y, viewport_rect.width(), subtitle_fm.height())
+            painter.setFont(subtitle_font)
+            painter.setPen(QColor('#809cca'))
+            painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, subtitle)
+        finally:
+            painter.end()
 
     # --------------------------------------------------------------------------
     # Custom / internal management methods

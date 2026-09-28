@@ -601,6 +601,7 @@ class SessionTableSection(QWidget):
             disconnected_enabled = Settings.gui_disconnected_players_enabled
             self._clear_button.setToolTip('Clear all connected players' if disconnected_enabled else 'Clear all players')
             self._rows_per_page_spinbox.setToolTip(f'Limit how many {self._rows_per_page_tooltip_noun()} are shown per page. Set 0 to show all.')
+            self.table_view.viewport().update()
 
     def _expand_button_noun(self) -> str:
         """Return the player label for the expand button, respecting the disconnected players setting."""

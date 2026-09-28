@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <mask id="slash-cut">
+      <rect width="48" height="48" fill="white"/>
+      <line x1="15" y1="15" x2="33" y2="33" stroke="black" stroke-width="4.5" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#a04260" stroke-width="2.5"/>
+  <g mask="url(#slash-cut)">
+    <circle cx="24" cy="18" r="5" fill="#a04260"/>
+    <path d="M 15 33 C 15 25.5 33 25.5 33 33 Z" fill="#a04260"/>
+  </g>
+  <line x1="16" y1="16" x2="32" y2="32" stroke="#a04260" stroke-width="2.2" stroke-linecap="round"/>
+</svg>
