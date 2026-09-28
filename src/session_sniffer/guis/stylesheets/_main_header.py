@@ -47,7 +47,9 @@ QComboBox#headerSearchCombo {
     border-radius: 6px;
     font-size: 9pt;
 }
-QComboBox#headerSearchCombo:hover, QComboBox#headerSearchCombo:focus {
+QComboBox#headerSearchCombo:hover,
+QComboBox#headerSearchCombo:focus,
+QComboBox#headerSearchCombo:on {
     border: 1px solid #48b774;
 }
 QComboBox#headerSearchCombo::drop-down {
@@ -57,13 +59,38 @@ QComboBox#headerSearchCombo::drop-down {
     border-left: none;
 }
 QComboBox#headerSearchCombo QAbstractItemView {
-    background-color: #1a222d;
-    color: #ffffff;
-    selection-background-color: #1f3d2c;
-    selection-color: #ffffff;
-    border: 1px solid rgba(136, 192, 208, 0.3);
+    background-color: #2b2b2b;
+    color: #e0e0e0;
+    border: 1px solid #3a3a3a;
     border-radius: 4px;
-    padding: 4px;
+    padding: 4px 2px;
+    outline: none;
+}
+QComboBox#headerSearchCombo QAbstractItemView::item {
+    min-height: 22px;
+    padding: 2px 8px;
+    margin: 1px 2px;
+    border-radius: 3px;
+    border: none;
+    background-color: transparent;
+    color: #e0e0e0;
+}
+QComboBox#headerSearchCombo QAbstractItemView::item:hover {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+QComboBox#headerSearchCombo QAbstractItemView::item:selected {
+    background-color: #3a3a3a;
+    color: #ffffff;
+}
+QComboBox#headerSearchCombo QAbstractItemView::item:selected:hover {
+    background-color: #444444;
+    color: #ffffff;
+}
+QComboBox#headerSearchCombo QAbstractItemView::item:focus {
+    background-color: #3a3a3a;
+    color: #ffffff;
+    outline: none;
 }
 """.strip()
 

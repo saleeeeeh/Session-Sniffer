@@ -264,7 +264,7 @@ def get_stylesheet(ui_scale: float = 1.0) -> str:
         padding: 3px 6px;
     }
     QComboBox:hover, QComboBox:on {
-        border-color: #007acc;
+        border-color: #55555a;
     }
     QComboBox::drop-down {
         subcontrol-origin: padding;
@@ -290,7 +290,7 @@ def get_stylesheet(ui_scale: float = 1.0) -> str:
         padding: 2px 1px;
         outline: none;
         color: #e0e0e0;
-        selection-background-color: #007acc;
+        selection-background-color: #3e3e42;
     }
     QComboBox QAbstractItemView::item {
         min-height: 20px;
@@ -303,28 +303,28 @@ def get_stylesheet(ui_scale: float = 1.0) -> str:
         color: #e0e0e0;
     }
     QComboBox QAbstractItemView::item:hover {
-        background-color: #2d2d30;
+        background-color: #3e3e42;
         color: #ffffff;
         border-radius: 3px;
         padding: 2px 6px;
         border: none;
     }
     QComboBox QAbstractItemView::item:selected {
-        background-color: #007acc;
+        background-color: #3e3e42;
         color: #ffffff;
         border-radius: 3px;
         padding: 2px 6px;
         border: none;
     }
     QComboBox QAbstractItemView::item:selected:hover {
-        background-color: #0098ff;
+        background-color: #4a4a50;
         color: #ffffff;
         border-radius: 3px;
         padding: 2px 6px;
         border: none;
     }
     QComboBox QAbstractItemView::item:focus {
-        background-color: #007acc;
+        background-color: #3e3e42;
         color: #ffffff;
         border-radius: 3px;
         padding: 2px 6px;
