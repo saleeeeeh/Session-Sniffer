@@ -30,9 +30,9 @@ border: none;
 # SECTION TABLE HEADER STYLES
 # =============================================================================
 
-SECTION_CLEAR_BUTTON_STYLESHEET = 'font-weight: 700; font-size: 9pt;'
+SECTION_CLEAR_BUTTON_STYLESHEET = 'font-weight: 700; font-size: 8.5pt;'
 
-SECTION_HEADER_SEPARATOR_STYLESHEET = 'background-color: rgba(255,255,255,0.55); border: none; max-width: 1px; min-width: 1px; margin: 6px 6px;'
+SECTION_HEADER_SEPARATOR_STYLESHEET = 'background-color: rgba(255, 255, 255, 0.12); border: none; max-width: 1px; min-width: 1px; margin: 6px 4px;'
 
 # =============================================================================
 # MAIN WINDOW STYLES
@@ -151,21 +151,9 @@ DEPENDENCY_PROMPT_ICON_CONTAINER_STYLESHEET = (
     '}'
 )
 
-DEPENDENCY_PROMPT_KICKER_LABEL_STYLESHEET = (
-    'color: #5fb4f5;'
-    'background: transparent;'
-    'font-size: 8pt;'
-    'font-weight: 700;'
-    'letter-spacing: 1px;'
-)
+DEPENDENCY_PROMPT_KICKER_LABEL_STYLESHEET = 'color: #5fb4f5;background: transparent;font-size: 8pt;font-weight: 700;letter-spacing: 1px;'
 
-DEPENDENCY_PROMPT_TITLE_LABEL_STYLESHEET = (
-    'color: #f0f4fa;'
-    'background: transparent;'
-    'font-size: 15pt;'
-    'font-weight: 700;'
-    'letter-spacing: 0.3px;'
-)
+DEPENDENCY_PROMPT_TITLE_LABEL_STYLESHEET = 'color: #f0f4fa;background: transparent;font-size: 15pt;font-weight: 700;letter-spacing: 0.3px;'
 
 DEPENDENCY_PROMPT_CLOSE_BUTTON_STYLESHEET = (
     'QPushButton#dependencyPromptCloseButton {'
@@ -189,13 +177,7 @@ DEPENDENCY_PROMPT_CLOSE_BUTTON_STYLESHEET = (
     '}'
 )
 
-DEPENDENCY_PROMPT_INFO_CARD_STYLESHEET = (
-    'QFrame#dependencyPromptInfoCard {'
-    '    background: rgba(18, 26, 38, 0.75);'
-    '    border: 1px solid #2c3a4d;'
-    '    border-radius: 10px;'
-    '}'
-)
+DEPENDENCY_PROMPT_INFO_CARD_STYLESHEET = 'QFrame#dependencyPromptInfoCard {    background: rgba(18, 26, 38, 0.75);    border: 1px solid #2c3a4d;    border-radius: 10px;}'
 
 DEPENDENCY_PROMPT_MESSAGE_LABEL_STYLESHEET = 'color: #c8d4e2; background: transparent; font-size: 9.5pt;'
 

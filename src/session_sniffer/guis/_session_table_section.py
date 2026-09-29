@@ -2,9 +2,8 @@
 
 from typing import TYPE_CHECKING, cast, override
 
-from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QIcon, QPainter, QPixmap
-from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -33,27 +32,12 @@ from session_sniffer.guis.stylesheets import (
 )
 from session_sniffer.guis.table_model import SessionTableModel
 from session_sniffer.guis.tables import COLUMN_FORMAT_SETTING_TO_COLUMNS, SessionTableView
-from session_sniffer.guis.utils import SearchHighlightDelegate, make_padded_icon, scale_by_ui
+from session_sniffer.guis.utils import SearchHighlightDelegate, make_padded_icon, render_svg_pixmap_from_resource, scale_by_ui
 from session_sniffer.rendering_core.types import PaginationState, SearchState
 from session_sniffer.settings import Settings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-
-_PLAYER_ICON_PATH = (RESOURCES_DIR_PATH / 'icons' / 'player.svg').as_posix()
-
-
-def _svg_file_to_pixmap(svg_path: str, size: int) -> QPixmap:
-    renderer = QSvgRenderer(svg_path)
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    try:
-        renderer.render(painter, QRectF(0, 0, size, size))
-    finally:
-        painter.end()
-    return pixmap
 
 
 class SessionStatusBar(QStatusBar):
@@ -127,7 +111,14 @@ class SessionTableSection(QWidget):
         self._rows_keyboard_editing = False
 
         if is_connected:
-            accent = '#327546'
+            accent = '#22c55e'
+            border_color = '#1c4f32'
+            table_bg = '#101412'
+            alt_bg = '#131915'
+            grid_color = '#18241d'
+            sel_bg = '#1a3826'
+            header_bg = '#141d17'
+            header_text = '#94a3b8'
             expand_button_stylesheet = CONNECTED_EXPAND_BUTTON_STYLESHEET
             collapse_tooltip = 'Hide the connected players table'
             clear_tooltip = 'Clear all connected players' if Settings.gui_disconnected_players_enabled else 'Clear all players'
@@ -138,7 +129,14 @@ class SessionTableSection(QWidget):
                 configured_column if configured_column in column_names else ('Last Rejoin' if 'Last Rejoin' in column_names else (column_names[0] if column_names else ''))
             )
         else:
-            accent = '#943b3b'
+            accent = '#ef4444'
+            border_color = '#59282a'
+            table_bg = '#141011'
+            alt_bg = '#191315'
+            grid_color = '#261719'
+            sel_bg = '#3d1a1e'
+            header_bg = '#1d1315'
+            header_text = '#94a3b8'
             expand_button_stylesheet = DISCONNECTED_EXPAND_BUTTON_STYLESHEET
             collapse_tooltip = 'Hide the disconnected players table'
             clear_tooltip = 'Clear all disconnected players'
@@ -153,21 +151,22 @@ class SessionTableSection(QWidget):
         header_container = QFrame()
         header_container.setObjectName('sectionBar')
         header_container.setStyleSheet(section_bar_qss(accent))
-        header_container.setFixedHeight(46)
+        header_container.setFixedHeight(scale_by_ui(42))
         header_layout = QHBoxLayout(header_container)
-        header_layout.setContentsMargins(10, 4, 10, 8)
-        header_layout.setSpacing(8)
+        header_layout.setContentsMargins(scale_by_ui(10), scale_by_ui(4), scale_by_ui(10), scale_by_ui(4))
+        header_layout.setSpacing(scale_by_ui(8))
 
         icon_label = QLabel()
-        icon_label.setFixedSize(40, 34)
+        icon_label.setFixedSize(scale_by_ui(26), scale_by_ui(26))
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setPixmap(_svg_file_to_pixmap(_PLAYER_ICON_PATH, 24))
+        icon_label.setPixmap(render_svg_pixmap_from_resource('player.svg', scale_by_ui(20), scale_by_ui(20), accent))
 
         self._header_label = QLabel(self._header_label_text())
         self._header_label.setObjectName('sectionTitle')
         self._header_label.setAutoFillBackground(False)
 
         clear_button = QPushButton('CLEAR')
+        clear_button.setObjectName('sectionClearButton')
         clear_button.setStyleSheet(SECTION_CLEAR_BUTTON_STYLESHEET)
         clear_button.setToolTip(clear_tooltip)
         clear_button.clicked.connect(clear_slot)
@@ -274,35 +273,16 @@ class SessionTableSection(QWidget):
         scrollbar_arrow_left_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_left.svg').as_posix()
         scrollbar_arrow_right_path = (RESOURCES_DIR_PATH / 'icons' / 'scrollbar_arrow_right.svg').as_posix()
 
-        # Dynamic "glassmorphism" tint to match the container's accent color perfectly
-        if is_connected:
-            table_bg = '#0a120e'
-            alt_bg = '#0e1a13'
-            grid_color = '#162b1f'
-            sel_bg = '#1f3d2c'
-            header_bg = '#122418'
-            header_text = '#a8d5ba'
-            sb_track_bg = '#080e0b'
-            sb_handle_bg = '#235231'
-            sb_handle_hover = '#3ea660'
-            sb_handle_pressed = '#4fc877'
-        else:
-            table_bg = '#140a0a'
-            alt_bg = '#1f0e0e'
-            grid_color = '#331616'
-            sel_bg = '#4d2121'
-            header_bg = '#241212'
-            header_text = '#d5a8a8'
-            sb_track_bg = '#0e0707'
-            sb_handle_bg = '#612626'
-            sb_handle_hover = '#b84a4a'
-            sb_handle_pressed = '#d95b5b'
+        sb_track_bg = '#111215'
+        sb_handle_bg = '#2a2d36'
+        sb_handle_hover = '#3d4250'
+        sb_handle_pressed = '#4b5163'
 
         self.table_view.setStyleSheet(f"""
             QTableView {{
-                border-left: 2px solid {accent};
-                border-right: 2px solid {accent};
-                border-bottom: 2px solid {accent};
+                border-left: 1px solid {border_color};
+                border-right: 1px solid {border_color};
+                border-bottom: 1px solid {border_color};
                 border-top: none;
                 border-bottom-left-radius: 8px;
                 border-bottom-right-radius: 8px;
@@ -314,8 +294,8 @@ class SessionTableSection(QWidget):
                 selection-color: #ffffff;
             }}
             QTableView::viewport {{
-                border-bottom-left-radius: 6px;
-                border-bottom-right-radius: 6px;
+                border-bottom-left-radius: 7px;
+                border-bottom-right-radius: 7px;
                 background-color: {table_bg};
             }}
             QTableView::item {{
@@ -334,10 +314,11 @@ class SessionTableSection(QWidget):
                 background-color: {header_bg};
                 color: {header_text};
                 padding: 6px;
-                border: 1px solid {grid_color};
+                border: none;
+                border-right: 1px solid {grid_color};
                 border-bottom: 1px solid {accent};
                 font-weight: bold;
-                font-size: 10pt;
+                font-size: 9.5pt;
             }}
             QHeaderView::section:hover {{
                 background-color: {sel_bg};

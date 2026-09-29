@@ -1323,8 +1323,8 @@ def make_padded_icon(source: QIcon, icon_size: tuple[int, int], right_padding: i
     return QIcon(pixmap)
 
 
-def render_svg_pixmap_from_resource(filename: str, width: int, height: int) -> QPixmap:
-    """Render an SVG icon from `resources/icons/` to a transparent QPixmap with smooth scaling."""
+def render_svg_pixmap_from_resource(filename: str, width: int, height: int, tint_color: str | None = None) -> QPixmap:
+    """Render an SVG icon from `resources/icons/` to a transparent QPixmap with smooth scaling and optional tint color."""
     renderer = QSvgRenderer(str(RESOURCES_DIR_PATH / 'icons' / filename))
     pixmap = QPixmap(width, height)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -1333,6 +1333,9 @@ def render_svg_pixmap_from_resource(filename: str, width: int, height: int) -> Q
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         renderer.render(painter, QRectF(0, 0, width, height))
+        if tint_color is not None:
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            painter.fillRect(pixmap.rect(), QColor(tint_color))
     finally:
         painter.end()
     return pixmap

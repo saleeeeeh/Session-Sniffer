@@ -2,9 +2,8 @@
 
 from typing import TYPE_CHECKING, override
 
-from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QKeyEvent, QPainter, QPixmap
-from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QKeyEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -17,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from session_sniffer.constants.local import RESOURCES_DIR_PATH, VERSION
+from session_sniffer.constants.local import VERSION
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.constants.tables import SEARCHABLE_COLUMN_EXCLUSIONS
 from session_sniffer.guis.stylesheets import (
@@ -34,28 +33,11 @@ from session_sniffer.guis.stylesheets import (
     STAT_CARD_TITLE_STYLESHEET,
     STAT_CARD_UPTIME_VALUE_STYLESHEET,
 )
-from session_sniffer.guis.utils import scale_by_ui
+from session_sniffer.guis.utils import render_svg_pixmap_from_resource, scale_by_ui
 from session_sniffer.settings import Settings
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-def _render_tinted_svg(filename: str, width: int, height: int, color_hex: str) -> QPixmap:
-    """Render an icon from resources/icons to a transparent QPixmap and tint it."""
-    renderer = QSvgRenderer(str(RESOURCES_DIR_PATH / 'icons' / filename))
-    pixmap = QPixmap(width, height)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    try:
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        renderer.render(painter, QRectF(0, 0, width, height))
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        painter.fillRect(pixmap.rect(), QColor(color_hex))
-    finally:
-        painter.end()
-    return pixmap
 
 
 class _SearchInputFilter(QObject):
@@ -99,59 +81,51 @@ class SessionHeader(QFrame):
         super().__init__(parent)
         self.setObjectName('mainHeader')
         self.setStyleSheet(MAIN_HEADER_CONTAINER_STYLESHEET)
-        self.setFixedHeight(scale_by_ui(56))
+        self.setFixedHeight(scale_by_ui(54))
 
         main_layout = QGridLayout(self)
-        main_layout.setContentsMargins(scale_by_ui(6), scale_by_ui(4), scale_by_ui(6), scale_by_ui(4))
+        main_layout.setContentsMargins(scale_by_ui(6), scale_by_ui(2), scale_by_ui(6), scale_by_ui(2))
         main_layout.setSpacing(scale_by_ui(8))
 
         # ---------------------------------------------------------------------
         # Left Section: Branding & Status
         # ---------------------------------------------------------------------
-        left_layout = QHBoxLayout()
-        left_layout.setSpacing(scale_by_ui(8))
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        brand_container = QWidget()
+        brand_layout = QVBoxLayout(brand_container)
+        brand_layout.setSpacing(scale_by_ui(3))
+        brand_layout.setContentsMargins(0, 0, 0, 0)
 
-        logo_label = QLabel()
-        logo_label.setFixedSize(scale_by_ui(36), scale_by_ui(36))
-        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_label.setPixmap(_render_tinted_svg('target.svg', scale_by_ui(34), scale_by_ui(34), '#48b774'))
-        left_layout.addWidget(logo_label)
-
-        titles_layout = QVBoxLayout()
-        titles_layout.setSpacing(scale_by_ui(2))
-        titles_layout.setContentsMargins(0, 0, 0, 0)
-
-        title_badge_row = QHBoxLayout()
-        title_badge_row.setSpacing(scale_by_ui(6))
-        title_badge_row.setContentsMargins(0, 0, 0, 0)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(scale_by_ui(8))
+        title_row.setContentsMargins(0, 0, 0, 0)
 
         title_label = QLabel(TITLE)
         title_label.setObjectName('headerTitle')
         title_label.setStyleSheet(HEADER_TITLE_STYLESHEET)
-        title_badge_row.addWidget(title_label)
+        title_row.addWidget(title_label)
 
-        version_badge = QLabel(f'•  {VERSION}')
+        version_badge = QLabel(VERSION)
         version_badge.setObjectName('headerVersionBadge')
         version_badge.setStyleSheet(HEADER_VERSION_BADGE_STYLESHEET)
-        title_badge_row.addWidget(version_badge)
+        title_row.addWidget(version_badge)
 
         self._stopped_badge = QLabel('CAPTURE STOPPED')
         self._stopped_badge.setObjectName('headerStoppedBadge')
         self._stopped_badge.setStyleSheet(HEADER_STOPPED_BADGE_STYLESHEET)
         self._stopped_badge.setVisible(False)
-        title_badge_row.addWidget(self._stopped_badge)
+        title_row.addWidget(self._stopped_badge)
+        title_row.addStretch(1)
 
-        title_badge_row.addStretch(1)
-        titles_layout.addLayout(title_badge_row)
+        brand_layout.addLayout(title_row)
 
-        subtitle_label = QLabel('The best FREE and Open-Source packet sniffer')
+        subtitle_label = QLabel(
+            'The best <span style="color: #22c55e; font-weight: 600;">FREE</span> and <span style="color: #22c55e; font-weight: 600;">Open-Source</span> packet sniffer'
+        )
         subtitle_label.setObjectName('headerSubtitle')
         subtitle_label.setStyleSheet(HEADER_SUBTITLE_STYLESHEET)
-        titles_layout.addWidget(subtitle_label)
+        brand_layout.addWidget(subtitle_label)
 
-        left_layout.addLayout(titles_layout)
-        main_layout.addLayout(left_layout, 0, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        main_layout.addWidget(brand_container, 0, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         # ---------------------------------------------------------------------
         # Center Section: Global Search & Column Selector
@@ -167,7 +141,7 @@ class SessionHeader(QFrame):
         self.search_bar.setMinimumWidth(scale_by_ui(120))
         self.search_bar.setMaximumWidth(scale_by_ui(460))
         self.search_bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        search_pixmap = _render_tinted_svg('search.svg', scale_by_ui(14), scale_by_ui(14), '#7e8c9f')
+        search_pixmap = render_svg_pixmap_from_resource('search.svg', scale_by_ui(14), scale_by_ui(14), '#64748b')
         self.search_bar.addAction(QIcon(search_pixmap), QLineEdit.ActionPosition.LeadingPosition)
         self.search_bar.setClearButtonEnabled(True)
         self._search_filter_guard = _SearchInputFilter(self.search_bar)
@@ -200,7 +174,7 @@ class SessionHeader(QFrame):
         pulse_icon = QLabel()
         pulse_icon.setFixedSize(scale_by_ui(18), scale_by_ui(18))
         pulse_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pulse_icon.setPixmap(_render_tinted_svg('frequency.svg', scale_by_ui(16), scale_by_ui(16), '#00e676'))
+        pulse_icon.setPixmap(render_svg_pixmap_from_resource('frequency.svg', scale_by_ui(16), scale_by_ui(16), '#22c55e'))
         stats_card_layout.addWidget(pulse_icon)
 
         uptime_layout = QVBoxLayout()

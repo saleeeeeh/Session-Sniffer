@@ -387,13 +387,13 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
             curr_y = start_y + icon_size + icon_spacing
             title_rect = QRect(0, curr_y, viewport_rect.width(), title_fm.height())
             painter.setFont(title_font)
-            painter.setPen(QColor('#8dadeb'))
+            painter.setPen(QColor('#e2e8f0'))
             painter.drawText(title_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, title)
 
             curr_y += title_fm.height() + title_spacing
             subtitle_rect = QRect(0, curr_y, viewport_rect.width(), subtitle_fm.height())
             painter.setFont(subtitle_font)
-            painter.setPen(QColor('#809cca'))
+            painter.setPen(QColor('#64748b'))
             painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter, subtitle)
         finally:
             painter.end()

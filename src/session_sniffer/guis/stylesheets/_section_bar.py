@@ -8,95 +8,112 @@
 def section_bar_qss(accent: str) -> str:
     """Return the QSS for a session table section header bar with the given `accent` color."""
     red, green, blue = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
-    dark = f'#{int(red * 0.6):02x}{int(green * 0.6):02x}{int(blue * 0.6):02x}'
+    bg_top = f'#{int(red * 0.12) + 14:02x}{int(green * 0.12) + 16:02x}{int(blue * 0.12) + 18:02x}'
+    bg_bottom = f'#{int(red * 0.06) + 10:02x}{int(green * 0.06) + 11:02x}{int(blue * 0.06) + 13:02x}'
+    border_color = f'#{int(red * 0.3) + 18:02x}{int(green * 0.3) + 20:02x}{int(blue * 0.3) + 22:02x}'
     return f"""
     QFrame#sectionBar {{
         background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 {accent},
-                                    stop:1 {dark});
-        border: 2px solid {accent};
-        border-bottom: none;
+                                    stop:0 {bg_top},
+                                    stop:1 {bg_bottom});
+        border: 1px solid {border_color};
+        border-top: 2px solid {accent};
+        border-bottom: 1px solid {border_color};
         border-top-left-radius: 8px;
         border-top-right-radius: 8px;
     }}
     QLabel {{
-        color: white;
+        color: #94a3b8;
         background: transparent;
+        font-size: 8.5pt;
     }}
     QLabel#sectionTitle {{
         font-size: 11pt;
         font-weight: 600;
+        color: #ffffff;
+        letter-spacing: 0.2px;
     }}
     QPushButton, QToolButton {{
         min-height: 28px;
-        padding: 0 8px;
-        color: white;
-        background: rgba(0, 0, 0, 0.18);
-        border: 1px solid rgba(255, 255, 255, 0.55);
+        padding: 0 10px;
+        color: #cbd5e1;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 6px;
+        font-size: 8.5pt;
     }}
-
+    QPushButton:hover, QToolButton:hover {{
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+    }}
+    QPushButton:pressed, QToolButton:pressed {{
+        background: rgba(255, 255, 255, 0.03);
+    }}
+    QPushButton#sectionClearButton:hover {{
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #fca5a5;
+    }}
     QComboBox {{
         min-height: 28px;
         padding: 0 24px 0 8px;
-        color: white;
-        background: rgba(0, 0, 0, 0.18);
-        border: 1px solid rgba(255, 255, 255, 0.55);
+        color: #f1f5f9;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 6px;
         min-width: 105px;
+        font-size: 8.5pt;
     }}
-    QSpinBox {{
-        min-height: 28px;
-        padding: 0 14px 0 2px;
-        color: white;
-        background: rgba(0, 0, 0, 0.18);
-        border: 1px solid rgba(255, 255, 255, 0.55);
-        border-radius: 6px;
-        min-width: 55px;
-        max-width: 68px;
+    QComboBox:hover {{
+        background: rgba(0, 0, 0, 0.50);
+        border-color: rgba(255, 255, 255, 0.25);
     }}
-    QLineEdit {{
-        min-height: 28px;
-        padding: 0 30px 0 8px;
-        color: white;
-        background: rgba(0, 0, 0, 0.18);
-        border: 1px solid rgba(255, 255, 255, 0.55);
-        border-radius: 6px;
-    }}
-    QLineEdit QToolButton {{
-        min-height: 0;
-        padding: 0 2px;
-        border: none;
-        background: transparent;
-    }}
-    QPushButton:hover, QToolButton:hover, QComboBox:hover, QLineEdit:hover, QSpinBox:hover {{
-        border-color: rgba(255, 255, 255, 0.85);
-        background: rgba(0, 0, 0, 0.28);
-    }}
-    QPushButton:pressed, QToolButton:pressed {{
-        background: rgba(0, 0, 0, 0.40);
+    QComboBox:focus, QComboBox:on {{
+        border-color: {accent};
     }}
     QComboBox::drop-down {{
         subcontrol-origin: padding;
         subcontrol-position: top right;
         width: 20px;
         border: none;
-        border-left: 1px solid rgba(255, 255, 255, 0.55);
+        border-left: 1px solid rgba(255, 255, 255, 0.10);
+    }}
+    QSpinBox {{
+        min-height: 28px;
+        padding: 0 16px 0 6px;
+        color: #f1f5f9;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        min-width: 55px;
+        max-width: 72px;
+        font-size: 8.5pt;
+    }}
+    QSpinBox:hover {{
+        background: rgba(0, 0, 0, 0.50);
+        border-color: rgba(255, 255, 255, 0.25);
+    }}
+    QSpinBox:focus {{
+        border-color: {accent};
     }}
     QSpinBox::up-button {{
         subcontrol-origin: border;
         subcontrol-position: top right;
-        width: 18px;
+        width: 16px;
         border: none;
-        border-left: 1px solid rgba(255, 255, 255, 0.55);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+        border-left: 1px solid rgba(255, 255, 255, 0.10);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }}
     QSpinBox::down-button {{
         subcontrol-origin: border;
         subcontrol-position: bottom right;
-        width: 18px;
+        width: 16px;
         border: none;
-        border-left: 1px solid rgba(255, 255, 255, 0.55);
+        border-left: 1px solid rgba(255, 255, 255, 0.10);
+    }}
+    QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+        background: rgba(255, 255, 255, 0.08);
     }}
     QSpinBox::up-arrow {{
         right: 1px;
@@ -106,57 +123,64 @@ def section_bar_qss(accent: str) -> str:
         right: 1px;
         bottom: 1px;
     }}
+    QLineEdit {{
+        min-height: 28px;
+        padding: 0 30px 0 8px;
+        color: #f1f5f9;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        font-size: 8.5pt;
+    }}
+    QLineEdit:hover {{
+        background: rgba(0, 0, 0, 0.50);
+        border-color: rgba(255, 255, 255, 0.25);
+    }}
+    QLineEdit:focus {{
+        border-color: {accent};
+    }}
+    QLineEdit QToolButton {{
+        min-height: 0;
+        padding: 0 2px;
+        border: none;
+        background: transparent;
+    }}
     QComboBox QAbstractItemView {{
-        background-color: #2a2a2a; color: #e0e0e0;
-        border: 1px solid rgba(128, 128, 128, 0.5);
-        selection-background-color: #404040; outline: 0;
+        background-color: #1e1e24;
+        color: #e0e0e0;
+        border: 1px solid #333642;
+        selection-background-color: #2b2e3a;
+        outline: 0;
     }}
     """.strip()
 
 
-def get_expand_button_stylesheet(
-    background_color: str,
-    border_color: str,
-    hover_background_color: str,
-    hover_border_color: str,
-    pressed_background_color: str,
-) -> str:
-    """Generate a stylesheet for an expand button with the given colors."""
+def get_expand_button_stylesheet(accent_rgba: str, text_color: str) -> str:
+    """Generate a stylesheet for an expand button with the given accent and text color."""
     return f"""
 QPushButton {{
-    background-color: {background_color};
-    color: #e0e0e0;
-    border: 1px solid {border_color};
-    border-radius: 4px;
+    background-color: rgba({accent_rgba}, 0.12);
+    color: {text_color};
+    border: 1px solid rgba({accent_rgba}, 0.35);
+    border-radius: 6px;
     padding: 6px 16px;
-    font-size: 9pt;
-    font-weight: bold;
+    font-size: 8.5pt;
+    font-weight: 600;
     margin: 5px;
 }}
 
 QPushButton:hover {{
-    background-color: {hover_background_color};
-    border-color: {hover_border_color};
+    background-color: rgba({accent_rgba}, 0.22);
+    border-color: rgba({accent_rgba}, 0.55);
+    color: #ffffff;
 }}
 
 QPushButton:pressed {{
-    background-color: {pressed_background_color};
+    background-color: rgba({accent_rgba}, 0.08);
 }}
 """.strip()
 
 
-CONNECTED_EXPAND_BUTTON_STYLESHEET = get_expand_button_stylesheet(
-    background_color='#2b663d',
-    border_color='#1d4d2b',
-    hover_background_color='#327546',
-    hover_border_color='#235932',
-    pressed_background_color='#1f4f2e',
-)
+CONNECTED_EXPAND_BUTTON_STYLESHEET = get_expand_button_stylesheet('34, 197, 94', '#4ade80')
 
-DISCONNECTED_EXPAND_BUTTON_STYLESHEET = get_expand_button_stylesheet(
-    background_color='#823232',
-    border_color='#5c2323',
-    hover_background_color='#943b3b',
-    hover_border_color='#732a2a',
-    pressed_background_color='#632525',
-)
+DISCONNECTED_EXPAND_BUTTON_STYLESHEET = get_expand_button_stylesheet('239, 68, 68', '#f87171')
