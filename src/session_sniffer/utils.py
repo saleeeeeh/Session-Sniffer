@@ -208,7 +208,7 @@ def write_lines_to_file(file: Path, mode: Literal['w', 'x', 'a'], lines: list[st
     if need_leading_newline or need_trailing_newline:
         content = lines[:]
         if need_leading_newline:
-            content.insert(0, '')
+            content.insert(0, '\n')
         if need_trailing_newline:
             content[-1] += '\n'
     else:
