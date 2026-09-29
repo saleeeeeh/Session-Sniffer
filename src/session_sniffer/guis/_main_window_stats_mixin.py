@@ -4,8 +4,10 @@ import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QItemSelection, QItemSelectionModel
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QMainWindow, QMenuBar
 
+from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.gta5.suspend_manager import GTASuspendManager
 from session_sniffer.guis.capture_statistics_window import CaptureStatisticsWindow
 from session_sniffer.guis.country_breakdown import CountryBreakdownWindow
@@ -233,6 +235,53 @@ class StatsMixin(QMainWindow):
             return window
 
         show_or_focus_window(self, '_capture_statistics_window', _factory)
+
+    def _build_statistics_menu(self, menu_bar: QMenuBar) -> None:
+        """Build the Statistics menu and attach all graph and breakdown actions."""
+        statistics_menu = menu_bar.addMenu('Statistics')
+        if not statistics_menu:
+            message = 'Failed to create Statistics menu'
+            raise RuntimeError(message)
+        statistics_menu.setToolTipsVisible(True)
+
+        capture_health_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'chart.svg')), 'Capture Statistics', self)
+        capture_health_action.setToolTip('Capture restart count and packet latency statistics')
+        capture_health_action.triggered.connect(self._open_capture_health)
+        statistics_menu.addAction(capture_health_action)
+
+        session_rate_graph_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'speedometer.svg')), 'Session Rate Graph', self)
+        session_rate_graph_action.setToolTip('Live PPS and BPS graphs for the whole session')
+        session_rate_graph_action.triggered.connect(self._open_session_rate_graph)
+        statistics_menu.addAction(session_rate_graph_action)
+
+        statistics_menu.addSeparator()
+
+        session_timeline_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'calendar.svg')), 'Session Timeline', self)
+        session_timeline_action.setToolTip('Gantt chart showing when each player was present')
+        session_timeline_action.triggered.connect(self._open_session_timeline)
+        statistics_menu.addAction(session_timeline_action)
+
+        statistics_menu.addSeparator()
+
+        country_breakdown_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'globe.svg')), 'Country Breakdown', self)
+        country_breakdown_action.setToolTip('Rank players by country of origin')
+        country_breakdown_action.triggered.connect(self._open_country_breakdown)
+        statistics_menu.addAction(country_breakdown_action)
+
+        reconnect_frequency_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'frequency.svg')), 'Reconnect Frequency', self)
+        reconnect_frequency_action.setToolTip('List players sorted by reconnect count')
+        reconnect_frequency_action.triggered.connect(self._open_reconnect_frequency)
+        statistics_menu.addAction(reconnect_frequency_action)
+
+        avg_session_duration_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'timer.svg')), 'Session Duration', self)
+        avg_session_duration_action.setToolTip('Disconnected players ranked by their session duration')
+        avg_session_duration_action.triggered.connect(self._open_session_duration)
+        statistics_menu.addAction(avg_session_duration_action)
+
+        port_heatmap_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'heatmap.svg')), 'Port Heatmap', self)
+        port_heatmap_action.setToolTip('Rank observed ports by frequency across all players')
+        port_heatmap_action.triggered.connect(self._open_port_heatmap)
+        statistics_menu.addAction(port_heatmap_action)
 
     def remove_player_from_connected(self, ip: str) -> None:
         """Remove a single player from connected table and registry by IP address."""

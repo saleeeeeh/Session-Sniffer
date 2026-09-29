@@ -4,13 +4,14 @@ import webbrowser
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QAction, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFrame,
     QLabel,
     QMainWindow,
+    QMenuBar,
     QMessageBox,
     QStyle,
     QVBoxLayout,
@@ -26,6 +27,7 @@ from session_sniffer.constants.local import (
     DETECTION_LOGGING_PATH,
     LOGGING_DIR_PATH,
     PROTECTION_LOGGING_PATH,
+    RESOURCES_DIR_PATH,
     SESSIONS_LOGGING_DIR_PATH,
     SETTINGS_PATH,
     USER_SCRIPTS_DIR_PATH,
@@ -212,6 +214,108 @@ class FilesMixin(QMainWindow):
         """Open the Logging directory."""
         self.open_directory(LOGGING_DIR_PATH)
 
+    def _build_data_menu(self, menu_bar: QMenuBar) -> None:
+        """Build the Data & Files menu and attach folder, file, and log navigation actions."""
+        data_menu = menu_bar.addMenu('Data && Files')
+        if not data_menu:
+            message = 'Failed to create Data & Files menu'
+            raise RuntimeError(message)
+        data_menu.setToolTipsVisible(True)
+
+        open_local_appdata_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Local AppData Folder', self)
+        open_local_appdata_action.setToolTip('Open Local AppData\\Session Sniffer in Windows Explorer')
+        open_local_appdata_action.triggered.connect(self._open_local_appdata_folder)
+        data_menu.addAction(open_local_appdata_action)
+
+        open_roaming_appdata_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Roaming AppData Folder', self)
+        open_roaming_appdata_action.setToolTip('Open Roaming AppData\\Session Sniffer in Windows Explorer')
+        open_roaming_appdata_action.triggered.connect(self._open_roaming_appdata_folder)
+        data_menu.addAction(open_roaming_appdata_action)
+
+        data_menu.addSeparator()
+
+        open_userip_databases_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open UserIP Databases Folder', self)
+        open_userip_databases_action.setToolTip('Open Roaming AppData\\Session Sniffer\\UserIP Databases')
+        open_userip_databases_action.triggered.connect(self._open_userip_databases_folder)
+        data_menu.addAction(open_userip_databases_action)
+
+        open_userip_databases_backups_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open UserIP Backups Folder', self)
+        open_userip_databases_backups_action.setToolTip('Open Roaming AppData\\Session Sniffer\\UserIP Databases Backups')
+        open_userip_databases_backups_action.triggered.connect(self._open_userip_databases_backups_folder)
+        data_menu.addAction(open_userip_databases_backups_action)
+
+        open_user_scripts_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open User Scripts Folder', self)
+        open_user_scripts_action.setToolTip('Open Roaming AppData\\Session Sniffer\\scripts')
+        open_user_scripts_action.triggered.connect(self._open_user_scripts_folder)
+        data_menu.addAction(open_user_scripts_action)
+
+        data_menu.addSeparator()
+
+        debug_logs_submenu = data_menu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Debug Logs')
+        if not debug_logs_submenu:
+            message = 'Failed to create Debug Logs submenu'
+            raise RuntimeError(message)
+        debug_logs_submenu.setToolTipsVisible(True)
+        debug_logs_submenu.menuAction().setToolTip('Open or browse the application debug log files')
+
+        open_debug_logs_folder_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Debug Logs Folder', self)
+        open_debug_logs_folder_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug')
+        open_debug_logs_folder_action.triggered.connect(self._open_debug_logs_folder)
+        debug_logs_submenu.addAction(open_debug_logs_folder_action)
+
+        debug_logs_submenu.addSeparator()
+
+        open_debug_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'debug.log', self)
+        open_debug_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\debug.log')
+        open_debug_log_action.triggered.connect(self._open_debug_log_file)
+        debug_logs_submenu.addAction(open_debug_log_action)
+
+        open_crash_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'crash.log', self)
+        open_crash_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\crash.log')
+        open_crash_log_action.triggered.connect(self._open_crash_log_file)
+        debug_logs_submenu.addAction(open_crash_log_action)
+
+        app_logs_submenu = data_menu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'Application Logs')
+        if not app_logs_submenu:
+            message = 'Failed to create Application Logs submenu'
+            raise RuntimeError(message)
+        app_logs_submenu.setToolTipsVisible(True)
+        app_logs_submenu.menuAction().setToolTip('Open or browse CSV application log files (detections, protection, UserIP)')
+
+        open_logging_folder_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Logging Folder', self)
+        open_logging_folder_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging')
+        open_logging_folder_action.triggered.connect(self._open_logging_folder)
+        app_logs_submenu.addAction(open_logging_folder_action)
+
+        open_sessions_logs_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Sessions Folder', self)
+        open_sessions_logs_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging\\Sessions')
+        open_sessions_logs_action.triggered.connect(self._open_sessions_logging_folder)
+        app_logs_submenu.addAction(open_sessions_logs_action)
+
+        app_logs_submenu.addSeparator()
+
+        open_detection_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'Detection_Logging.csv', self)
+        open_detection_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging\\Detection_Logging.csv')
+        open_detection_log_action.triggered.connect(self._open_detection_log_file)
+        app_logs_submenu.addAction(open_detection_log_action)
+
+        open_protection_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'Protection_Logging.csv', self)
+        open_protection_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging\\Protection_Logging.csv')
+        open_protection_log_action.triggered.connect(self._open_protection_log_file)
+        app_logs_submenu.addAction(open_protection_log_action)
+
+        open_userip_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'UserIP_Logging.csv', self)
+        open_userip_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging\\UserIP_Logging.csv')
+        open_userip_log_action.triggered.connect(self._open_userip_log_file)
+        app_logs_submenu.addAction(open_userip_log_action)
+
+        data_menu.addSeparator()
+
+        open_settings_ini_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'file_settings.svg')), 'Open Settings.ini', self)
+        open_settings_ini_action.setToolTip('Open Roaming AppData\\Session Sniffer\\Settings.ini')
+        open_settings_ini_action.triggered.connect(self._open_settings_file)
+        data_menu.addAction(open_settings_ini_action)
+
     def _show_about_dialog(self) -> None:
         """Show the About dialog with version, build, and system info."""
         copy_text = '\n'.join(
@@ -289,3 +393,62 @@ class FilesMixin(QMainWindow):
         layout.addWidget(button_box)
 
         dialog.exec()
+
+    def _build_help_menu(self, menu_bar: QMenuBar) -> None:
+        """Build the Help menu and attach documentation, community, and about actions."""
+        help_menu = menu_bar.addMenu('Help')
+        if not help_menu:
+            message = 'Failed to create Help menu'
+            raise RuntimeError(message)
+        help_menu.setToolTipsVisible(True)
+
+        repo_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'github.svg')), 'Project Repository', self)
+        repo_action.setToolTip('Open the Session Sniffer GitHub repository in your default web browser')
+        repo_action.triggered.connect(self._open_project_repo)
+        help_menu.addAction(repo_action)
+
+        docs_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'book.svg')), 'Documentation', self)
+        docs_action.setToolTip('View the complete documentation and user guide for Session Sniffer')
+        docs_action.triggered.connect(self._open_documentation)
+        help_menu.addAction(docs_action)
+
+        tips_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'lightbulb.svg')), 'Tips and Tricks', self)
+        tips_action.setToolTip('Learn optimization strategies, hidden features, and best practices')
+        tips_action.triggered.connect(self._open_tips_and_tricks)
+        help_menu.addAction(tips_action)
+
+        release_notes_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'history.svg')), 'Release Notes', self)
+        release_notes_action.setToolTip('View the release history and notes on GitHub')
+        release_notes_action.triggered.connect(self._open_release_notes)
+        help_menu.addAction(release_notes_action)
+
+        license_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'balance.svg')), 'View License', self)
+        license_action.setToolTip('View the GNU General Public License (GPLv3) for Session Sniffer')
+        license_action.triggered.connect(self._view_license)
+        help_menu.addAction(license_action)
+
+        help_menu.addSeparator()
+
+        report_issue_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Report Issue', self)
+        report_issue_action.setToolTip('Open a new issue on GitHub to report a bug or request a feature')
+        report_issue_action.triggered.connect(self._report_issue)
+        help_menu.addAction(report_issue_action)
+
+        discord_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'discord.svg')), 'Discord Server', self)
+        discord_action.setToolTip('Join the official Session Sniffer Discord community for support and updates')
+        discord_action.triggered.connect(self._join_discord)
+        help_menu.addAction(discord_action)
+
+        help_menu.addSeparator()
+
+        check_updates_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'cloud_download.svg')), 'Check for Updates', self)
+        check_updates_action.setToolTip('Check GitHub for a newer version of Session Sniffer')
+        check_updates_action.triggered.connect(self._check_for_updates)
+        help_menu.addAction(check_updates_action)
+
+        help_menu.addSeparator()
+
+        about_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'info.svg')), 'About', self)
+        about_action.setToolTip(f'About {TITLE}')
+        about_action.triggered.connect(self._show_about_dialog)
+        help_menu.addAction(about_action)

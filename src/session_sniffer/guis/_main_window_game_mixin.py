@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont, QFontMetrics, QIcon
-from PySide6.QtWidgets import QLabel, QMainWindow, QMenu, QMenuBar, QWidgetAction
+from PySide6.QtWidgets import QLabel, QMainWindow, QMenu, QMenuBar, QMessageBox, QWidgetAction
 
 from session_sniffer import msgbox
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
@@ -18,7 +18,8 @@ from session_sniffer.error_messages import (
 from session_sniffer.gta5.suspend_manager import GTASuspendManager
 from session_sniffer.guis.session_host_history_window import setup_session_host_actions
 from session_sniffer.guis.stylesheets import GTA5_STATUS_LABEL_STYLESHEET
-from session_sniffer.player.registry import SessionHost
+from session_sniffer.guis.utils import show_detailed_message
+from session_sniffer.player.registry import PlayersRegistry, SessionHost
 from session_sniffer.rdr2.suspend_manager import RDR2SuspendManager
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from session_sniffer.guis.detections_manager import DetectionsManagerDialog
+    from session_sniffer.guis.player_resolver import PlayerResolverWindow
     from session_sniffer.guis.userip_manager import UserIPDatabasesManager
 
 logger = logging.getLogger(__name__)
@@ -69,14 +71,12 @@ class GameMixin(QMainWindow):
     _game_externally_suspended: bool
     _game_process_detected: bool
     _last_game_status_key: tuple[object, ...]
+    _player_resolver_window: PlayerResolverWindow
 
     if TYPE_CHECKING:
         _update_looky_actions: Callable[[], None]
         _build_looky_submenu: Callable[[QMenu], None]
         _select_connected_ips: Callable[[list[str]], None]
-        _clear_session_host: Callable[[], None]
-        _redetect_session_host: Callable[[], None]
-        _open_player_resolver: Callable[[], None]
         _detections_manager_window: DetectionsManagerDialog | None
         _userip_manager_window: UserIPDatabasesManager | None
 
@@ -501,3 +501,52 @@ Process is currently suspended')
 
         self._update_game_status_label()
         self._sync_game_process_button()
+
+    def _open_player_resolver(self) -> None:
+        """Open the Player Resolver window, or focus the existing one."""
+        self._player_resolver_window.show_and_focus()
+
+    def _clear_session_host(self) -> None:
+        """Manually clear the current session host and reset host detection state."""
+        SessionHost.clear_session_host_data()
+
+    def _redetect_session_host(self) -> None:
+        """Clear the current session host and immediately re-evaluate host detection with notification on failure."""
+        if not Settings.is_session_host_feature_set():
+            QMessageBox.warning(self, TITLE, 'Session Host Detection is not supported for the current game feature set.')
+            return
+
+        if not Settings.gui_session_host_detection:
+            QMessageBox.warning(self, TITLE, 'Session Host Detection is disabled in Settings.\n\nPlease enable it in Settings to detect the session host.')
+            return
+
+        if CaptureState.is_local_capture():
+            if Settings.is_gta5_feature_set() and not CaptureState.gta5_is_running:
+                QMessageBox.warning(self, TITLE, 'Grand Theft Auto V is not currently running.')
+                return
+            if Settings.is_rdr2_feature_set() and not CaptureState.rdr2_is_running:
+                QMessageBox.warning(self, TITLE, 'Red Dead Redemption 2 is not currently running.')
+                return
+
+        connected_players = PlayersRegistry.get_connected_players()
+        if not connected_players:
+            QMessageBox.information(self, TITLE, 'No connected players were found in the current session.')
+            return
+
+        SessionHost.clear_session_host_data()
+        SessionHost.manual_redetect = True
+
+        host_player = SessionHost.get_host_player(connected_players)
+        SessionHost.manual_redetect = False
+        SessionHost.search_player = False
+        SessionHost.search_start_time = None
+
+        if host_player is not None:
+            text = f'Session host detected:\n\n{host_player.ip}'
+            icon = QMessageBox.Icon.Information
+        else:
+            reason = SessionHost.last_rejection_reason or 'No connected player currently matches the session host criteria.'
+            text = f'Could not resolve session host:\n\n{reason}'
+            icon = QMessageBox.Icon.Warning
+
+        show_detailed_message(self, TITLE, text, detailed_text=SessionHost.last_debug_details, icon=icon)
