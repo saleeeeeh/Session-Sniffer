@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, override
 
 import requests
 from pydantic import ValidationError
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QFormLayout,
@@ -249,10 +249,7 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
 
         self._add_close_button_box(outer_layout)
 
-        self._timer = QTimer(self)
-        self._timer.setInterval(self._REFRESH_INTERVAL_MS)
-        self._timer.timeout.connect(self._refresh)
-        self._timer.start()
+        self._timer = self._init_refresh_timer(self._REFRESH_INTERVAL_MS, self._refresh)
 
         self._ping_thread = Thread(target=self._live_ping_loop, daemon=True)
         self._ping_thread.start()

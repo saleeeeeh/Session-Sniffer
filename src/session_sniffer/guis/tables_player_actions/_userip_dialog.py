@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING, override
 
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
@@ -63,10 +62,7 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
 
         self._add_close_button_box(outer_layout)
 
-        self._timer = QTimer(self)
-        self._timer.setInterval(self._REFRESH_INTERVAL_MS)
-        self._timer.timeout.connect(self._refresh)
-        self._timer.start()
+        self._timer = self._init_refresh_timer(self._REFRESH_INTERVAL_MS, self._refresh)
 
         self._refresh()
 

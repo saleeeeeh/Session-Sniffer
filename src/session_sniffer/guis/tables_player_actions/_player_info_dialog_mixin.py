@@ -1,8 +1,8 @@
 """Shared base mixin for player-info dialogs (group boxes, form rows, layout helpers)."""
 
-from typing import override
+from typing import TYPE_CHECKING, override
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QFont
 from PySide6.QtWidgets import (
     QDialog,
@@ -23,13 +23,16 @@ from session_sniffer.guis.stylesheets import (
 )
 from session_sniffer.guis.utils import apply_adaptive_window_size
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 class PlayerInfoDialogMixin(QDialog):
     """Base class providing shared layout helpers for player-info dialogs.
 
     Concrete subclasses call `_apply_standard_dialog_size`, `_add_header_label`,
-    `_init_scroll_area`, and `_add_close_button_box` from their `__init__`, and use
-    `_make_group` / `_add_row` when building content sections.
+    `_init_scroll_area`, `_add_close_button_box`, and `_init_refresh_timer` from their `__init__`,
+    and use `_make_group` / `_add_row` when building content sections.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -89,6 +92,14 @@ class PlayerInfoDialogMixin(QDialog):
         button_box.rejected.connect(self.reject)
         button_box.accepted.connect(self.accept)
         outer_layout.addWidget(button_box)
+
+    def _init_refresh_timer(self, interval_ms: int, callback: Callable[[], None]) -> QTimer:
+        """Create, configure, start, and return a periodic refresh `QTimer` connected to *callback*."""
+        timer = QTimer(self)
+        timer.setInterval(interval_ms)
+        timer.timeout.connect(callback)
+        timer.start()
+        return timer
 
     def _apply_standard_dialog_size(self) -> None:
         """Apply a scaled minimum size and an adaptive resize based on the available screen resolution."""
