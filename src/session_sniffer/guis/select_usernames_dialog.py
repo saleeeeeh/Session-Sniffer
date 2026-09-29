@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Self
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QSortFilterProxyModel, Qt
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QDialog,
@@ -164,6 +164,12 @@ class SelectUsernamesDialog(QDialog):
         button_row.addWidget(dismiss_button)
 
         layout.addLayout(button_row)
+
+        if not self._multiple and self._list_model.rowCount() > 0:
+            first_index = self._proxy.index(0, 0)
+            if first_index.isValid() and (selection_model := self._list.selectionModel()):
+                selection_model.select(first_index, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+                self._list.setCurrentIndex(first_index)
 
         self._update_action_button()
 
