@@ -26,8 +26,9 @@ def _qt_message_handler(message_type: QtMsgType, _context: QMessageLogContext, m
     if 'Portal operation not allowed' in message or 'QFileSystemWatcher: FindNextChangeNotification failed' in message:
         return
     if message_type in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
-        sys.stderr.write(f'{message}\n')
-    else:
+        if sys.stderr is not None:
+            sys.stderr.write(f'{message}\n')
+    elif sys.stdout is not None:
         sys.stdout.write(f'{message}\n')
 
 
