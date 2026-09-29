@@ -537,8 +537,7 @@ def rendering_core(
                 current_session_host = SessionHost.get_player()
                 is_relay_host = (
                     current_session_host is not None
-                    and not current_session_host.packets.received
-                    and current_session_host.packets.sent <= MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST
+                    and SessionHost.is_relay_host_candidate(current_session_host)
                 )
                 if current_session_host is not None and current_session_host.left_event.is_set():
                     if is_relay_host and _relay_host_logged_ip != current_session_host.ip:

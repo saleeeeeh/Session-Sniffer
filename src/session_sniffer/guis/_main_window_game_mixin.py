@@ -545,7 +545,7 @@ Process is currently suspended')
             text = f'Session host detected:\n\n{host_player.ip}'
             icon = QMessageBox.Icon.Information
         else:
-            reason = SessionHost.last_rejection_reason or 'No connected player currently matches the session host criteria.'
+            reason = SessionHost.last_rejection_reason or 'No player currently matches the session host criteria.'
             text = f'Could not resolve session host:\n\n{reason}'
             icon = QMessageBox.Icon.Warning
 

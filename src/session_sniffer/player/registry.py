@@ -155,6 +155,16 @@ class PlayersRegistry:
             return list(cls._connected_players_registry.values())
 
     @classmethod
+    def get_disconnected_players(cls) -> list[Player]:
+        """Return a snapshot of disconnected players (unsorted).
+
+        Use this instead of `get_default_sorted_players` when sort order
+        is irrelevant, to avoid an unnecessary O(n log n) sort.
+        """
+        with cls._registry_lock:
+            return list(cls._disconnected_players_registry.values())
+
+    @classmethod
     def get_all_players(cls) -> list[Player]:
         """Return an unsorted snapshot of all connected and disconnected players.
 
@@ -255,7 +265,7 @@ class PlayersRegistry:
 
 
 def _format_host_debug_details(
-    session_connected: list[Player],
+    session_players: list[Player],
     p2p_players: list[Player],
     candidates: list[Player],
     outcome: str,
@@ -267,9 +277,9 @@ def _format_host_debug_details(
         f'Outcome: {outcome}',
         '',
         '--- Session Overview ---',
-        f'- Total Connected Players: {len(session_connected)}',
+        f'- Total Evaluated Players: {len(session_players)}',
         f'- Direct P2P Players: {len(p2p_players)}',
-        f'- Filtered Server IPs: {len(session_connected) - len(p2p_players)}',
+        f'- Filtered Server IPs: {len(session_players) - len(p2p_players)}',
         '',
         '--- Detection Criteria ---',
         f'- Candidate Timing Gap Window: {SESSION_HOST_AMBIGUITY_MIN_THRESHOLD_MS}ms - {SESSION_HOST_AMBIGUITY_MAX_THRESHOLD_MS}ms',
@@ -338,6 +348,8 @@ def _format_host_debug_details(
                 candidate_lines.append('  Note: Pending Disconnection')
             if not player.packets.received:
                 candidate_lines.append('  Note: Relayed (0 received packets)')
+            if player.left_event.is_set():
+                candidate_lines.append('  Note: Disconnected')
             lines.extend(candidate_lines)
 
     return '\n'.join(lines)
@@ -377,6 +389,15 @@ class SessionHost:
         return cls._player is not None and cls._player.ip == player_ip
 
     @classmethod
+    def is_relay_host_candidate(cls, player: Player) -> bool:
+        """Return True if the player matches the criteria for a relay session host."""
+        return (
+            not is_third_party_server_ip(player.ip)
+            and not player.packets.received
+            and MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST <= player.packets.sent <= MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST
+        )
+
+    @classmethod
     def clear_session_host_data(cls) -> None:
         """Clear all session host data including pending disconnections."""
         cls.players_pending_for_disconnection.clear()
@@ -411,45 +432,62 @@ class SessionHost:
 
     @classmethod
     def get_host_player(cls, session_connected: list[Player]) -> Player | None:
-        """Infer and cache the session host from currently connected players."""
+        """Infer and cache the session host from currently connected players and eligible relay candidates."""
         if not session_connected:
             cls.last_rejection_reason = 'No other players are currently connected in your session.'
             cls.last_debug_details = (
                 '=== Session Host Detection Diagnostics ===\n'
                 'Outcome: No connected players found in current session.\n\n'
                 '--- Session Overview ---\n'
-                '- Total Connected Players: 0\n'
+                '- Total Evaluated Players: 0\n'
                 '- Direct P2P Players: 0\n'
                 '- Filtered Server IPs: 0'
             )
             return None
 
-        p2p_players = [player for player in session_connected if not is_third_party_server_ip(player.ip)]
-        if len(p2p_players) < len(session_connected):
+        candidates = list(session_connected)
+        p2p_connected = [player for player in session_connected if not is_third_party_server_ip(player.ip)]
+        if p2p_connected:
+            earliest_connected_time = min(player.datetime.last_rejoin for player in p2p_connected)
+            for disconnected_player in PlayersRegistry.get_disconnected_players():
+                if (
+                    cls.is_relay_host_candidate(disconnected_player)
+                    and abs(earliest_connected_time - disconnected_player.datetime.last_rejoin) <= _SESSION_HOST_AMBIGUITY_MAX_TD
+                    and disconnected_player not in candidates
+                ):
+                    candidates.append(disconnected_player)
+
+        p2p_players = [player for player in candidates if not is_third_party_server_ip(player.ip)]
+        if len(p2p_players) < len(candidates):
             logger.debug(
                 '[SessionHost] Filtered %d server IP(s) from candidates (%d P2P players remain)',
-                len(session_connected) - len(p2p_players),
+                len(candidates) - len(p2p_players),
                 len(p2p_players),
             )
         if not p2p_players:
             logger.debug('[SessionHost] No P2P players remain after server filtering, skipping host search')
-            cls.last_rejection_reason = f'All {len(session_connected)} connected IP(s) are game or relay servers, not direct peer-to-peer players.'
-            server_list = '\n'.join(f'  - {player.ip} ({player.packets.exchanged} packets)' for player in session_connected)
+            cls.last_rejection_reason = f'All {len(candidates)} connected IP(s) are game or relay servers, not direct peer-to-peer players.'
+            server_list = '\n'.join(f'  - {player.ip} ({player.packets.exchanged} packets)' for player in candidates)
             cls.last_debug_details = (
                 '=== Session Host Detection Diagnostics ===\n'
                 'Outcome: All connected IPs matched known server ranges.\n\n'
                 '--- Session Overview ---\n'
-                f'- Total Connected Players: {len(session_connected)}\n'
+                f'- Total Evaluated Players: {len(candidates)}\n'
                 '- Direct P2P Players: 0\n'
-                f'- Filtered Server IPs: {len(session_connected)}\n\n'
+                f'- Filtered Server IPs: {len(candidates)}\n\n'
                 f'--- Filtered Server List ---\n{server_list}'
             )
-        active_p2p_players = [player for player in p2p_players if not player.left_event.is_set() and player not in cls.players_pending_for_disconnection]
+        active_p2p_players = [
+            player
+            for player in p2p_players
+            if (not player.left_event.is_set() or cls.is_relay_host_candidate(player))
+            and player not in cls.players_pending_for_disconnection
+        ]
         if not active_p2p_players:
             logger.debug('[SessionHost] No active P2P players remain (%d P2P players pending disconnection)', len(p2p_players))
             cls.last_rejection_reason = 'All connected peer-to-peer player(s) are disconnecting, so the session host cannot be determined.'
             cls.last_debug_details = _format_host_debug_details(
-                session_connected,
+                candidates,
                 p2p_players,
                 candidates=[],
                 outcome='All connected P2P player(s) are pending disconnection.',
@@ -492,7 +530,7 @@ class SessionHost:
                     'Host detection requires players to connect together during session creation.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=(
@@ -521,7 +559,7 @@ class SessionHost:
                     'Their connection times are too close to determine who hosted the session.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=(
@@ -561,7 +599,7 @@ class SessionHost:
                 logger.debug('[SessionHost] Rejected: no potential host candidate was selected')
                 cls.last_rejection_reason = 'No potential host candidate could be selected.'
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome='No potential host candidate could be selected.',
@@ -574,7 +612,7 @@ class SessionHost:
                 )
                 cls.last_rejection_reason = f'Candidate player {potential_session_host_player.ip} is currently disconnecting or leaving the session.'
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=f'Candidate player {potential_session_host_player.ip} is currently disconnecting or leaving the session.',
@@ -593,7 +631,7 @@ class SessionHost:
                     f'Candidate player {potential_session_host_player.ip} has already exchanged too many packets to determine if they originally hosted the session.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=(
@@ -615,7 +653,7 @@ class SessionHost:
                     'Please wait a few moments for packets to be sent and try again.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=(
@@ -639,7 +677,7 @@ class SessionHost:
                     'Please wait a few moments for packets to be sent and try again.'
                 )
                 cls.last_debug_details = _format_host_debug_details(
-                    session_connected,
+                    candidates,
                     p2p_players,
                     connected_players,
                     outcome=(
@@ -657,7 +695,7 @@ class SessionHost:
         cls.search_start_time = None
         cls.last_rejection_reason = None
         cls.last_debug_details = _format_host_debug_details(
-            session_connected,
+            candidates,
             p2p_players,
             connected_players,
             outcome=f'Session host detected: {potential_session_host_player.ip}',
