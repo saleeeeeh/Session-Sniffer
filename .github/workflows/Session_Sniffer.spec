@@ -15,7 +15,18 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        # Unused Qt modules specifically flagged by Hybrid Analysis / Falcon Sandbox
+        # for PE header CRC mismatches (T1027) and high-entropy sections (T1027.009).
+        'PySide6.QtPdf',  # Flagged: Qt6Pdf.dll (.rdata entropy 7.08 and CRC mismatch)
+        'PySide6.QtPdfWidgets',
+        'PySide6.QtOpenGL',  # Flagged: Qt6OpenGL.dll & opengl32sw.dll (CRC mismatch)
+        'PySide6.QtOpenGLWidgets',
+        'PySide6.QtNetwork',  # Flagged: Qt6Network.dll & QtNetwork.pyd (CRC mismatch)
+        'PySide6.QtVirtualKeyboard',  # Flagged: Qt6VirtualKeyboard.dll (CRC mismatch)
+        'PySide6.QtQml',  # Flagged: Qt6QmlModels.dll, Qt6QmlMeta.dll, Qt6QmlWorkerScript.dll (CRC mismatch)
+        'PySide6.QtQuick',
+    ],
     noarchive=False,
     optimize=0,
 )
