@@ -203,12 +203,22 @@ def _apply_update(new_exe: Path) -> None:
     # sub-process of the same app instance and reuses the parent's _MEI temp dir.
     # Setting PYINSTALLER_RESET_ENVIRONMENT=1 tells the bootloader that this is a
     # new independent application launch, so it extracts to its own fresh _MEI dir.
-    subprocess.Popen(
-        [str(current_exe)],
-        cwd=str(current_exe.parent),
-        env={**os.environ, 'PYINSTALLER_RESET_ENVIRONMENT': '1'},
-        close_fds=True,
-    )
+    try:
+        subprocess.Popen(
+            [str(current_exe)],
+            cwd=str(current_exe.parent),
+            env={**os.environ, 'PYINSTALLER_RESET_ENVIRONMENT': '1'},
+            close_fds=True,
+        )
+    except OSError as e:
+        logger.exception('Failed to launch updated executable')
+        msgbox.show(
+            title=TITLE,
+            text=format_triple_quoted_text(
+                f'The application was updated, but failed to automatically restart.\n\nPlease start it manually.\n\nError: {e}',
+            ),
+            style=msgbox.Style.MB_OK | msgbox.Style.MB_ICONWARNING | msgbox.Style.MB_SETFOREGROUND,
+        )
     # os._exit bypasses atexit handlers and Qt/thread teardown, which is intentional:
     # background threads (capture, rendering, etc.) are still running at this point,
     # and sys.exit would attempt a full teardown after the exe has already been replaced.

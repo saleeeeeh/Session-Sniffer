@@ -2,10 +2,10 @@
 
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, ParamSpec, TypeVar, override
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QFont, QTextCursor
+from PySide6.QtGui import QCloseEvent, QFont, QTextCursor
 from PySide6.QtWidgets import QApplication, QLabel, QTextEdit, QVBoxLayout, QWidget
 
 from session_sniffer.constants.standalone import TITLE
@@ -97,6 +97,8 @@ class SplashScreen(QWidget):
 
     def _replace_last_line(self, html: str) -> None:
         """Replace the last line in the log area with new HTML content."""
+        if not self.isVisible():
+            return
         cursor = self._log_area.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor)
@@ -119,7 +121,7 @@ class SplashScreen(QWidget):
 
     def _animate_spinner(self) -> None:
         """Advance the spinner animation on the current line."""
-        if self._current_message is None:
+        if self._current_message is None or not self.isVisible():
             return
         self._spinner_index = (self._spinner_index + 1) % len(SPINNER_FRAMES)
         self._render_current_line()
@@ -161,10 +163,13 @@ class SplashScreen(QWidget):
         Exceptions from the callable are re-raised in the calling thread.
         """
         future = self._executor.submit(fn, *args, **kwargs)
-        while not future.done():
-            QApplication.processEvents()
-            time.sleep(0.016)
-        return future.result()
+        try:
+            while not future.done():
+                QApplication.processEvents()
+                time.sleep(0.016)
+            return future.result()
+        finally:
+            self._spinner_timer.stop()
 
     def finish_loading(self) -> None:
         """Mark the last step done and show a ready message."""
@@ -187,8 +192,16 @@ class SplashScreen(QWidget):
         self._executor.shutdown(wait=False)
         self.close()
 
+    @override
+    def closeEvent(self, a0: QCloseEvent) -> None:
+        """Stop animation and executor on close."""
+        self._spinner_timer.stop()
+        self._executor.shutdown(wait=False)
+        super().closeEvent(a0)
+
     def lower_to_back(self) -> None:
         """Ensure the splash is not marked always-on-top before continuing startup."""
+        self._spinner_timer.stop()
         if self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint:
             self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, on=False)
             self.show()
