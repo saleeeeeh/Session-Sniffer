@@ -373,7 +373,12 @@ class UserIPDatabases:
         """Look up a single IP against the already-built structures without triggering a rebuild."""
         if ip in cls._ip_to_userip:
             return cls._ip_to_userip[ip]
-        addr = IPv4Address(ip)
+        if not cls._range_entries:
+            return None
+        try:
+            addr = IPv4Address(ip)
+        except ValueError:
+            return None
         for entry in cls._range_entries:
             if addr in entry.ip_range:
                 return UserIP(ip=ip, db_path=entry.db_path, settings=entry.settings, usernames=entry.usernames)
