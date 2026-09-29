@@ -36,6 +36,7 @@ class UsernameSelectionConfig:
     instructions: str | None = None
     action_button_text: str = 'Add'
     multiple: bool = True
+    default_checked: bool = False
     allow_custom: bool = False
     database: str | None = None
     selected_ips: list[str] | None = None
@@ -104,11 +105,12 @@ class SelectUsernamesDialog(QDialog):
             layout.addLayout(quick_select_row)
 
         self._list_model = QStandardItemModel()
+        initial_check_state = Qt.CheckState.Checked if dialog_config.default_checked else Qt.CheckState.Unchecked
         for name in sorted(set(usernames), key=str.lower):
             item = QStandardItem(name)
             if self._multiple:
                 item.setCheckable(True)
-                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setCheckState(initial_check_state)
             self._list_model.appendRow(item)
 
         proxy_model = QSortFilterProxyModel(self)
@@ -163,6 +165,8 @@ class SelectUsernamesDialog(QDialog):
 
         layout.addLayout(button_row)
 
+        self._update_action_button()
+
     @classmethod
     def for_add(
         cls,
@@ -177,6 +181,7 @@ class SelectUsernamesDialog(QDialog):
             instructions=f'Multiple usernames found. Select the username{pluralize(len(usernames))} to add:',
             action_button_text='Add',
             multiple=True,
+            default_checked=True,
             allow_custom=True,
             database=database,
             selected_ips=selected_ips,
