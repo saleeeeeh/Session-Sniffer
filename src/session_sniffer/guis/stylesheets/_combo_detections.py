@@ -93,7 +93,7 @@ GROUPBOX_STYLE = """
         padding: 2px 6px;
     }
     QGroupBox QComboBox QAbstractItemView::item:selected {
-        background-color: #007acc;
+        background-color: #2a3f4a;
         color: white;
         border-radius: 3px;
         padding: 2px 6px;

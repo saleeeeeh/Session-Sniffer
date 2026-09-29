@@ -204,8 +204,11 @@ def get_stylesheet(ui_scale: float = 1.0) -> str:
         border: 1px solid #3e3e42;
     }
 
-    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QTextEdit, QPlainTextEdit {
+    QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {
         selection-background-color: #007acc;
+    }
+    QComboBox {
+        selection-background-color: #3e3e42;
     }
     QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
         border: 1px solid #007acc;

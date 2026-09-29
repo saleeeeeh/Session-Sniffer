@@ -58,6 +58,7 @@ QComboBox#headerSearchCombo {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     font-size: 9pt;
+    selection-background-color: #3e3e42;
 }
 QComboBox#headerSearchCombo:hover {
     background-color: rgba(255, 255, 255, 0.06);
@@ -80,6 +81,8 @@ QComboBox#headerSearchCombo QAbstractItemView {
     border-radius: 6px;
     padding: 4px 2px;
     outline: none;
+    selection-background-color: #3e3e42;
+    selection-color: #ffffff;
 }
 QComboBox#headerSearchCombo QAbstractItemView::item {
     min-height: 24px;
@@ -92,15 +95,15 @@ QComboBox#headerSearchCombo QAbstractItemView::item {
 }
 QComboBox#headerSearchCombo QAbstractItemView::item:hover,
 QComboBox#headerSearchCombo QAbstractItemView::item:selected {
-    background-color: #262933;
+    background-color: #3e3e42;
     color: #ffffff;
 }
 QComboBox#headerSearchCombo QAbstractItemView::item:selected:hover {
-    background-color: #313542;
+    background-color: #4a4a50;
     color: #ffffff;
 }
 QComboBox#headerSearchCombo QAbstractItemView::item:focus {
-    background-color: #262933;
+    background-color: #3e3e42;
     color: #ffffff;
     outline: none;
 }
