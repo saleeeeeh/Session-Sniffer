@@ -741,6 +741,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         self._append_row('', ip_text, index=self._next_index)
         self._next_index += 1
         self._mark_entries_dirty()
+        self._update_entry_counts()
 
         # Scroll to the new row and start editing the Username column
         last_source_row = self._model.rowCount() - 1
@@ -807,11 +808,50 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
 
         self._renumber_indexes()
         self._mark_entries_dirty()
+        self._update_entry_counts()
 
         proxy_index = self._proxy.mapFromSource(self._model.index(source_row, USERNAME_COLUMN))
         if proxy_index.isValid():
             self._entries_table.scrollTo(proxy_index)
             self._entries_table.setCurrentIndex(proxy_index)
+            self._entries_table.edit(proxy_index)
+
+    @override
+    def _add_username(self, source_row: int) -> None:
+        """Insert a row below source_row with its IP or Range pre-filled, and start editing the username."""
+        if self._current_path is None:
+            return
+
+        ip_item = self._model.item(source_row, IP_COLUMN)
+        range_item = self._model.item(source_row, RANGE_COLUMN)
+        ip_text = ip_item.text().strip() if ip_item else ''
+        range_text = range_item.text().strip() if range_item else ''
+
+        index_item = QStandardItem('')
+        index_item.setData(0, Qt.ItemDataRole.UserRole)
+        index_item.setFlags(index_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        username_item = QStandardItem('')
+        db_item = QStandardItem('')
+        self._model.insertRow(
+            source_row + 1,
+            [index_item, username_item, QStandardItem(ip_text), QStandardItem(range_text), db_item],
+        )
+
+        self._renumber_indexes()
+        self._mark_entries_dirty()
+        self._highlight_duplicates()
+        self._update_entry_counts()
+
+        proxy_index = self._proxy.mapFromSource(self._model.index(source_row + 1, USERNAME_COLUMN))
+        if proxy_index.isValid():
+            self._entries_table.scrollTo(proxy_index)
+            self._entries_table.setCurrentIndex(proxy_index)
+            selection_model = self._entries_table.selectionModel()
+            if selection_model:
+                selection_model.select(
+                    proxy_index,
+                    QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows,
+                )
             self._entries_table.edit(proxy_index)
 
     @override
@@ -849,10 +889,10 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         if selection_model:
             selection_model.clearSelection()
             for src_row in new_source_rows:
-                proxy_index = self._proxy.mapFromSource(self._model.index(src_row, 0))
-                if proxy_index.isValid():
+                p_index = self._proxy.mapFromSource(self._model.index(src_row, 0))
+                if p_index.isValid():
                     selection_model.select(
-                        proxy_index,
+                        p_index,
                         QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
                     )
             # Scroll to the first moved row

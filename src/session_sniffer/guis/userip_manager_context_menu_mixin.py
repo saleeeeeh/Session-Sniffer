@@ -49,7 +49,7 @@ class EntriesContextMenuMixin(QDialog):
         _entries_table, _proxy, _model, _global_search_active, _current_path,
         _global_search_checkbox, _open_db_button, _tree, _fs_model
     And these methods:
-        _add_entry, _insert_entry_at, _move_rows, _get_row_entry_value,
+        _add_entry, _add_username, _insert_entry_at, _move_rows, _get_row_entry_value,
         _load_database, _open_in_explorer, _delete_selected
     """
 
@@ -74,6 +74,8 @@ class EntriesContextMenuMixin(QDialog):
     def _edit_entry_ip(self, source_row: int) -> None: ...  # pylint: disable=unused-argument
 
     def _insert_entry_at(self, source_row: int) -> None: ...  # pylint: disable=unused-argument
+
+    def _add_username(self, source_row: int) -> None: ...  # pylint: disable=unused-argument
 
     def _move_rows(self, proxy_index: QModelIndex, direction: int) -> None: ...  # pylint: disable=unused-argument
 
@@ -110,13 +112,10 @@ class EntriesContextMenuMixin(QDialog):
             if index.isValid():
                 self._build_entry_context_menu(menu, index)
             else:
-                add_top_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'menu_arrow_up.svg')), 'Add Entry to Top', self)
-                add_top_action.triggered.connect(lambda: self._insert_entry_at(0))
-                menu.addAction(add_top_action)
-
-                add_end_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'menu_arrow_down.svg')), 'Add Entry to End', self)
-                add_end_action.triggered.connect(self._add_entry)
-                menu.addAction(add_end_action)
+                add_entry_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'add.svg')), 'Add Entry', self)
+                add_entry_action.setToolTip('Open the IP Range Builder dialog and insert the result as a new entry.')
+                add_entry_action.triggered.connect(self._add_entry)
+                menu.addAction(add_entry_action)
 
         if menu.isEmpty():
             return
@@ -244,16 +243,6 @@ class EntriesContextMenuMixin(QDialog):
 
         menu.addSeparator()
 
-        add_top_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'menu_arrow_up.svg')), 'Add Entry to Top', self)
-        add_top_action.triggered.connect(lambda: self._insert_entry_at(0))
-        menu.addAction(add_top_action)
-
-        add_end_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'menu_arrow_down.svg')), 'Add Entry to End', self)
-        add_end_action.triggered.connect(self._add_entry)
-        menu.addAction(add_end_action)
-
-        menu.addSeparator()
-
         edit_ip_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), 'Edit IP/Range…', self)
         edit_ip_action.triggered.connect(lambda: self._edit_entry_ip(source_row))
         menu.addAction(edit_ip_action)
@@ -345,15 +334,22 @@ class EntriesContextMenuMixin(QDialog):
             scan_ports_action.triggered.connect(lambda _checked=False, target=scan_target: scan_ports_ip(target))
             menu.addAction(scan_ports_action)
 
-        # Looky System refresh (only for single IPs in GTA5 feature set)
-        if ip_or_range and self._current_path is not None and Settings.is_gta5_feature_set() and is_single_ip:
+        # Username additions (manual and Looky System)
+        if ip_or_range and self._current_path is not None and selected_count <= 1:
             menu.addSeparator()
-            refresh_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'eye.svg')), 'Add Username (Looky System)', self)
-            refresh_action.triggered.connect(
-                lambda _checked=False, database_path=self._current_path, target_ip=ip_or_range: looky_refresh_userip_entries(self, [(database_path, [target_ip])])
-            )
-            configure_looky_action(refresh_action, 'Look up this IP via Looky System and add any new usernames to its UserIP database.')
-            menu.addAction(refresh_action)
+            add_username_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'add.svg')), 'Add Username', self)
+            add_username_action.setToolTip('Add an additional username for this IP address or range in the current database.')
+            add_username_action.triggered.connect(lambda: self._add_username(source_row))
+            menu.addAction(add_username_action)
+
+            # Looky System refresh (only for single IPs in GTA5 feature set)
+            if Settings.is_gta5_feature_set() and is_single_ip:
+                refresh_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'eye.svg')), 'Add Username (Looky System)', self)
+                refresh_action.triggered.connect(
+                    lambda _checked=False, database_path=self._current_path, target_ip=ip_or_range: looky_refresh_userip_entries(self, [(database_path, [target_ip])])
+                )
+                configure_looky_action(refresh_action, 'Look up this IP via Looky System and add any new usernames to its UserIP database.')
+                menu.addAction(refresh_action)
 
         selected_count = len(self._entries_table.selectionModel().selectedRows()) if self._entries_table.selectionModel() else 1
         delete_label = f'Delete Selected Row{pluralize(selected_count)}'
