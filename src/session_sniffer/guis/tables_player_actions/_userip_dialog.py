@@ -16,7 +16,9 @@ from session_sniffer.guis.stylesheets import PLAYER_INFO_FORM_LABEL_STYLESHEET
 from session_sniffer.guis.tables_player_actions._format import format_bool, format_text
 from session_sniffer.guis.tables_player_actions._player_info_dialog_mixin import PlayerInfoDialogMixin
 from session_sniffer.guis.utils import ActiveDialogRegistry, format_player_display, set_dialog_window_flags
+from session_sniffer.player.userip import UserIP, UserIPDatabases
 from session_sniffer.text_utils import pluralize
+from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,20 +33,27 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
 
     _REFRESH_INTERVAL_MS = 500
 
-    def __init__(self, parent: QWidget | None, player: Player) -> None:
+    def __init__(self, parent: QWidget | None, player: Player, userip: UserIP | None = None) -> None:
         """Snapshot player data at detection time, build the dialog UI, and start the refresh timer."""
         super().__init__(parent)
         set_dialog_window_flags(self, keep_on_top=True)
         self._player = player
-        self._rows: list[tuple[QLabel, Callable[[], str]]] = []
+        self._userip: UserIP | None = userip or player.userip
+        if self._player.userip is None and self._userip is not None:
+            self._player.userip = self._userip
+        if self._userip is not None and self._userip.usernames:
+            self._player.usernames = dedup_preserve_order(self._player.usernames, self._userip.usernames)
+        self._rows: list[tuple[QLabel, Callable[[], str], QLabel, Callable[[], str] | None]] = []
 
-        self.setWindowTitle(f'{TITLE} - UserIP Detected ({format_player_display(player.ip, player.usernames)})')
+        initial_usernames = self._get_usernames()
+        display = format_player_display(player.ip, initial_usernames)
+        self.setWindowTitle(f'{TITLE} - UserIP Detected ({display})')
         self._apply_standard_dialog_size()
 
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(10, 10, 10, 10)
         outer_layout.setSpacing(8)
-        self._header_label = self._add_header_label(outer_layout, f'UserIP Detected — {format_player_display(player.ip, player.usernames)}', '#c53030', '#dd6b20')
+        self._header_label = self._add_header_label(outer_layout, f'UserIP Detected — {display}', '#c53030', '#dd6b20')
 
         scroll_layout = self._init_scroll_area(outer_layout)
 
@@ -55,40 +64,78 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
         self._add_close_button_box(outer_layout)
 
         self._timer = QTimer(self)
-        self._timer.start(self._REFRESH_INTERVAL_MS)
+        self._timer.setInterval(self._REFRESH_INTERVAL_MS)
         self._timer.timeout.connect(self._refresh)
+        self._timer.start()
 
         self._refresh()
 
-    def _add_live_row(self, form: QFormLayout, label_text: str, provider: Callable[[], str]) -> None:
+    def _get_userip(self) -> UserIP | None:
+        if self._player.userip is not None:
+            return self._player.userip
+        if self._userip is not None:
+            return self._userip
+        resolved = UserIPDatabases.resolve_userip(self._player.ip)
+        if resolved is not None:
+            self._player.userip = resolved
+            if resolved.usernames:
+                self._player.usernames = dedup_preserve_order(self._player.usernames, resolved.usernames)
+            return resolved
+        return None
+
+    def _get_usernames(self) -> list[str]:
+        userip = self._get_userip()
+        userip_names = userip.usernames if userip is not None else []
+        if self._player.usernames and userip_names:
+            return dedup_preserve_order(self._player.usernames, userip_names)
+        if self._player.usernames:
+            return self._player.usernames
+        return list(userip_names)
+
+    def _get_database_name(self) -> str:
+        userip = self._get_userip()
+        if userip is not None:
+            try:
+                return str(userip.db_path.relative_to(USERIP_DATABASES_DIR_PATH).with_suffix(''))
+            except ValueError:
+                return str(userip.db_path)
+        return 'N/A'
+
+    def _add_live_row(
+        self,
+        form: QFormLayout,
+        label: str | Callable[[], str],
+        provider: Callable[[], str],
+    ) -> None:
         """Append a label / copyable-value row to *form* and register it for refresh."""
-        label_widget = QLabel(f'{label_text}:')
+        if isinstance(label, str):
+            initial_label = label
+            label_provider = None
+        else:
+            initial_label = label()
+            label_provider = label
+        label_widget = QLabel(f'{initial_label}:')
         label_widget.setStyleSheet(PLAYER_INFO_FORM_LABEL_STYLESHEET)
         value_widget = self._make_value_label(provider())
         form.addRow(label_widget, value_widget)
-        self._rows.append((value_widget, provider))
+        self._rows.append((value_widget, provider, label_widget, label_provider))
 
     def _build_detection_group(self, parent_layout: QVBoxLayout, player: Player) -> None:
         """Add the 'Detection Details' section to the scroll layout."""
         group, form = self._make_group('Detection Details', accent='#c53030')
-        detection_time = player.userip_detection.time if player.userip_detection is not None else 'N/A'
-        usernames = ', '.join(player.userip.usernames) if player.userip is not None and player.userip.usernames else 'N/A'
-        if player.userip is not None:
-            try:
-                relative_db = str(player.userip.db_path.relative_to(USERIP_DATABASES_DIR_PATH).with_suffix(''))
-            except ValueError:
-                relative_db = str(player.userip.db_path)
-        else:
-            relative_db = 'N/A'
         detection_type = player.userip_detection.type if player.userip_detection is not None else 'N/A'
-        self._add_row(form, 'Detection Time', detection_time)
-        self._add_row(form, f'Username{pluralize(len(player.userip.usernames) if player.userip is not None else 0)}', usernames)
+        self._add_live_row(form, 'Detection Time', lambda: player.userip_detection.time if player.userip_detection is not None else 'N/A')
+        self._add_live_row(
+            form,
+            lambda: f'Username{pluralize(len(self._get_usernames()))}',
+            lambda: ', '.join(self._get_usernames()) or 'N/A',
+        )
         self._add_row(form, 'IP Address', player.ip)
         self._add_live_row(form, 'Hostname', lambda: format_text(player.reverse_dns.hostname))
         self._add_live_row(form, 'Port(s)', lambda: ', '.join(map(str, reversed(player.ports.all))) if player.ports.all else 'N/A')
         self._add_live_row(form, 'Country Code', lambda: format_text(player.iplookup.geolite2.country_code))
-        self._add_row(form, 'Detection Type', detection_type)
-        self._add_row(form, 'Database', relative_db)
+        self._add_live_row(form, 'Detection Type', lambda: player.userip_detection.type if player.userip_detection is not None else detection_type)
+        self._add_live_row(form, 'Database', self._get_database_name)
         parent_layout.addWidget(group)
 
     def _build_iplookup_group(self, parent_layout: QVBoxLayout, player: Player) -> None:
@@ -108,20 +155,24 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
         parent_layout.addWidget(group)
 
     def _refresh(self) -> None:
-        """Re-evaluate dynamic row providers, update the UI, and stop the timer once all lookups are complete."""
-        display = format_player_display(self._player.ip, self._player.usernames)
+        """Re-evaluate dynamic row providers and update the UI."""
+        usernames = self._get_usernames()
+        display = format_player_display(self._player.ip, usernames)
         new_title = f'{TITLE} - UserIP Detected ({display})'
         if self.windowTitle() != new_title:
             self.setWindowTitle(new_title)
-            self._header_label.setText(f'UserIP Detected — {display}')
+        new_header = f'UserIP Detected — {display}'
+        if self._header_label.text() != new_header:
+            self._header_label.setText(new_header)
 
-        for value_widget, provider in self._rows:
+        for value_widget, provider, label_widget, label_provider in self._rows:
             text = provider()
             if value_widget.text() != text:
                 value_widget.setText(text)
-
-        if self._player.reverse_dns.is_initialized and self._player.iplookup.geolite2.is_initialized and self._player.iplookup.ipapi.is_initialized:
-            self._timer.stop()
+            if label_provider is not None:
+                new_label = f'{label_provider()}:'
+                if label_widget.text() != new_label:
+                    label_widget.setText(new_label)
 
     @override
     def reject(self) -> None:
@@ -139,6 +190,8 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
 _active_dialogs: ActiveDialogRegistry[str, UserIPDetectedDialog] = ActiveDialogRegistry()
 
 
-def show_userip_detected_dialog(parent: QWidget | None, player: Player) -> None:
+def show_userip_detected_dialog(parent: QWidget | None, player: Player, userip: UserIP | None = None) -> None:
     """Open or focus the UserIP Detected dialog for *player*."""
-    _active_dialogs.show_or_focus(player.ip, lambda: UserIPDetectedDialog(parent, player))
+    if userip is not None and player.userip is None:
+        player.userip = userip
+    _active_dialogs.show_or_focus(player.ip, lambda: UserIPDetectedDialog(parent, player, userip))

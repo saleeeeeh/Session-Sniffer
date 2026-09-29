@@ -41,6 +41,7 @@ from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.player.userip import UserIP, gui_dispatcher
 from session_sniffer.rendering_core.types import CaptureState, CaptureStats
 from session_sniffer.settings import Settings
+from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -540,10 +541,16 @@ def process_userip_task(
             tts_candidate_path = TTS_DIR_PATH / _tts_voice_name(userip.settings.voice_notifications) / 'userip' / f'{connection_type}.wav'
             _voice_notification_queue.put(str(tts_candidate_path))
 
+        if player.userip is None:
+            player.userip = userip
+        if userip.usernames:
+            player.usernames = dedup_preserve_order(player.usernames, userip.usernames)
+
         if connection_type == 'connected':
             if userip.settings.notifications:
+
                 def _show_userip_dialog() -> None:
-                    show_userip_detected_dialog(find_main_window(), player)
+                    show_userip_detected_dialog(find_main_window(), player, userip)
 
                 gui_dispatcher.invoke(_show_userip_dialog)
 

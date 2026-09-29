@@ -69,7 +69,7 @@ from session_sniffer.rendering_core.renderer import rendering_core
 from session_sniffer.rendering_core.types import CaptureState, CaptureStats, GeoIP2Readers, GUIRenderingState
 from session_sniffer.settings import Settings
 from session_sniffer.updater import UpdateCheckOutcome, check_for_updates
-from session_sniffer.utils import is_pyinstaller_compiled
+from session_sniffer.utils import dedup_preserve_order, is_pyinstaller_compiled
 from session_sniffer.webserver import start_webserver_from_settings
 
 setup_logging(console_level=logging.INFO)
@@ -367,6 +367,9 @@ def main() -> None:
                 # is_known_ip() just returned True, so this should not happen; guard defensively.
                 logger.warning('resolve_userip returned None immediately after is_known_ip for ip=%s — skipping UserIP task', matched_player.ip)
             else:
+                matched_player.userip = resolved_userip
+                if resolved_userip.usernames:
+                    matched_player.usernames = dedup_preserve_order(matched_player.usernames, resolved_userip.usernames)
                 matched_player.userip_detection = PlayerUserIPDetection(
                     time=packet.datetime.strftime('%H:%M:%S'),
                     date_time=packet.datetime.strftime('%Y-%m-%d_%H:%M:%S'),
