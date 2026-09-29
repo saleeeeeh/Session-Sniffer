@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare and commit a Session Sniffer release by updating the version in pyproject.toml with the current UTC build timestamp, incrementing the RC or final version as requested, validating the change, and creating the release commit.
+description: Prepare and commit a Session Sniffer release by updating the version in pyproject.toml with the current UTC build timestamp, incrementing the RC or final version as requested, synchronizing uv.lock via uv lock, validating the change, and creating the release commit.
 ---
 
 # Session Sniffer Release
@@ -27,20 +27,24 @@ Use this skill when the user wants to prepare and commit a new Session Sniffer r
    - preserve the requested `X.Y.Z` version.
 9. Always append the new UTC build timestamp:
    `+YYYYMMDD.HHMM`
-10. Review the resulting diff.
-11. Run the relevant project validation before committing.
-12. Verify CRLF (`\r\n`) line endings on all modified files, especially `uv.lock` (which `uv` defaults to LF) and `pyproject.toml`.
-13. Show the user:
-   - previous version,
-   - new version,
-   - changed files,
-   - validation performed.
-14. Create exactly one version-bump commit using:
+10. Synchronize `uv.lock` immediately:
+    - Run `uv lock` to rebuild/update the `session-sniffer` version in `uv.lock`.
+    - Enforce CRLF (`\r\n`) line endings on `uv.lock` (since `uv` outputs LF line endings by default).
+    - Run `uv lock --check` to verify the lockfile is completely synchronized.
+11. Review the resulting diff (both `pyproject.toml` and `uv.lock` should reflect the new version).
+12. Run the relevant project validation before committing.
+13. Verify CRLF (`\r\n`) line endings on all modified files, especially `uv.lock` and `pyproject.toml`.
+14. Show the user:
+    - previous version,
+    - new version,
+    - changed files (`pyproject.toml`, `uv.lock`),
+    - validation performed.
+15. Create exactly one version-bump commit containing both `pyproject.toml` and `uv.lock` using:
 
    `build: bump version to <new-version>`
 
-15. Ensure the version-bump commit is pushed before creating any GitHub tag or release. The release tag MUST match `version` in `pyproject.toml` exactly.
-16. Do not amend, reset, rebase, force-push, or otherwise rewrite Git history.
+16. Ensure the version-bump commit is pushed before creating any GitHub tag or release. The release tag MUST match `version` in `pyproject.toml` exactly.
+17. Do not amend, reset, rebase, force-push, or otherwise rewrite Git history.
 
 ## Version Format
 
@@ -94,7 +98,7 @@ For example:
 
 `build: bump version to v1.5.0rc.45+20260909.2017`
 
-The version-bump commit should contain only the intended release-version changes.
+The version-bump commit should contain only the intended release-version changes in `pyproject.toml` and `uv.lock`. Never commit a release version bump without its synchronized `uv.lock`.
 
 Do not create a commit if validation fails.
 
@@ -102,7 +106,9 @@ Do not create a commit if validation fails.
 
 Use the project's existing validation configuration in `pyproject.toml`.
 
-For a version-only change, use the smallest relevant validation available.
+For a version-only change, use the smallest relevant validation available:
+- Run `uv lock --check` to ensure `uv.lock` is strictly up to date.
+- Verify CRLF (`\r\n`) line endings on both `pyproject.toml` and `uv.lock`.
 
 If dependencies, resources, packaging configuration, or other release-sensitive files are also changed, broaden validation appropriately.
 

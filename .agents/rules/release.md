@@ -15,6 +15,7 @@ Apply these rules when working on packaging, PyInstaller, release builds, runtim
 * Security libraries may use `>=` when appropriate.
 * Do not change dependency versions without understanding their impact on the supported Python version and existing tooling.
 * When modifying or regenerating `uv.lock`, always preserve or restore CRLF (`\r\n`) line endings. Remember that `uv` defaults to LF line endings when writing lockfiles.
+* When bumping the release version in `pyproject.toml`, always run `uv lock` to synchronize `uv.lock`, restore CRLF (`\r\n`) line endings, and commit both files together.
 
 ## PyInstaller
 
