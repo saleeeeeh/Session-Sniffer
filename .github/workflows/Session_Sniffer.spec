@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+
 
 a = Analysis(
     ['../../src/session_sniffer/main.py'],
@@ -52,4 +54,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     onefile=True,
+    icon='../../resources/icons/sonar.ico' if sys.platform == 'win32' else None,
 )

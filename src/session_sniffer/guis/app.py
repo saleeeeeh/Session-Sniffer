@@ -8,7 +8,7 @@ import sys
 from typing import override
 
 from PySide6.QtCore import QCoreApplication, QEvent, QMessageLogContext, QObject, Qt, QtMsgType, qInstallMessageHandler
-from PySide6.QtGui import QWheelEvent
+from PySide6.QtGui import QIcon, QWheelEvent
 from PySide6.QtWidgets import (
     QAbstractScrollArea,
     QAbstractSpinBox,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.guis.theme import get_dark_palette
 
 
@@ -105,6 +106,11 @@ _configure_platform_qt_environment()
 # factor are resolved, so fonts and sizes are correct for every display tier.
 app = QApplication([])  # Passing an empty list for application arguments
 app.setPalette(get_dark_palette())
+
+_icon_path = RESOURCES_DIR_PATH / 'icons' / ('sonar.ico' if sys.platform == 'win32' else 'sonar.svg')
+if not _icon_path.is_file():
+    _icon_path = RESOURCES_DIR_PATH / 'icons' / 'sonar.svg'
+app.setWindowIcon(QIcon(str(_icon_path)))
 
 _wheel_filter = _DisableScrollValueChangeFilter(app)
 app.installEventFilter(_wheel_filter)
