@@ -88,6 +88,14 @@ class FilesMixin(QMainWindow):
         """Open the Logs Manager on the Sessions Logging tab and start a global search for `text`."""
         self._open_logs_manager().search_in_sessions_logging(text)
 
+    def open_logs_manager_and_show_debug_log(self) -> None:
+        """Open the Logs Manager on the Debug Log tab."""
+        self._open_logs_manager().show_debug_log()
+
+    def open_logs_manager_and_show_crash_log(self) -> None:
+        """Open the Logs Manager on the Crash Log tab."""
+        self._open_logs_manager().show_crash_log()
+
     def _open_detections_manager(self) -> None:
         """Open the Detections Manager window, or focus the existing one."""
         show_or_focus_window(self, '_detections_manager_window', lambda: DetectionsManagerDialog(None))
@@ -186,6 +194,10 @@ class FilesMixin(QMainWindow):
         """Open the Settings.ini file."""
         self.open_file(SETTINGS_PATH)
 
+    def _open_logging_folder(self) -> None:
+        """Open the Logging directory."""
+        self.open_directory(LOGGING_DIR_PATH)
+
     def _open_userip_log_file(self) -> None:
         """Open the UserIP_Logging.csv file."""
         self.open_file(USERIP_LOGGING_PATH)
@@ -198,6 +210,10 @@ class FilesMixin(QMainWindow):
         """Open the Protection_Logging.csv file."""
         self.open_file(PROTECTION_LOGGING_PATH)
 
+    def _open_debug_logs_folder(self) -> None:
+        """Open the Debug logs directory."""
+        self.open_directory(DEBUG_DIR_PATH)
+
     def _open_debug_log_file(self) -> None:
         """Open the debug.log file."""
         self.open_file(DEBUG_LOG_PATH)
@@ -205,14 +221,6 @@ class FilesMixin(QMainWindow):
     def _open_crash_log_file(self) -> None:
         """Open the crash.log file."""
         self.open_file(CRASH_LOG_PATH)
-
-    def _open_debug_logs_folder(self) -> None:
-        """Open the Debug logs directory."""
-        self.open_directory(DEBUG_DIR_PATH)
-
-    def _open_logging_folder(self) -> None:
-        """Open the Logging directory."""
-        self.open_directory(LOGGING_DIR_PATH)
 
     def _build_data_menu(self, menu_bar: QMenuBar) -> None:
         """Build the Data & Files menu and attach folder, file, and log navigation actions."""
@@ -251,30 +259,6 @@ class FilesMixin(QMainWindow):
 
         data_menu.addSeparator()
 
-        debug_logs_submenu = data_menu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Debug Logs')
-        if not debug_logs_submenu:
-            message = 'Failed to create Debug Logs submenu'
-            raise RuntimeError(message)
-        debug_logs_submenu.setToolTipsVisible(True)
-        debug_logs_submenu.menuAction().setToolTip('Open or browse the application debug log files')
-
-        open_debug_logs_folder_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Debug Logs Folder', self)
-        open_debug_logs_folder_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug')
-        open_debug_logs_folder_action.triggered.connect(self._open_debug_logs_folder)
-        debug_logs_submenu.addAction(open_debug_logs_folder_action)
-
-        debug_logs_submenu.addSeparator()
-
-        open_debug_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'debug.log', self)
-        open_debug_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\debug.log')
-        open_debug_log_action.triggered.connect(self._open_debug_log_file)
-        debug_logs_submenu.addAction(open_debug_log_action)
-
-        open_crash_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'crash.log', self)
-        open_crash_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\crash.log')
-        open_crash_log_action.triggered.connect(self._open_crash_log_file)
-        debug_logs_submenu.addAction(open_crash_log_action)
-
         app_logs_submenu = data_menu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'Application Logs')
         if not app_logs_submenu:
             message = 'Failed to create Application Logs submenu'
@@ -308,6 +292,30 @@ class FilesMixin(QMainWindow):
         open_userip_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Logging\\UserIP_Logging.csv')
         open_userip_log_action.triggered.connect(self._open_userip_log_file)
         app_logs_submenu.addAction(open_userip_log_action)
+
+        debug_logs_submenu = data_menu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Debug Logs')
+        if not debug_logs_submenu:
+            message = 'Failed to create Debug Logs submenu'
+            raise RuntimeError(message)
+        debug_logs_submenu.setToolTipsVisible(True)
+        debug_logs_submenu.menuAction().setToolTip('Open or browse the application debug log files')
+
+        open_debug_logs_folder_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Open Debug Logs Folder', self)
+        open_debug_logs_folder_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug')
+        open_debug_logs_folder_action.triggered.connect(self._open_debug_logs_folder)
+        debug_logs_submenu.addAction(open_debug_logs_folder_action)
+
+        debug_logs_submenu.addSeparator()
+
+        open_debug_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'debug.log', self)
+        open_debug_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\debug.log')
+        open_debug_log_action.triggered.connect(self._open_debug_log_file)
+        debug_logs_submenu.addAction(open_debug_log_action)
+
+        open_crash_log_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), 'crash.log', self)
+        open_crash_log_action.setToolTip('Open Local AppData\\Session Sniffer\\Debug\\crash.log')
+        open_crash_log_action.triggered.connect(self._open_crash_log_file)
+        debug_logs_submenu.addAction(open_crash_log_action)
 
         data_menu.addSeparator()
 

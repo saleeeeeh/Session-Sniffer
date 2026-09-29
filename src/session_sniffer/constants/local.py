@@ -27,18 +27,18 @@ APP_DIR_LOCAL: Path = get_app_dir(scope='local')
 APP_DIR_ROAMING: Path = get_app_dir(scope='roaming')
 
 # Local (machine-specific): logs and large databases
-DEBUG_DIR_PATH: Path = APP_DIR_LOCAL / 'Debug'
-DEBUG_LOG_PATH: Path = DEBUG_DIR_PATH / 'debug.log'
-CRASH_LOG_PATH: Path = DEBUG_DIR_PATH / 'crash.log'
-
 LOGGING_DIR_PATH: Path = APP_DIR_LOCAL / 'Logging'
 DETECTION_LOGGING_PATH: Path = LOGGING_DIR_PATH / 'Detection_Logging.csv'
 PROTECTION_LOGGING_PATH: Path = LOGGING_DIR_PATH / 'Protection_Logging.csv'
 USERIP_LOGGING_PATH: Path = LOGGING_DIR_PATH / 'UserIP_Logging.csv'
+SESSIONS_LOGGING_DIR_PATH: Path = LOGGING_DIR_PATH / 'Sessions'
+
+DEBUG_DIR_PATH: Path = APP_DIR_LOCAL / 'Debug'
+DEBUG_LOG_PATH: Path = DEBUG_DIR_PATH / 'debug.log'
+CRASH_LOG_PATH: Path = DEBUG_DIR_PATH / 'crash.log'
 
 GEOLITE2_DATABASES_DIR_PATH: Path = APP_DIR_LOCAL / 'GeoLite2 Databases'
 GUI_STATE_PATH: Path = APP_DIR_LOCAL / 'gui_state.json'
-SESSIONS_LOGGING_DIR_PATH: Path = LOGGING_DIR_PATH / 'Sessions'
 
 # Roaming (syncable): settings, user databases, user scripts
 COMBO_RULES_PATH: Path = APP_DIR_ROAMING / 'combo_rules.json'

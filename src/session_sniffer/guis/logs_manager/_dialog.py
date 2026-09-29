@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import (
+    CRASH_LOG_PATH,
     DEBUG_LOG_PATH,
     DETECTION_LOGGING_PATH,
     PROTECTION_LOGGING_PATH,
@@ -83,10 +84,12 @@ class LogsManager(QDialog):
             ),
         )
         tabs.addTab(self._protection_tab, QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'shield.svg')), 'Protection Logging')
-        self._debug_tab = TextLogTab(file_path=DEBUG_LOG_PATH)
-        tabs.addTab(self._debug_tab, QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Debug Log')
         self._sessions_tab = SessionsLogTab(sessions_dir=SESSIONS_LOGGING_DIR_PATH)
         tabs.addTab(self._sessions_tab, QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'folder.svg')), 'Sessions Logging')
+        self._debug_tab = TextLogTab(file_path=DEBUG_LOG_PATH)
+        tabs.addTab(self._debug_tab, QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Debug Log')
+        self._crash_tab = TextLogTab(file_path=CRASH_LOG_PATH)
+        tabs.addTab(self._crash_tab, QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'crash.svg')), 'Crash Log')
 
         self._tabs = tabs
         root_layout.addWidget(tabs, stretch=1)
@@ -129,6 +132,14 @@ class LogsManager(QDialog):
         self._tabs.setCurrentWidget(self._sessions_tab)
         self._sessions_tab.set_search_global(text)
 
+    def show_debug_log(self) -> None:
+        """Switch to the Debug Log tab."""
+        self._tabs.setCurrentWidget(self._debug_tab)
+
+    def show_crash_log(self) -> None:
+        """Switch to the Crash Log tab."""
+        self._tabs.setCurrentWidget(self._crash_tab)
+
     # ------------------------------------------------------------------
     # Clean empty sessions
     # ------------------------------------------------------------------
@@ -153,7 +164,7 @@ class LogsManager(QDialog):
     # ------------------------------------------------------------------
 
     def purge_all_logs(self) -> None:
-        """Purge all CSV log files and debug.log after strong confirmation."""
+        """Purge all CSV log files, debug.log, and crash.log after strong confirmation."""
         reply = QMessageBox.warning(
             self,
             TITLE,
@@ -161,7 +172,8 @@ class LogsManager(QDialog):
             '  • UserIP_Logging.csv\n'
             '  • Detection_Logging.csv\n'
             '  • Protection_Logging.csv\n'
-            '  • debug.log\n\n'
+            '  • debug.log\n'
+            '  • crash.log\n\n'
             'Backups (.bak) will be created first.\n'
             'Are you sure?',
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -172,7 +184,7 @@ class LogsManager(QDialog):
         purged: list[str] = []
         errors: list[str] = []
 
-        for path in (USERIP_LOGGING_PATH, DETECTION_LOGGING_PATH, PROTECTION_LOGGING_PATH, DEBUG_LOG_PATH):
+        for path in (USERIP_LOGGING_PATH, DETECTION_LOGGING_PATH, PROTECTION_LOGGING_PATH, DEBUG_LOG_PATH, CRASH_LOG_PATH):
             if not path.exists():
                 continue
             backup_file(path)
@@ -183,6 +195,7 @@ class LogsManager(QDialog):
         self._detection_tab.load_data()
         self._protection_tab.load_data()
         self._debug_tab.load_data()
+        self._crash_tab.load_data()
 
         parts: list[str] = []
         if purged:
