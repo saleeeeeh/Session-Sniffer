@@ -16,6 +16,7 @@ Apply these rules when working on packaging, PyInstaller, release builds, runtim
 * Do not change dependency versions without understanding their impact on the supported Python version and existing tooling.
 * When modifying or regenerating `uv.lock`, always preserve or restore CRLF (`\r\n`) line endings. Remember that `uv` defaults to LF line endings when writing lockfiles.
 * When bumping the release version in `pyproject.toml`, always run `uv lock` to synchronize `uv.lock`, restore CRLF (`\r\n`) line endings, and commit both files together.
+* Before incrementing an RC or final version, check if the current version in `pyproject.toml` was published/tagged on GitHub. If unpublished (no tag on GitHub), do not increment the RC or version number; only update the build timestamp (`+YYYYMMDD.HHMM`).
 
 ## PyInstaller
 
