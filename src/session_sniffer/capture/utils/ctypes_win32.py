@@ -11,7 +11,8 @@ if sys.platform == 'win32':
     _SERVICE_QUERY_STATUS = 0x0004
     _SERVICE_RUNNING = 0x00000004
 
-    class _SERVICE_STATUS(ctypes.Structure):  # pylint: disable=invalid-name
+    class _ServiceStatus(ctypes.Structure):
+        """ctypes definition for SERVICE_STATUS structure."""
         _fields_ = [
             ('dwServiceType', wintypes.DWORD),
             ('dwCurrentState', wintypes.DWORD),
@@ -27,7 +28,7 @@ if sys.platform == 'win32':
     _advapi32.OpenSCManagerW.restype = wintypes.HANDLE
     _advapi32.OpenServiceW.argtypes = [wintypes.HANDLE, wintypes.LPCWSTR, wintypes.DWORD]
     _advapi32.OpenServiceW.restype = wintypes.HANDLE
-    _advapi32.QueryServiceStatus.argtypes = [wintypes.HANDLE, ctypes.POINTER(_SERVICE_STATUS)]
+    _advapi32.QueryServiceStatus.argtypes = [wintypes.HANDLE, ctypes.POINTER(_ServiceStatus)]
     _advapi32.QueryServiceStatus.restype = wintypes.BOOL
     _advapi32.CloseServiceHandle.argtypes = [wintypes.HANDLE]
     _advapi32.CloseServiceHandle.restype = wintypes.BOOL
@@ -50,7 +51,7 @@ def get_system32_dir() -> Path:
 
 def is_service_running(service_name: str) -> bool:
     """Check if a Windows service is currently active and running via the Service Control Manager."""
-    if sys.platform != 'win32' or _advapi32 is None:
+    if sys.platform != 'win32':
         return False
 
     is_running = False
@@ -60,7 +61,7 @@ def is_service_running(service_name: str) -> bool:
             service_handle = _advapi32.OpenServiceW(manager_handle, service_name, _SERVICE_QUERY_STATUS)
             if service_handle:
                 try:
-                    service_status = _SERVICE_STATUS()
+                    service_status = _ServiceStatus()
                     if _advapi32.QueryServiceStatus(service_handle, ctypes.byref(service_status)):
                         is_running = bool(service_status.dwCurrentState == _SERVICE_RUNNING)
                 finally:
