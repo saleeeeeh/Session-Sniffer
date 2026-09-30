@@ -20,7 +20,8 @@ class CrashingQThread(QThread):
     Any unhandled exception escaping `_run()` is forwarded to `terminate_on_uncaught_exception` —
     the same crash path triggered by `_handle_thread_exception` for plain `threading.Thread` exceptions.
     Strong references to running threads are retained in `_active_threads` until their `finished`
-    signal fires, preventing 'QThread: Destroyed while thread is still running' fatal app exits.
+    signal fires and the native OS thread has completed via `wait()`, preventing
+    'QThread: Destroyed while thread is still running' fatal app exits and QThreadStorage teardown crashes.
     """
 
     _active_threads: ClassVar[set[CrashingQThread]] = set()
@@ -38,8 +39,11 @@ class CrashingQThread(QThread):
         super().start(priority)
 
     def _on_thread_finished(self) -> None:
-        """Discard the strong reference once the native thread has finished."""
-        CrashingQThread._active_threads.discard(self)
+        """Join the native OS thread and discard the strong reference."""
+        try:
+            self.wait()
+        finally:
+            CrashingQThread._active_threads.discard(self)
 
     @override
     def run(self) -> None:

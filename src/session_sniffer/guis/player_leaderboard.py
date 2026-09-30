@@ -1034,8 +1034,6 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
 
     def _on_scan_finished(self) -> None:
         """Release the finished scan worker so the next request can start a fresh one."""
-        if self._scan_worker is not None:
-            self._scan_worker.deleteLater()
         self._scan_worker = None
 
     def _reload_baseline_from_disk(self) -> None:
@@ -1043,7 +1041,6 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         if self._baseline_worker is not None:
             return
         worker = LeaderboardBaselineWorker(SESSIONS_LOGGING_DIR_PATH, self._live_session_file)
-        worker.finished.connect(worker.deleteLater)
         worker.finished.connect(self._clear_baseline_worker)
         worker.finished_ok.connect(self._apply_baseline)
         self._baseline_worker = worker
@@ -1073,7 +1070,6 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         self._count_label.setText('Loading...')
 
         worker = LeaderboardBaselineWorker(SESSIONS_LOGGING_DIR_PATH, self._live_session_file)
-        worker.finished.connect(worker.deleteLater)
         worker.finished.connect(self._clear_baseline_worker)
         self._baseline_worker = worker
 
@@ -1146,8 +1142,6 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
 
     def _on_overlay_finished(self) -> None:
         """Release the finished overlay worker so the next tick can start a fresh one."""
-        if self._overlay_worker is not None:
-            self._overlay_worker.deleteLater()
         self._overlay_worker = None
 
     def _on_cap_changed(self) -> None:

@@ -226,5 +226,4 @@ def show_looky_lookup(parent: QWidget, player: Player | StandaloneIPLookup) -> N
     worker.fetch_failed.connect(_on_fetch_failed)
     _active_lookup_workers.add(worker)
     worker.finished.connect(lambda: _active_lookup_workers.discard(worker))
-    worker.finished.connect(worker.deleteLater)
     worker.start()
