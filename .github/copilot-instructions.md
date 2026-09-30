@@ -30,7 +30,7 @@ If a user's saved data (e.g. `Settings.ini`) contains a stale key, it is treated
 - `src/session_sniffer/networking/`: DNS, reverse DNS, MAC vendor (Wireshark `manuf`) lookup, ping management.
 - `src/session_sniffer/rendering_core/`: Transforms registry + lookup results into GUI payloads.
 - `src/session_sniffer/models/`: External API / release / lookup models (e.g., GitHub, IP APIs).
-- `.github/workflows/Session_Sniffer.spec`: PyInstaller spec - update `datas` if adding runtime folders.
+- `.github/workflows/Session_Sniffer.spec`: PyInstaller spec - update `datas` if adding runtime folders; maintain exhaustive `excludes` for all unused Qt/stdlib modules to minimize executable size while preserving lossless execution.
 
 ## User Data Storage (AppData)
 Session Sniffer stores *all* user read/write data under the user's AppData, via constants in `src/session_sniffer/constants/local.py`.

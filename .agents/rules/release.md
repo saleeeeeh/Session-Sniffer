@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: Use when working on packaging, PyInstaller, release builds, runtime resources, executable generation, dependency releases, CI/release configuration, or release validation.
+description: Use when working on packaging, PyInstaller, module exclusions, release builds, runtime resources, executable generation, dependency releases, CI/release configuration, or release validation.
 ---
 
 # Release and Build Rules
@@ -31,6 +31,38 @@ When adding or moving runtime resources:
 * preserve the correct runtime-relative paths.
 
 Do not assume that a file present in the source repository will automatically be included in the packaged executable.
+
+### Module Exclusions and Lossless Packaging
+
+The `excludes` list in `.github/workflows/Session_Sniffer.spec` must be maintained to keep the compiled executable as lean as possible while guaranteeing strictly lossless runtime behavior:
+
+* **Size and Dependency Minimization**: Explicitly excluding unused modules prevents PyInstaller from bundling unneeded DLLs, QML engines, Chromium WebEngine binaries, and plugin hierarchies, keeping the compiled executable lean and focused strictly on active dependencies.
+* **Lossless Packaging Standard**:
+  * Never exclude a module, subpackage, or resource that is actively imported or required at runtime.
+  * The application requires **only** the PySide6 modules actively used by the UI:
+    * `PySide6.QtCore`
+    * `PySide6.QtGui`
+    * `PySide6.QtWidgets`
+    * `PySide6.QtSvg` (required for `QSvgRenderer`)
+  * Never exclude `shiboken6` or `PySide6.support` as they are essential to PySide6 core runtime operation.
+  * All other unused PySide6/Qt modules (such as `QtNetwork`, `QtQml`, `QtQuick`, `QtOpenGL`, `QtPdf`, `QtWebEngine*`, `QtMultimedia*`, `Qt3D*`, `QtSql`, `QtSvgWidgets`, etc.) must remain excluded.
+* **Alternative Qt Bindings**:
+  * Always exclude `PyQt5` and `PyQt6` to prevent accidental discovery, hook execution, or bundling by third-party libraries.
+* **Unused Python Standard Library Modules**:
+  * Exclude unused GUI toolkits (`tkinter`, `_tkinter`, `turtle`, `idlelib`).
+  * Exclude test frameworks and interactive documentation servers (`unittest`, `test`, `doctest`, `pydoc`, `pydoc_data`).
+  * Exclude unused database engines (`sqlite3`, `_sqlite3`).
+  * Exclude debuggers and profilers (`pdb`, `cProfile`, `profile`, `pstats`).
+  * Exclude unused protocol and terminal modules (`xmlrpc`, `curses`).
+* **Lossless Build Flags**:
+  * Keep `optimize=0` in `Session_Sniffer.spec` to preserve assertions, bytecode integrity, and docstrings required by dependencies like Pydantic.
+  * Keep `strip=False` to preserve PE symbol tables and avoid binary corruption.
+  * Keep `upx=False` to avoid binary header manipulation and runtime startup decompression overhead.
+* **Spec File Maintenance**:
+  * Before modifying `excludes`, verify module reachability across `src/` and dependencies.
+  * Test application imports and startup in an environment where candidate excluded modules are blocked in `sys.modules`.
+  * Validate `.github/workflows/Session_Sniffer.spec` using `python -m py_compile` and `flake8`.
+  * Always ensure `.github/workflows/Session_Sniffer.spec` retains CRLF (`\r\n`) line endings.
 
 ## Release Validation
 
