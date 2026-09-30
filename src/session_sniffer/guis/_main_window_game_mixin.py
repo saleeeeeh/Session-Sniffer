@@ -186,7 +186,13 @@ class GameMixin(QMainWindow):
                 self._host_status_action.setText('No host')
 
         session_host_submenu.aboutToShow.connect(_update_host_status_label)
-        setup_session_host_actions(session_host_submenu, self._clear_session_host, self._redetect_session_host, self._select_connected_ips)
+        setup_session_host_actions(
+            session_host_submenu,
+            self._clear_session_host,
+            self._redetect_session_host,
+            self._show_session_host_diagnostics,
+            self._select_connected_ips,
+        )
 
         self._game_menu_process_separator = game_menu.addSeparator()
 
@@ -510,6 +516,27 @@ Process is currently suspended')
         """Manually clear the current session host and reset host detection state."""
         SessionHost.clear_session_host_data()
 
+    def _show_session_host_diagnostics(self) -> None:
+        """Display detailed diagnostic information from the last session host detection attempt."""
+        if SessionHost.last_debug_details is None:
+            QMessageBox.information(self, TITLE, 'No session host detection diagnostics are available yet.')
+            return
+
+        if SessionHost.last_detection_success and SessionHost.last_detected_host_ip is not None:
+            text = f'Session host detected:\n\n{SessionHost.last_detected_host_ip}'
+            icon = QMessageBox.Icon.Information
+        elif SessionHost.has_player():
+            host_player = SessionHost.get_player()
+            host_ip = host_player.ip if host_player is not None else 'Unknown'
+            text = f'Session host detected:\n\n{host_ip}'
+            icon = QMessageBox.Icon.Information
+        else:
+            reason = SessionHost.last_rejection_reason or 'No player currently matches the session host criteria.'
+            text = f'Could not resolve session host:\n\n{reason}'
+            icon = QMessageBox.Icon.Warning
+
+        show_detailed_message(self, TITLE, text, detailed_text=SessionHost.last_debug_details, icon=icon)
+
     def _redetect_session_host(self) -> None:
         """Clear the current session host and immediately re-evaluate host detection with notification on failure."""
         if not Settings.is_session_host_feature_set():
@@ -536,17 +563,9 @@ Process is currently suspended')
         SessionHost.clear_session_host_data()
         SessionHost.manual_redetect = True
 
-        host_player = SessionHost.get_host_player(connected_players)
+        SessionHost.get_host_player(connected_players)
         SessionHost.manual_redetect = False
         SessionHost.search_player = False
         SessionHost.search_start_time = None
 
-        if host_player is not None:
-            text = f'Session host detected:\n\n{host_player.ip}'
-            icon = QMessageBox.Icon.Information
-        else:
-            reason = SessionHost.last_rejection_reason or 'No player currently matches the session host criteria.'
-            text = f'Could not resolve session host:\n\n{reason}'
-            icon = QMessageBox.Icon.Warning
-
-        show_detailed_message(self, TITLE, text, detailed_text=SessionHost.last_debug_details, icon=icon)
+        self._show_session_host_diagnostics()

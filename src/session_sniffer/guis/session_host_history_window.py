@@ -45,9 +45,8 @@ def setup_session_host_actions(
     session_host_submenu: QMenu,
     clear_host_callback: Callable[[], None],
     redetect_host_callback: Callable[[], None],
+    show_diagnostics_callback: Callable[[], None],
     select_ips_callback: Callable[[list[str]], None],
-    *,
-    error_label: str = 'Host History',
 ) -> None:
     """Populate common session host control actions and the Host History submenu."""
     session_host_submenu.addSeparator()
@@ -62,10 +61,15 @@ def setup_session_host_actions(
     redetect_host_action.triggered.connect(redetect_host_callback)
     session_host_submenu.addAction(redetect_host_action)
 
+    diagnostics_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'bug.svg')), 'Host Diagnostics…', session_host_submenu)
+    diagnostics_action.setToolTip('Show detailed diagnostics and debug information from the last session host detection')
+    diagnostics_action.triggered.connect(show_diagnostics_callback)
+    session_host_submenu.addAction(diagnostics_action)
+
     session_host_submenu.addSeparator()
     host_history_submenu = session_host_submenu.addMenu(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'history.svg')), 'Host History')
     if not host_history_submenu:
-        message = f'Failed to create {error_label} submenu'
+        message = 'Failed to create Host History submenu'
         raise RuntimeError(message)
     host_history_submenu.setToolTipsVisible(True)
     host_history_submenu.aboutToShow.connect(lambda: populate_host_history_submenu(host_history_submenu, select_ips_callback))
