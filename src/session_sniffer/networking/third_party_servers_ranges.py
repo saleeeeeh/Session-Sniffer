@@ -1765,6 +1765,7 @@ UNITY_TECHNOLOGIES_APS_RANGES: tuple[NamedRange, ...] = create_named_ranges(
 
 US_DEPARTMENT_OF_DEFENSE_RANGES: tuple[NamedRange, ...] = create_named_ranges(
     'US Department of Defense',
+    '11.0.0.0/8',
     '21.0.0.0/8',
     '22.0.0.0/8',
     '26.0.0.0/8',
