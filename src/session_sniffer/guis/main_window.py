@@ -113,7 +113,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._connected.expand_button.setVisible(not connected_expanded)
         self._disconnected.setVisible(disconnected_expanded)
         self._disconnected.expand_button.setVisible(not disconnected_expanded)
-        self._tables_splitter.setVisible(connected_expanded or disconnected_expanded)
+        self._tables_splitter.setVisible(True)
 
         if connected_expanded and disconnected_expanded and self.isVisible():
             if self._saved_splitter_sizes:
