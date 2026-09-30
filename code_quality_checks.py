@@ -61,7 +61,7 @@ TOOLS: list[QualityTool] = [
     ),
     QualityTool(
         name='pyright',
-        command='pyright',
+        command='pyright --warnings',
         install_command='pip install pyright',
         description='Microsoft Python type checker',
         category='TYPE CHECKING',
