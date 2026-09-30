@@ -108,7 +108,7 @@ def _is_npcap_setup_in_progress() -> bool:
 
 def _is_npcap_registry_installed() -> bool:
     """Check if Npcap installation entry is recorded in the Windows registry."""
-    if sys.platform != 'win32' or winreg is None:
+    if sys.platform != 'win32':
         return False
 
     for subkey in (
