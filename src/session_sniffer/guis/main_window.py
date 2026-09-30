@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, override
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
+    QLabel,
     QMainWindow,
     QMenuBar,
     QSplitter,
@@ -36,6 +37,7 @@ from session_sniffer.guis.tables_player_actions.looky_system._looky_crawler_requ
 from session_sniffer.guis.tables_player_actions.looky_system._looky_lookup_dialog import close_all_lookup_dialogs
 from session_sniffer.guis.utils import (
     apply_always_on_top,
+    render_svg_pixmap_from_resource,
     resize_window_for_screen,
     scale_by_ui,
     show_or_focus_window,
@@ -79,12 +81,40 @@ class _WindowState:
     min_accepted_snapshot_version: int
 
 
+class _MinimizedTablesPlaceholder(QWidget):
+    """Placeholder displayed in the center when all session tables are minimized."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(scale_by_ui(6))
+
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_size = scale_by_ui(42)
+        pixmap = render_svg_pixmap_from_resource('sonar.svg', icon_size, icon_size)
+        icon_label.setPixmap(pixmap)
+        layout.addWidget(icon_label)
+
+        title_label = QLabel('All Tables Minimized')
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet('color: #94a3b8; font-size: 11pt; font-weight: 600;')
+        layout.addWidget(title_label)
+
+        subtitle_label = QLabel('Expand connected or disconnected players below to view session data')
+        subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        subtitle_label.setStyleSheet('color: #475569; font-size: 9pt;')
+        layout.addWidget(subtitle_label)
+
+
 class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
     """Main Qt window that hosts session tables and control UI."""
 
     _actions: _MenuActions
     _connected: SessionTableSection
     _disconnected: SessionTableSection
+    _placeholder: _MinimizedTablesPlaceholder
     _tables_splitter: QSplitter
     _saved_splitter_sizes: list[int]
     _discord_intro_window: DiscordIntro | None
@@ -104,6 +134,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
             self._connected.expand_button.setVisible(False)
             self._connected.setVisible(True)
             self._tables_splitter.setVisible(True)
+            self._placeholder.setVisible(False)
             return
 
         self._connected.collapse_button.setVisible(True)
@@ -113,7 +144,10 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._connected.expand_button.setVisible(not connected_expanded)
         self._disconnected.setVisible(disconnected_expanded)
         self._disconnected.expand_button.setVisible(not disconnected_expanded)
-        self._tables_splitter.setVisible(True)
+
+        both_minimized = not connected_expanded and not disconnected_expanded
+        self._tables_splitter.setVisible(not both_minimized)
+        self._placeholder.setVisible(both_minimized)
 
         if connected_expanded and disconnected_expanded and self.isVisible():
             if self._saved_splitter_sizes:
@@ -237,6 +271,9 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._tables_splitter.setStretchFactor(1, 1)
         self._tables_splitter.splitterMoved.connect(self._on_splitter_moved)
 
+        self._placeholder = _MinimizedTablesPlaceholder(self)
+        self._placeholder.setVisible(False)
+
         self._status_bar = SessionStatusBar(self)
         self.setStatusBar(self._status_bar)
 
@@ -244,6 +281,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         main_layout.addWidget(self._header)
         main_layout.addSpacing(6)
         main_layout.addWidget(self._tables_splitter, 1)
+        main_layout.addWidget(self._placeholder, 1)
         main_layout.addWidget(self._connected.expand_button)
         main_layout.addWidget(self._disconnected.expand_button)
 
