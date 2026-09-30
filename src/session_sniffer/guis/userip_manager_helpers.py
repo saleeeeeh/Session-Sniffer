@@ -332,6 +332,46 @@ def rewrite_db_without_entries(db_path: Path, to_remove: set[tuple[str, str]]) -
     db_path.write_text('\n'.join(new_lines), encoding='utf-8')
 
 
+def rewrite_db_rename_entries(db_path: Path, pairs: list[tuple[str, str]], new_username: str) -> int:
+    """Replace matched (old_username, ip_or_range) entries with new_username in-place.
+
+    Returns the number of entries renamed.
+    """
+    if not db_path.is_file():
+        return 0
+    content = db_path.read_text('utf-8')
+    new_lines: list[str] = []
+    in_userip_section = False
+    renamed_count = 0
+    remaining_pairs = list(pairs)
+
+    for raw_line in content.splitlines():
+        stripped = raw_line.strip()
+        is_header, in_userip_section = handle_ini_section_header(raw_line, stripped, new_lines, in_section=in_userip_section, section_name=SECTION_USERIP)
+        if is_header:
+            continue
+        if in_userip_section and remaining_pairs:
+            match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
+            if match:
+                username_val = match.group('username').strip()
+                ip_val = match.group('ip').strip()
+                matched_pair = next((pair for pair in remaining_pairs if pair[0] == username_val and pair[1] == ip_val), None)
+                if matched_pair is not None:
+                    remaining_pairs.remove(matched_pair)
+                    equality_index = raw_line.find('=')
+                    if equality_index != -1:
+                        new_lines.append(f'{new_username}={raw_line[equality_index + 1 :]}')
+                    else:
+                        new_lines.append(f'{new_username}={ip_val}')
+                    renamed_count += 1
+                    continue
+        new_lines.append(raw_line)
+
+    if renamed_count:
+        db_path.write_text('\r\n'.join(new_lines) + ('\r\n' if new_lines else ''), encoding='utf-8', newline='')
+    return renamed_count
+
+
 def append_userip_entries(db_path: Path, entries: list[tuple[str, str, bool]]) -> int:
     """Append entries to the `[UserIP]` section of a database file, avoiding exact duplicates.
 

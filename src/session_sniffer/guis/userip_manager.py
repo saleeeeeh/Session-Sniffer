@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMenu,
@@ -66,6 +67,7 @@ from session_sniffer.guis.userip_manager_helpers import (
     iter_userip_entries_with_metadata,
     parse_settings_from_lines,
     read_preserved_sections,
+    rewrite_db_rename_entries,
     rewrite_db_without_entries,
 )
 from session_sniffer.guis.userip_manager_settings_mixin import SettingsPanelMixin
@@ -409,6 +411,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         QShortcut(QKeySequence('Ctrl+C'), self._entries_table).activated.connect(self._copy_selected_entries)
         QShortcut(QKeySequence('Ctrl+A'), self._entries_table).activated.connect(self._entries_table.selectAll)
         QShortcut(QKeySequence('Delete'), self._entries_table).activated.connect(self._delete_selected)
+        QShortcut(QKeySequence('F2'), self._entries_table).activated.connect(self._rename_selected)
 
         entries_selection = self._entries_table.selectionModel()
         if entries_selection:
@@ -441,6 +444,14 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         self._edit_ip_button.setEnabled(False)
         self._edit_ip_button.clicked.connect(self._edit_selected_entry_ip)
         entry_buttons.addWidget(self._edit_ip_button)
+
+        self._rename_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), ' Rename')
+        self._rename_button.setAutoDefault(False)
+        self._rename_button.setToolTip('Rename the username of the selected entry or entries')
+        self._rename_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
+        self._rename_button.setEnabled(False)
+        self._rename_button.clicked.connect(self._rename_selected)
+        entry_buttons.addWidget(self._rename_button)
 
         self._open_db_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'text_editor.svg')), ' Open DB')
         self._open_db_button.setAutoDefault(False)
@@ -632,6 +643,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         has_selection = bool(selected_rows)
 
         self._delete_button.setEnabled(has_selection)
+        self._rename_button.setEnabled(has_selection)
         if not self._global_search_active:
             self._edit_ip_button.setEnabled(len(selected_rows) == 1)
 
@@ -684,6 +696,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         self._add_button.setEnabled(db_available)
         self._edit_ip_button.setVisible(not self._global_search_active)
         self._edit_ip_button.setEnabled(False)  # driven by selection
+        self._rename_button.setEnabled(False)  # driven by selection
         self._delete_button.setEnabled(False)  # driven by selection
         self._save_button.setEnabled(self._dirty)
         self._open_db_button.setEnabled(not self._global_search_active and self._current_path is not None)
@@ -908,6 +921,95 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
                 index_item.setText(str(row + 1))
                 index_item.setData(row + 1, Qt.ItemDataRole.UserRole)
         self._next_index = self._model.rowCount() + 1
+
+    @override
+    def _rename_selected(self) -> None:
+        """Rename the username of the selected entry or entries."""
+        selection = self._entries_table.selectionModel()
+        if not selection:
+            return
+
+        selected_indexes = selection.selectedRows()
+        if not selected_indexes:
+            QMessageBox.information(self, TITLE, 'No entries selected.')
+            return
+
+        source_rows = sorted({self._proxy.mapToSource(index).row() for index in selected_indexes})
+        count = len(source_rows)
+        if not count:
+            return
+
+        if count == 1:
+            first_row = source_rows[0]
+            username_item = self._model.item(first_row, USERNAME_COLUMN)
+            initial_name = username_item.text().strip() if username_item else ''
+            title = 'Rename Username'
+            prompt = 'Enter the new username:'
+        else:
+            usernames = {username for row in source_rows if (username := self._model.item(row, USERNAME_COLUMN).text().strip())}
+            initial_name = next(iter(usernames)) if len(usernames) == 1 else ''
+            title = f'Rename Selected ({count})'
+            prompt = f'Enter the new username for {count} selected {pluralize(count, "entry", "entries")}:'
+
+        new_username, success = QInputDialog.getText(
+            self,
+            title,
+            prompt,
+            QLineEdit.EchoMode.Normal,
+            initial_name,
+        )
+        new_username = new_username.strip() if success else ''
+        if not success:
+            return
+
+        if not new_username:
+            QMessageBox.warning(self, TITLE, 'No username was provided.')
+            return
+
+        if count == 1 and new_username == initial_name:
+            return
+
+        if self._global_search_active:
+            rows_by_database: dict[Path, list[tuple[int, str, str]]] = defaultdict(list)
+            for row in source_rows:
+                database_item = self._model.item(row, DATABASE_COLUMN)
+                database_path_str = database_item.data(Qt.ItemDataRole.UserRole) if database_item else None
+                if not database_path_str:
+                    continue
+                username_item = self._model.item(row, USERNAME_COLUMN)
+                old_username = username_item.text().strip() if username_item else ''
+                entry_ip_or_range = self._get_row_entry_value(row).strip()
+                if old_username and entry_ip_or_range:
+                    rows_by_database[Path(database_path_str)].append((row, old_username, entry_ip_or_range))
+
+            self._fs_watcher.blockSignals(True)  # noqa: FBT003
+            try:
+                for database_path, entries in rows_by_database.items():
+                    if database_path.is_file():
+                        rename_pairs = [(old_name, ip_value) for _, old_name, ip_value in entries]
+                        rewrite_db_rename_entries(database_path, rename_pairs, new_username)
+            finally:
+                self._fs_watcher.blockSignals(False)  # noqa: FBT003
+            self._rebuild_fs_watch()
+
+            for row in source_rows:
+                username_item = self._model.item(row, USERNAME_COLUMN)
+                if username_item:
+                    username_item.setText(new_username)
+
+            self._highlight_duplicates()
+            self._update_entry_counts()
+            self._set_status(f'Renamed {count} {pluralize(count, "entry", "entries")} to "{new_username}" in database files.')
+        else:
+            for row in source_rows:
+                username_item = self._model.item(row, USERNAME_COLUMN)
+                if username_item:
+                    username_item.setText(new_username)
+
+            self._mark_entries_dirty()
+            self._highlight_duplicates()
+            self._update_entry_counts()
+            self._set_status(f'Renamed {count} {pluralize(count, "entry", "entries")} to "{new_username}". Remember to save.')
 
     @override
     def _delete_selected(self) -> None:

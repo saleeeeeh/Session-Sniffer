@@ -69,6 +69,8 @@ class EntriesContextMenuMixin(QDialog):
 
     def _delete_selected(self) -> None: ...
 
+    def _rename_selected(self) -> None: ...
+
     def _reset_column_sizes(self) -> None: ...
 
     def _edit_entry_ip(self, source_row: int) -> None: ...  # pylint: disable=unused-argument
@@ -242,6 +244,13 @@ class EntriesContextMenuMixin(QDialog):
         menu.addAction(insert_below_action)
 
         menu.addSeparator()
+
+        rename_label = f'Rename Selected ({selected_count})' if selected_count > 1 else 'Rename'
+        rename_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), rename_label, self)
+        rename_action.setShortcut('F2')
+        rename_action.setToolTip(f'Rename the username for the selected {pluralize(selected_count, "entry", "entries")}.')
+        rename_action.triggered.connect(self._rename_selected)
+        menu.addAction(rename_action)
 
         edit_ip_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), 'Edit IP/Range…', self)
         edit_ip_action.triggered.connect(lambda: self._edit_entry_ip(source_row))
@@ -452,6 +461,13 @@ class EntriesContextMenuMixin(QDialog):
             menu.addAction(open_explorer_action)
 
         menu.addSeparator()
+
+        rename_gs_label = f'Rename Selected ({selected_count_gs})' if selected_count_gs > 1 else 'Rename'
+        rename_gs_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), rename_gs_label, self)
+        rename_gs_action.setShortcut('F2')
+        rename_gs_action.setToolTip(f'Rename the username for the selected {pluralize(selected_count_gs, "entry", "entries")}.')
+        rename_gs_action.triggered.connect(self._rename_selected)
+        menu.addAction(rename_gs_action)
 
         move_gs_label = f'Move Selected to Database ({selected_count_gs})' if selected_count_gs > 1 else 'Move to Database'
         move_gs_menu = QMenu(move_gs_label, menu)
