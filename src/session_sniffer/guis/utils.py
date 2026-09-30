@@ -552,7 +552,7 @@ class ElidedTextTooltipDelegate(QStyledItemDelegate):
                 option.decorationSize = QSize(_STANDARD_ICON_SIZE, _STANDARD_ICON_SIZE)
             model = index.model()
             ip_column = getattr(model, 'ip_column_index', -1)
-            if ip_column >= 0 and index.column() == ip_column:
+            if 0 <= ip_column == index.column():
                 size = option.icon.actualSize(QSize(100, _STANDARD_ICON_SIZE))
                 if size.width() > _STANDARD_ICON_SIZE:
                     option.decorationSize = size

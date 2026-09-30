@@ -5,6 +5,7 @@ Npcap is required for network packet capturing in Windows environments.
 """
 
 import enum
+import logging
 import os
 import socket
 import sys
@@ -18,16 +19,11 @@ if sys.platform == 'win32':
 else:
     winreg = None  # type: ignore[assignment]  # pylint: disable=invalid-name
 
-# pylint: disable=wrong-import-position
-import logging
-
 from session_sniffer.capture.pcap import is_pcap_library_available
 from session_sniffer.capture.process import iter_running_processes
 from session_sniffer.capture.utils.ctypes_win32 import is_npcap_setup_window_visible, is_service_running
 from session_sniffer.error_messages import format_npcap_required_message
 from session_sniffer.guis.dependency_prompt_dialog import show_dependency_prompt
-
-# pylint: enable=wrong-import-position
 
 logger = logging.getLogger(__name__)
 

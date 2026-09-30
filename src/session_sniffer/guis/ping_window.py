@@ -90,7 +90,7 @@ class PingWorkerThread(CrashingQThread):
                         payload_size=config.payload_size,
                     )
                     self.result_received.emit(result)
-                    if config.count > 0 and sequence_number >= config.count:
+                    if 0 < config.count <= sequence_number:
                         break
                     sequence_number += 1
                     if self._cancel_event.wait(config.interval_seconds):
@@ -108,7 +108,7 @@ class PingWorkerThread(CrashingQThread):
                     sequence=sequence_number,
                 )
                 self.result_received.emit(result)
-                if config.count > 0 and sequence_number >= config.count:
+                if 0 < config.count <= sequence_number:
                     break
                 sequence_number += 1
                 if self._cancel_event.wait(config.interval_seconds):
@@ -125,7 +125,7 @@ class PingWorkerThread(CrashingQThread):
                     payload_size=config.payload_size,
                 )
                 self.result_received.emit(result)
-                if config.count > 0 and sequence_number >= config.count:
+                if 0 < config.count <= sequence_number:
                     break
                 sequence_number += 1
                 if self._cancel_event.wait(config.interval_seconds):
@@ -136,7 +136,7 @@ class PingWorkerThread(CrashingQThread):
                 results = CheckHostPingEngine.probe(config.target_host, sequence=sequence_number)
                 for probe_result in results:
                     self.result_received.emit(probe_result)
-                if config.count > 0 and sequence_number >= config.count:
+                if 0 < config.count <= sequence_number:
                     break
                 sequence_number += 1
                 web_interval = max(config.interval_seconds, 10.0)
