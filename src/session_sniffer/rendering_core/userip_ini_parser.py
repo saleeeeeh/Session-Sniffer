@@ -59,7 +59,7 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
     duplicate_settings: list[str] = []
     current_section = None
     matched_settings: list[str] = []
-    ini_data = ini_path.read_text('utf-8')
+    ini_data = ini_path.read_text(encoding='utf-8', newline='')
     corrected_ini_data_lines: list[str] = []
 
     for line in map(process_ini_line_output, ini_data.splitlines(keepends=True)):
