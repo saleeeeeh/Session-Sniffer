@@ -30,6 +30,7 @@ from session_sniffer.guis.stylesheets import (
     IP_RANGE_PREVIEW_VALID_STYLESHEET,
     SUBNET_DESC_LABEL_STYLESHEET,
 )
+from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -259,7 +260,8 @@ def iter_userip_entries_with_metadata(content: str) -> Iterator[tuple[str, str, 
             continue
 
         is_looky = bool(comment_raw and comment_raw.strip().lower() == 'looky')
-        yield str(username), str(ip), is_looky
+        for individual_username in (name.strip() for name in username.split(',') if name.strip()):
+            yield str(individual_username), str(ip), is_looky
 
 
 def iter_userip_entries(content: str) -> Iterator[tuple[str, str]]:
@@ -320,16 +322,35 @@ def rewrite_db_without_entries(db_path: Path, to_remove: set[tuple[str, str]]) -
         is_header, in_userip_section = handle_ini_section_header(raw_line, stripped, new_lines, in_section=in_userip_section, section_name=SECTION_USERIP)
         if is_header:
             continue
-        if in_userip_section and to_remove:
-            match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
-            if match:
-                username_val = match.group('username').strip()
-                ip_val = match.group('ip').strip()
-                if username_val and ip_val and (username_val, ip_val) in to_remove:
-                    to_remove.discard((username_val, ip_val))
-                    continue
-        new_lines.append(raw_line)
-    db_path.write_text('\n'.join(new_lines), encoding='utf-8')
+        if not in_userip_section or not to_remove:
+            new_lines.append(raw_line)
+            continue
+
+        match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
+        if not match:
+            new_lines.append(raw_line)
+            continue
+
+        username_val = match.group('username').strip()
+        ip_val = match.group('ip').strip()
+        if not username_val or not ip_val:
+            new_lines.append(raw_line)
+            continue
+
+        line_usernames = [name.strip() for name in username_val.split(',') if name.strip()]
+        names_to_remove = {name for name in line_usernames if (name, ip_val) in to_remove}
+        if not names_to_remove:
+            new_lines.append(raw_line)
+            continue
+
+        for name in names_to_remove:
+            to_remove.discard((name, ip_val))
+        remaining_usernames = [name for name in line_usernames if name not in names_to_remove]
+        if remaining_usernames:
+            equality_index = raw_line.find('=')
+            ending = raw_line[equality_index + 1 :] if equality_index != -1 else ip_val
+            new_lines.append(f'{", ".join(remaining_usernames)}={ending}')
+    db_path.write_text('\r\n'.join(new_lines) + ('\r\n' if new_lines else ''), encoding='utf-8', newline='')
 
 
 def rewrite_db_rename_entries(db_path: Path, pairs: list[tuple[str, str]], new_username: str) -> int:
@@ -350,22 +371,31 @@ def rewrite_db_rename_entries(db_path: Path, pairs: list[tuple[str, str]], new_u
         is_header, in_userip_section = handle_ini_section_header(raw_line, stripped, new_lines, in_section=in_userip_section, section_name=SECTION_USERIP)
         if is_header:
             continue
-        if in_userip_section and remaining_pairs:
-            match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
-            if match:
-                username_val = match.group('username').strip()
-                ip_val = match.group('ip').strip()
-                matched_pair = next((pair for pair in remaining_pairs if pair[0] == username_val and pair[1] == ip_val), None)
-                if matched_pair is not None:
-                    remaining_pairs.remove(matched_pair)
-                    equality_index = raw_line.find('=')
-                    if equality_index != -1:
-                        new_lines.append(f'{new_username}={raw_line[equality_index + 1 :]}')
-                    else:
-                        new_lines.append(f'{new_username}={ip_val}')
-                    renamed_count += 1
-                    continue
-        new_lines.append(raw_line)
+        if not in_userip_section or not remaining_pairs:
+            new_lines.append(raw_line)
+            continue
+
+        match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
+        if not match:
+            new_lines.append(raw_line)
+            continue
+
+        username_val = match.group('username').strip()
+        ip_val = match.group('ip').strip()
+        line_usernames = [name.strip() for name in username_val.split(',') if name.strip()]
+        matched_names = {pair[0] for pair in remaining_pairs if pair[0] in line_usernames and pair[1] == ip_val}
+        if not matched_names:
+            new_lines.append(raw_line)
+            continue
+
+        for name in matched_names:
+            remaining_pairs.remove((name, ip_val))
+        replaced_usernames = [new_username if name in matched_names else name for name in line_usernames]
+        resulting_names = dedup_preserve_order(replaced_usernames)
+        equality_index = raw_line.find('=')
+        ending = raw_line[equality_index + 1 :] if equality_index != -1 else ip_val
+        new_lines.append(f'{", ".join(resulting_names)}={ending}')
+        renamed_count += len(matched_names)
 
     if renamed_count:
         db_path.write_text('\r\n'.join(new_lines) + ('\r\n' if new_lines else ''), encoding='utf-8', newline='')

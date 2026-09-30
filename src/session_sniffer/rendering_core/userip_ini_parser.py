@@ -138,17 +138,23 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
                 invalid_ip_entries.append((username, ip))
                 continue
 
-            if (username, ip) in all_seen_pairs:
-                # Exact duplicate entry (same username and same IP) — drop from corrected output.
+            parsed_usernames = [name.strip() for name in username.split(',') if name.strip()]
+            if not parsed_usernames:
+                corrected_ini_data_lines.append(line)
+                continue
+
+            if all((individual_username, ip) in all_seen_pairs for individual_username in parsed_usernames):
+                # Exact duplicate entry (same usernames and same IP) — drop from corrected output.
                 duplicate_entries.append((username, ip))
                 continue
 
             corrected_ini_data_lines.append(line)
-            all_seen_pairs.add((username, ip))
-            if username in userip:
-                userip[username].append(ip)
-            else:
-                userip[username] = [ip]
+            for individual_username in parsed_usernames:
+                all_seen_pairs.add((individual_username, ip))
+                if individual_username in userip:
+                    userip[individual_username].append(ip)
+                else:
+                    userip[individual_username] = [ip]
 
     list_of_missing_settings = [setting for setting in USERIP_INI_SETTINGS if setting not in matched_settings]
 
@@ -249,10 +255,10 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
     if len(corrected_ini_data_lines) > 1 and corrected_ini_data_lines[-1]:
         corrected_ini_data_lines.append('')
 
-    fixed_ini_data = '\n'.join(corrected_ini_data_lines)
+    fixed_ini_data = '\r\n'.join(corrected_ini_data_lines)
 
     if ini_data != fixed_ini_data:
-        ini_path.write_text(fixed_ini_data, encoding='utf-8')
+        ini_path.write_text(fixed_ini_data, encoding='utf-8', newline='')
         logger.info('Rewrote "%s" after auto-repairs.', ini_path.name)
 
     return UserIPSettings(

@@ -16,6 +16,7 @@ from session_sniffer.guis.utils import create_nonmodal_warning, find_main_window
 from session_sniffer.networking.ip_range import IPRange, parse_ip_range
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.text_utils import format_triple_quoted_text
+from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -276,6 +277,41 @@ class UserIPDatabases:
                 ),
             )
 
+    @staticmethod
+    def _resolve_from_built_structures(
+        ip: str,
+        ip_to_userip: dict[str, UserIP],
+        range_entries: list[_RangeEntry],
+    ) -> UserIP | None:
+        """Resolve a UserIP object by combining single-IP and covering range entries."""
+        single_userip = ip_to_userip.get(ip)
+        matching_ranges: list[_RangeEntry] = []
+        if range_entries:
+            try:
+                address = IPv4Address(ip)
+                matching_ranges = [entry for entry in range_entries if address in entry.ip_range]
+            except ValueError:
+                matching_ranges = []
+
+        if single_userip is None and not matching_ranges:
+            return None
+
+        primary_db_path = single_userip.db_path if single_userip is not None else matching_ranges[0].db_path
+        primary_settings = single_userip.settings if single_userip is not None else matching_ranges[0].settings
+
+        combined_usernames: list[str] = []
+        if single_userip is not None:
+            combined_usernames.extend(single_userip.usernames)
+        for range_entry in matching_ranges:
+            combined_usernames.extend(range_entry.usernames)
+
+        return UserIP(
+            ip=ip,
+            db_path=primary_db_path,
+            settings=primary_settings,
+            usernames=dedup_preserve_order(combined_usernames),
+        )
+
     @classmethod
     def build(cls) -> None:
         """Rebuild the `ips_set` and `_range_entries` caches dynamically from the current databases.
@@ -315,20 +351,7 @@ class UserIPDatabases:
 
         # Assign or refresh UserIP for all players in a single pass.
         for player in PlayersRegistry.get_all_players():
-            if player.ip in ip_to_userip:
-                player.userip = ip_to_userip[player.ip]
-                continue
-            player.userip = None
-            if range_entries:
-                for range_entry in range_entries:
-                    if player.ip in range_entry.ip_range:
-                        player.userip = UserIP(
-                            ip=player.ip,
-                            db_path=range_entry.db_path,
-                            settings=range_entry.settings,
-                            usernames=list(range_entry.usernames),
-                        )
-                        break
+            player.userip = cls._resolve_from_built_structures(player.ip, ip_to_userip, range_entries)
             if player.userip is None:
                 player.userip_detection = None
 
@@ -363,35 +386,24 @@ class UserIPDatabases:
         if not cls._range_entries:
             return False
         try:
-            addr = IPv4Address(ip)
+            address = IPv4Address(ip)
         except ValueError:
             return False
-        return any(addr in re.ip_range for re in cls._range_entries)
+        return any(address in entry.ip_range for entry in cls._range_entries)
 
     @classmethod
     def resolve_userip(cls, ip: str) -> UserIP | None:
         """Look up a single IP against the already-built structures without triggering a rebuild."""
-        if ip in cls._ip_to_userip:
-            return cls._ip_to_userip[ip]
-        if not cls._range_entries:
-            return None
-        try:
-            addr = IPv4Address(ip)
-        except ValueError:
-            return None
-        for entry in cls._range_entries:
-            if addr in entry.ip_range:
-                return UserIP(ip=ip, db_path=entry.db_path, settings=entry.settings, usernames=entry.usernames)
-        return None
+        return cls._resolve_from_built_structures(ip, cls._ip_to_userip, cls._range_entries)
 
     @classmethod
     def get_matching_range_raws(cls, ip: str) -> list[str]:
         """Return the raw strings of every range entry that covers `ip` (empty when none match)."""
         try:
-            addr = IPv4Address(ip)
+            address = IPv4Address(ip)
         except ValueError:
             return []
-        return [entry.ip_range.raw for entry in cls._range_entries if addr in entry.ip_range]
+        return dedup_preserve_order([entry.ip_range.raw for entry in cls._range_entries if address in entry.ip_range])
 
     @classmethod
     def get_userip_database_filepaths(cls) -> list[Path]:

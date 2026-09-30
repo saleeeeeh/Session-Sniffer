@@ -420,15 +420,39 @@ def userip_add_username(parent: QWidget, ip_address: str, player: Player) -> Non
         QMessageBox.warning(parent, TITLE, 'ERROR:\nNo username was provided.')
         return
 
-    write_lines_to_file(db_path, 'a', [f'{username}={ip_address}\n' for username in entered_usernames])
+    target_options: list[str] = []
+    if ip_address in UserIPDatabases.ips_set:
+        target_options.append(ip_address)
+    for range_raw in UserIPDatabases.get_matching_range_raws(ip_address):
+        if range_raw not in target_options:
+            target_options.append(range_raw)
+
+    if not target_options:
+        target_entry = ip_address
+    elif len(target_options) == 1:
+        target_entry = target_options[0]
+    else:
+        chosen_target, selection_success = QInputDialog.getItem(
+            parent,
+            'Select Target Entry',
+            f'Multiple UserIP entries match {ip_address}.\nSelect which entry to add the username to:',
+            target_options,
+            editable=False,
+        )
+        if not selection_success or not chosen_target:
+            return
+        target_entry = chosen_target
+
+    write_lines_to_file(db_path, 'a', [f'{username}={target_entry}\n' for username in entered_usernames])
 
     usernames_display = ', '.join(f'"{username}"' for username in entered_usernames)
     count = len(entered_usernames)
     has_or_have = 'has' if count == 1 else 'have'
+    entry_label = f'IP {target_entry}' if target_entry == ip_address else f'range {target_entry}'
     QMessageBox.information(
         parent,
         TITLE,
-        f'Username{pluralize(count)} {usernames_display} {has_or_have} been added for IP {ip_address} in UserIP database "{db_display}".',
+        f'Username{pluralize(count)} {usernames_display} {has_or_have} been added for {entry_label} in UserIP database "{db_display}".',
     )
 
 
@@ -450,15 +474,18 @@ def _renamed_line(
     if username_raw is None or ip_raw is None:
         return None
     username, ip = username_raw.strip(), ip_raw.strip()
-    matched = next((pair for pair in pairs if pair[0] == username and _entry_ip_matches_any(ip, [pair[1]])), None)
-    if matched is None:
+    line_usernames = [name.strip() for name in username.split(',') if name.strip()]
+    matched_names = {pair[0] for pair in pairs if pair[0] in line_usernames and _entry_ip_matches_any(ip, [pair[1]])}
+    if not matched_names:
         return None
-    entry_key = f'{new_username}={ip}'
+    replaced_usernames = [new_username if name in matched_names else name for name in line_usernames]
+    resulting_names = dedup_preserve_order(replaced_usernames)
+    entry_key = f'{", ".join(resulting_names)}={ip}'
     if entry_key in seen:
         return ''  # duplicate — drop
     seen.add(entry_key)
     ending = raw_line[len(raw_line.rstrip()) :]
-    return f'{new_username}={ip}{ending}'
+    return f'{", ".join(resulting_names)}={ip}{ending}'
 
 
 def _rewrite_db_for_rename(db_path: Path, pairs: list[tuple[str, str]], new_username: str) -> int:
@@ -592,17 +619,31 @@ def userip_rename(parent: QWidget, ip_address: str, player: Player) -> None:
             in_userip_section = line == '[UserIP]'
             new_lines.append(raw_line)
             continue
-        if in_userip_section:
-            match = RE_USERIP_INI_PARSER_PATTERN.search(line)
-            if match:
-                username_raw = match.group('username')
-                ip_raw = match.group('ip')
-                if username_raw is not None and ip_raw is not None and username_raw.strip() == old_username and _entry_ip_matches_any(ip_raw.strip(), [ip_address]):
-                    ending = raw_line[len(raw_line.rstrip()) :]
-                    new_lines.append(f'{new_username}={ip_raw.strip()}{ending}')
-                    renamed_count += 1
-                    continue
-        new_lines.append(raw_line)
+        if not in_userip_section:
+            new_lines.append(raw_line)
+            continue
+
+        match = RE_USERIP_INI_PARSER_PATTERN.search(line)
+        if not match:
+            new_lines.append(raw_line)
+            continue
+
+        username_raw = match.group('username')
+        ip_raw = match.group('ip')
+        if username_raw is None or ip_raw is None or not _entry_ip_matches_any(ip_raw.strip(), [ip_address]):
+            new_lines.append(raw_line)
+            continue
+
+        line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+        if old_username not in line_usernames:
+            new_lines.append(raw_line)
+            continue
+
+        replaced_usernames = [new_username if name == old_username else name for name in line_usernames]
+        resulting_names = dedup_preserve_order(replaced_usernames)
+        ending = raw_line[len(raw_line.rstrip()) :]
+        new_lines.append(f'{", ".join(resulting_names)}={ip_raw.strip()}{ending}')
+        renamed_count += 1
 
     if not renamed_count:
         QMessageBox.information(parent, TITLE, f'No entries found for IP {ip_address} in the database.')
@@ -811,15 +852,32 @@ def _rewrite_database_removing_usernames(
             in_userip_section = line == '[UserIP]'
             new_lines.append(raw_line)
             continue
-        if in_userip_section:
-            match = RE_USERIP_INI_PARSER_PATTERN.search(line)
-            if match:
-                username_raw = match.group('username')
-                ip_raw = match.group('ip')
-                if username_raw is not None and ip_raw is not None and username_raw.strip() in usernames_to_remove and _entry_ip_matches_any(ip_raw.strip(), [ip_address]):
-                    removed_count += 1
-                    continue
-        new_lines.append(raw_line)
+        if not in_userip_section:
+            new_lines.append(raw_line)
+            continue
+
+        match = RE_USERIP_INI_PARSER_PATTERN.search(line)
+        if not match:
+            new_lines.append(raw_line)
+            continue
+
+        username_raw = match.group('username')
+        ip_raw = match.group('ip')
+        if username_raw is None or ip_raw is None or not _entry_ip_matches_any(ip_raw.strip(), [ip_address]):
+            new_lines.append(raw_line)
+            continue
+
+        line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+        remaining_usernames = [name for name in line_usernames if name not in usernames_to_remove]
+        removed_from_line = len(line_usernames) - len(remaining_usernames)
+        if removed_from_line <= 0:
+            new_lines.append(raw_line)
+            continue
+
+        removed_count += removed_from_line
+        if remaining_usernames:
+            ending = raw_line[len(raw_line.rstrip()) :]
+            new_lines.append(f'{", ".join(remaining_usernames)}={ip_raw.strip()}{ending}')
 
     if not removed_count:
         QMessageBox.information(parent, TITLE, f'No matching entries found for IP {ip_address} in the database.')

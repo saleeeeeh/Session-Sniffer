@@ -601,6 +601,7 @@ class EntriesContextMenuMixin(QDialog):
             menu.addSeparator()
             menu.addAction(delete_action)
 
+    # pylint: disable=duplicate-code
     def _delete_global_search_entry(self, db_path: Path, username: str, ip_or_range: str, source_row: int) -> None:
         """Remove a single entry from the database file and from the search results table."""
         content = db_path.read_text('utf-8')
@@ -615,21 +616,37 @@ class EntriesContextMenuMixin(QDialog):
             if is_header:
                 continue
 
-            if in_userip_section and not removed:
-                match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
-                if match:
-                    u_raw = match.group('username')
-                    ip_raw = match.group('ip')
-                    if u_raw is not None and ip_raw is not None and u_raw.strip() == username and ip_raw.strip() == ip_or_range:
-                        removed = True
-                        continue
+            if not in_userip_section or removed:
+                new_lines.append(raw_line)
+                continue
 
-            new_lines.append(raw_line)
+            match = RE_USERIP_INI_PARSER_PATTERN.search(stripped)
+            if not match:
+                new_lines.append(raw_line)
+                continue
+
+            username_raw = match.group('username')
+            ip_raw = match.group('ip')
+            if username_raw is None or ip_raw is None or ip_raw.strip() != ip_or_range:
+                new_lines.append(raw_line)
+                continue
+
+            line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+            if username not in line_usernames:
+                new_lines.append(raw_line)
+                continue
+
+            remaining_usernames = [name for name in line_usernames if name != username]
+            removed = True
+            if remaining_usernames:
+                equality_index = raw_line.find('=')
+                ending = raw_line[equality_index + 1 :] if equality_index != -1 else ip_raw.strip()
+                new_lines.append(f'{", ".join(remaining_usernames)}={ending}')
 
         if not removed:
             return
 
-        db_path.write_text('\n'.join(new_lines), encoding='utf-8')
+        db_path.write_text('\r\n'.join(new_lines) + ('\r\n' if new_lines else ''), encoding='utf-8', newline='')
         self._model.removeRow(source_row)
         self._update_entry_counts()
 
