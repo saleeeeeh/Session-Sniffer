@@ -11,11 +11,12 @@ from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSortFilterProxyM
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QIcon, QStandardItemModel, QSyntaxHighlighter, QTextCharFormat, QTextDocument
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget
 
-from session_sniffer.constants.local import RESOURCES_DIR_PATH
+from session_sniffer.constants.local import CRASH_LOG_PATH, DEBUG_LOG_PATH, RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.guis.stylesheets import DIALOG_BUTTON_STYLESHEET, DIALOG_DANGER_BUTTON_STYLESHEET
 from session_sniffer.guis.userip_manager_helpers import BYTES_PER_UNIT, human_readable_size
 from session_sniffer.guis.utils import apply_search_icon, set_clipboard_text
+from session_sniffer.logging_setup import purge_crash_log, purge_debug_log
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -265,7 +266,12 @@ def purge_log_file(
     if reply != QMessageBox.StandardButton.Yes:
         return None
     bak = backup_file(file_path)
-    file_path.write_text('', encoding='utf-8')
+    if file_path == DEBUG_LOG_PATH:
+        purge_debug_log()
+    elif file_path == CRASH_LOG_PATH:
+        purge_crash_log()
+    else:
+        file_path.write_text('', encoding='utf-8')
     message = f'Purged {file_path.name}.'
     if bak:
         message += f'\nBackup saved to {bak.name}'

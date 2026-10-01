@@ -243,6 +243,15 @@ class SessionsLogTab(QWidget):
         # Initial metadata
         self.update_dir_metadata()
 
+    def start_watching(self) -> None:
+        """Resume watching the currently selected session file."""
+        if self._selected_path is not None and self._selected_path.is_file():
+            self._file_watcher.watch(files=[self._selected_path])
+
+    def stop_watching(self) -> None:
+        """Stop watching session files."""
+        self._file_watcher.stop()
+
     # ------------------------------------------------------------------
     # Directory metadata
     # ------------------------------------------------------------------

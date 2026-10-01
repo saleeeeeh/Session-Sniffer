@@ -450,3 +450,36 @@ def setup_logging(
             CRASH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
             _crash_log_file = CRASH_LOG_PATH.open('a', encoding='utf-8')
             faulthandler.enable(file=_crash_log_file, all_threads=True)
+
+
+def purge_debug_log() -> None:
+    """Safely truncate debug.log while handling the active RotatingFileHandler."""
+    root = logging.getLogger()
+    handler = _find_handler(root, _DEBUG_FILE_HANDLER_NAME)
+    if isinstance(handler, RotatingFileHandler):
+        handler.acquire()
+        try:
+            handler.flush()
+            handler.close()
+            DEBUG_LOG_PATH.write_text('', encoding='utf-8')
+            handler.stream = handler._open()  # noqa: SLF001  # pylint: disable=protected-access
+        finally:
+            handler.release()
+    else:
+        DEBUG_LOG_PATH.write_text('', encoding='utf-8')
+
+
+def purge_crash_log() -> None:
+    """Safely truncate crash.log while handling the active faulthandler file descriptor."""
+    global _crash_log_file  # noqa: PLW0603
+    faulthandler.disable()
+    if _crash_log_file is not None:
+        try:
+            _crash_log_file.flush()
+            _crash_log_file.close()
+        except OSError:
+            pass
+        _crash_log_file = None
+    CRASH_LOG_PATH.write_text('', encoding='utf-8')
+    _crash_log_file = CRASH_LOG_PATH.open('a', encoding='utf-8')
+    faulthandler.enable(file=_crash_log_file, all_threads=True)

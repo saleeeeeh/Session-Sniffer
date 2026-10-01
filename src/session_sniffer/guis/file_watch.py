@@ -36,6 +36,7 @@ class DebouncedFileWatcher(QObject):
 
     def watch(self, *, files: Iterable[Path] = (), directories: Iterable[Path] = ()) -> None:
         """Replace the set of watched *files* and *directories* and arm the watcher."""
+        self.stop()
         self._files = [str(file) for file in files]
         self._directories = [str(directory) for directory in directories]
         self._rearm()
@@ -48,13 +49,14 @@ class DebouncedFileWatcher(QObject):
             self._watcher.removePaths(watched)
 
     def _rearm(self) -> None:
-        """Re-establish the watched paths, dropping any that no longer exist."""
-        watched = [*self._watcher.files(), *self._watcher.directories()]
-        if watched:
-            self._watcher.removePaths(watched)
-        paths = [path for path in (*self._directories, *self._files) if Path(path).exists()]
-        if paths:
-            self._watcher.addPaths(paths)
+        """Re-establish watched paths, only adding paths that are missing and exist."""
+        watched_files = set(self._watcher.files())
+        watched_dirs = set(self._watcher.directories())
+        paths_to_add = [path_str for path_str in self._files if path_str not in watched_files and Path(path_str).exists()]
+        paths_to_add.extend(dir_str for dir_str in self._directories if dir_str not in watched_dirs and Path(dir_str).exists())
+
+        if paths_to_add:
+            self._watcher.addPaths(paths_to_add)
 
     def _schedule(self, _path: str) -> None:
         """Coalesce a filesystem notification into the pending debounce window."""

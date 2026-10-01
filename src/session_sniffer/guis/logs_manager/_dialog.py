@@ -29,12 +29,13 @@ from session_sniffer.guis.logs_manager._sessions_tab import SessionsLogTab
 from session_sniffer.guis.logs_manager._text_tab import TextLogTab
 from session_sniffer.guis.stylesheets import DIALOG_BUTTON_STYLESHEET, DIALOG_DANGER_BUTTON_STYLESHEET
 from session_sniffer.guis.utils import resize_window_for_screen, scale_by_ui, set_dialog_window_flags
+from session_sniffer.logging_setup import purge_crash_log, purge_debug_log
 from session_sniffer.rendering_core.renderer import SESSIONS_LOGGING_PATH
 from session_sniffer.settings import Settings
 from session_sniffer.utils import cleanup_session_logs
 
 if TYPE_CHECKING:
-    from PySide6.QtGui import QShowEvent
+    from PySide6.QtGui import QCloseEvent, QHideEvent, QShowEvent
 
 
 class LogsManager(QDialog):
@@ -188,7 +189,12 @@ class LogsManager(QDialog):
             if not path.exists():
                 continue
             backup_file(path)
-            path.write_text('', encoding='utf-8')
+            if path == DEBUG_LOG_PATH:
+                purge_debug_log()
+            elif path == CRASH_LOG_PATH:
+                purge_crash_log()
+            else:
+                path.write_text('', encoding='utf-8')
             purged.append(path.name)
 
         self._userip_tab.load_data()
@@ -209,8 +215,39 @@ class LogsManager(QDialog):
 
     @override
     def showEvent(self, a0: QShowEvent) -> None:
-        """Handle the window show event and maximize if required."""
+        """Handle the window show event, maximize if required, and resume file watching."""
         super().showEvent(a0)
         if self.property('_should_maximize_on_show') is True:
             self.setProperty('_should_maximize_on_show', False)  # noqa: FBT003
             self.showMaximized()
+        self._start_all_watchers()
+
+    @override
+    def hideEvent(self, a0: QHideEvent) -> None:
+        """Stop all background filesystem watchers when the dialog is hidden or closed."""
+        self._stop_all_watchers()
+        super().hideEvent(a0)
+
+    @override
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Stop all background filesystem watchers when the dialog is closed."""
+        self._stop_all_watchers()
+        super().closeEvent(event)
+
+    def _start_all_watchers(self) -> None:
+        """Start filesystem watchers for all tabs."""
+        self._userip_tab.start_watching()
+        self._detection_tab.start_watching()
+        self._protection_tab.start_watching()
+        self._sessions_tab.start_watching()
+        self._debug_tab.start_watching()
+        self._crash_tab.start_watching()
+
+    def _stop_all_watchers(self) -> None:
+        """Stop filesystem watchers for all tabs."""
+        self._userip_tab.stop_watching()
+        self._detection_tab.stop_watching()
+        self._protection_tab.stop_watching()
+        self._sessions_tab.stop_watching()
+        self._debug_tab.stop_watching()
+        self._crash_tab.stop_watching()

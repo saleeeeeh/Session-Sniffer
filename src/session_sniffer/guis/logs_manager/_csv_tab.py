@@ -241,10 +241,17 @@ class CsvLogTab(QWidget):
 
         # --- Auto-refresh from disk ---
         self._watcher = DebouncedFileWatcher(self, self.load_data)
-        self._watcher.watch(files=[self._file_path], directories=[self._file_path.parent])
 
         # Initial load
         self.load_data()
+
+    def start_watching(self) -> None:
+        """Start auto-refresh watcher from disk."""
+        self._watcher.watch(files=[self._file_path], directories=[self._file_path.parent])
+
+    def stop_watching(self) -> None:
+        """Stop auto-refresh watcher from disk."""
+        self._watcher.stop()
 
     # ------------------------------------------------------------------
     # Data loading
