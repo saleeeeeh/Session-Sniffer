@@ -4,12 +4,14 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import TypeAdapter, ValidationError
 
 from session_sniffer.models.combo_rules import EVENT_CONDITION, ComboRule, ConditionValue
 from session_sniffer.models.player import Player
+from session_sniffer.networking.ip_range import IPRange, check_ip_against_ranges, parse_ip_range_entry
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -118,6 +120,23 @@ def _match_hosting_condition(value: ConditionValue, player: Player) -> bool:
     return isinstance(value, bool) and isinstance(player.iplookup.ipapi.hosting, bool) and player.iplookup.ipapi.hosting == value
 
 
+@lru_cache(maxsize=256)
+def _parse_ip_ranges_cached(raw_range: str) -> tuple[IPRange, ...]:
+    """Parse comma-separated IP ranges with caching."""
+    return tuple(parse_ip_range_entry(raw_range))
+
+
+def _match_ip_range_condition(value: ConditionValue, player: Player) -> bool:
+    """Match player IP address against IP range condition."""
+    if not isinstance(value, str):
+        return False
+    try:
+        ranges = _parse_ip_ranges_cached(value)
+    except ValueError:
+        return False
+    return check_ip_against_ranges(player.ip, ranges) is not None
+
+
 _CONDITION_MATCHERS: dict[str, ConditionMatcher] = {
     'country': _match_country_condition,
     'city': _match_city_condition,
@@ -126,6 +145,7 @@ _CONDITION_MATCHERS: dict[str, ConditionMatcher] = {
     'isp': _match_isp_condition_wrapper,
     'asn': _match_asn_condition_wrapper,
     'as_name': _match_as_name_condition_wrapper,
+    'ip_range': _match_ip_range_condition,
     'mobile': _match_mobile_condition,
     'vpn': _match_vpn_condition,
     'hosting': _match_hosting_condition,
@@ -181,7 +201,7 @@ class ComboRulesManager:
         try:
             content = file_path.read_text(encoding='utf-8')
             cls.rules = TypeAdapter(list[ComboRule]).validate_json(content)
-        except (ValidationError, json.JSONDecodeError, OSError):
+        except ValidationError, json.JSONDecodeError, OSError:
             logger.exception('Failed to load combo rules from %s, starting with empty rules', file_path)
             cls.rules = []
 

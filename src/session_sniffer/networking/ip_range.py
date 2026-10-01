@@ -2,6 +2,10 @@
 
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 _IPV4_OCTET_COUNT = 4
 _IPV4_MAX_OCTET = 255
@@ -130,7 +134,7 @@ def parse_ip_range_entry(entry: str) -> list[IPRange]:
     return results
 
 
-def check_ip_against_ranges(ip: str, ranges: list[IPRange]) -> IPRange | None:
+def check_ip_against_ranges(ip: str, ranges: Sequence[IPRange]) -> IPRange | None:
     """Check if an IP address matches any of the given ranges.
 
     Returns:

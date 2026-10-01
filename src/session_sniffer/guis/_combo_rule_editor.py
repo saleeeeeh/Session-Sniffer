@@ -28,6 +28,7 @@ from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import MAX_SUSPEND_DURATION_SECONDS
 from session_sniffer.guis.country_data import COUNTRY_NAMES
 from session_sniffer.guis.stylesheets import COUNTRY_SELECTOR_COMBO_STYLESHEET, GROUPBOX_STYLE, HINT_LABEL_STYLESHEET
+from session_sniffer.guis.userip_manager_helpers import IPRangeBuilderDialog
 from session_sniffer.guis.utils import (
     SUSPEND_TOOLTIP_AUTO,
     SUSPEND_TOOLTIP_DISABLED,
@@ -36,6 +37,7 @@ from session_sniffer.guis.utils import (
     load_country_flag_icon,
 )
 from session_sniffer.models.combo_rules import ComboRule
+from session_sniffer.networking.ip_range import is_valid_ip_range_entry
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
 
@@ -168,6 +170,7 @@ class ComboRuleEditorDialog(QDialog):
         'ISP': 'isp',
         'ASN': 'asn',
         'AS Name': 'as_name',
+        'IP Range': 'ip_range',
         'Mobile Connection': 'mobile',
         'VPN / Proxy': 'vpn',
         'Hosting / Datacenter': 'hosting',
@@ -333,6 +336,15 @@ class ComboRuleEditorDialog(QDialog):
                 )
                 return
 
+            ip_range_val = conditions.get('ip_range')
+            if ip_range_val is not None and (not isinstance(ip_range_val, str) or not is_valid_ip_range_entry(ip_range_val)):
+                QMessageBox.warning(
+                    self,
+                    'Validation Error',
+                    'Please enter a valid IP range before adding a new condition.',
+                )
+                return
+
         row_layout = QHBoxLayout()
         type_combo = QComboBox()
         type_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -412,6 +424,32 @@ class ComboRuleEditorDialog(QDialog):
                 completer.setFilterMode(Qt.MatchFlag.MatchContains)
                 country_combo.setCompleter(completer)
                 value_layout.addWidget(country_combo)
+            elif key == 'ip_range':
+                ip_widget = QWidget()
+                ip_layout = QHBoxLayout(ip_widget)
+                ip_layout.setContentsMargins(0, 0, 0, 0)
+                ip_layout.setSpacing(6)
+
+                ip_edit = QLineEdit()
+                ip_edit.setPlaceholderText('e.g. 192.168.1.0/24, 10.0.0.1-10.0.0.50, 1.2.3.*')
+                ip_layout.addWidget(ip_edit, stretch=1)
+
+                builder_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'edit.svg')), '')
+                builder_button.setToolTip('Open IP Range Builder')
+                builder_button.setMaximumWidth(40)
+                builder_button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+                def open_builder() -> None:
+                    dialog = IPRangeBuilderDialog(self, initial_entry=ip_edit.text().strip() or None)
+                    if dialog.exec() == QDialog.DialogCode.Accepted:
+                        entry = dialog.result_entry()
+                        if entry:
+                            ip_edit.setText(entry)
+
+                builder_button.clicked.connect(open_builder)
+                ip_layout.addWidget(builder_button)
+
+                value_layout.addWidget(ip_widget)
             else:
                 new_edit = QLineEdit()
                 new_edit.setPlaceholderText(f'Enter {label.lower()} value...')
@@ -482,6 +520,17 @@ class ComboRuleEditorDialog(QDialog):
         conditions = self._read_conditions()
         if not conditions:
             QMessageBox.warning(self, 'Validation Error', 'At least one condition is required.')
+            return
+
+        ip_range_val = conditions.get('ip_range')
+        if ip_range_val is not None and (not isinstance(ip_range_val, str) or not is_valid_ip_range_entry(ip_range_val)):
+            QMessageBox.warning(
+                self,
+                'Validation Error',
+                f'Invalid IP Range: {ip_range_val}\n\n'
+                'Please enter a valid IP address, CIDR subnet (e.g. 192.168.1.0/24), '
+                'range (e.g. 192.168.1.1-192.168.1.100), or wildcard (e.g. 192.168.1.*).',
+            )
             return
 
         # Require at least one IP condition if event condition is present

@@ -4,10 +4,11 @@ from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
+from session_sniffer.networking.ip_range import is_valid_ip_range_entry
 from session_sniffer.text_utils import format_suspend_duration_setting, parse_suspend_duration_setting, parse_voice_notifications
 
 # Condition keys that accept a free-text string value
-_STRING_CONDITIONS: frozenset[str] = frozenset({'country', 'city', 'region', 'org', 'isp', 'asn', 'as_name'})
+_STRING_CONDITIONS: frozenset[str] = frozenset({'country', 'city', 'region', 'org', 'isp', 'asn', 'as_name', 'ip_range'})
 # Condition keys that are boolean flags
 _BOOL_CONDITIONS: frozenset[str] = frozenset({'mobile', 'vpn', 'hosting'})
 # The special event condition
@@ -45,7 +46,11 @@ class ComboRule(BaseModel):
         for key, raw_val in cast('dict[str, object]', value).items():
             if key in _STRING_CONDITIONS:
                 if isinstance(raw_val, str) and raw_val.strip():
-                    conditions[key] = raw_val.strip()
+                    if key == 'ip_range':
+                        if is_valid_ip_range_entry(raw_val.strip()):
+                            conditions[key] = raw_val.strip()
+                    else:
+                        conditions[key] = raw_val.strip()
             elif key in _BOOL_CONDITIONS:
                 if isinstance(raw_val, bool):
                     conditions[key] = raw_val
