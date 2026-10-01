@@ -83,7 +83,7 @@ _pinger_wakeup_event = Event()
 _looky_wakeup_event = Event()
 
 
-def _wait_iplookup_event(timeout: float) -> bool:
+def _wait_iplookup_event(timeout: float, *, ignore_wake: bool = False) -> bool:
     """Wait for _iplookup_wakeup_event or gui_closed__event up to timeout seconds.
 
     Returns:
@@ -94,9 +94,11 @@ def _wait_iplookup_event(timeout: float) -> bool:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return False
-        if _iplookup_wakeup_event.wait(min(remaining, 0.5)):
+        if not ignore_wake and _iplookup_wakeup_event.wait(min(remaining, 0.5)):
             _iplookup_wakeup_event.clear()
             return True
+        if ignore_wake and gui_closed__event.wait(min(remaining, 0.5)):
+            return False
     return False
 
 
@@ -177,7 +179,7 @@ def iplookup_core() -> None:
             # consecutive failures surface a one-time warning, then probe every 60s so the lookup can
             # recover automatically if the network issue (e.g. a VPN) is resolved later.
             if unavailability_warning_shown:
-                _wait_iplookup_event(60)
+                _wait_iplookup_event(60, ignore_wake=True)
                 continue
             consecutive_failures += 1
             if consecutive_failures >= _IPAPI_MAX_CONSECUTIVE_FAILURES:
@@ -185,7 +187,7 @@ def iplookup_core() -> None:
                 _notify_ipapi_unavailable(
                     f'Could not reach ip-api.com after {consecutive_failures} consecutive attempts (a VPN, proxy, or firewall may be blocking the connection).',
                 )
-                _wait_iplookup_event(60)
+                _wait_iplookup_event(60, ignore_wake=True)
             else:
                 _wait_iplookup_event(1)
             continue
@@ -203,7 +205,7 @@ def iplookup_core() -> None:
                         _notify_ipapi_unavailable(
                             'Requests to ip-api.com are being redirected to HTTPS (commonly caused by a VPN or proxy), which the free ip-api.com service does not support.',
                         )
-                    _wait_iplookup_event(60)
+                    _wait_iplookup_event(60, ignore_wake=True)
                     continue
 
                 # Handle rate limiting.
