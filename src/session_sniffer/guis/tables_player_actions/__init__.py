@@ -30,6 +30,10 @@ from session_sniffer.guis.tables_player_actions._ip_lookup_dialog import (
     StandaloneIPLookup,
     show_detailed_ip_lookup,
 )
+from session_sniffer.guis.tables_player_actions._player_joins_dialog import (
+    PlayerJoinsWindow,
+    show_player_joins,
+)
 from session_sniffer.guis.tables_player_actions._seen_stats_dialog import (
     SeenStatsDialog,
     show_seen_stats,
@@ -61,6 +65,7 @@ __all__ = [
     'NotificationType',
     'PlayerDetectionDialog',
     'PlayerDetectionInfo',
+    'PlayerJoinsWindow',
     'SeenStatsDialog',
     'StandaloneIPLookup',
     'UserIPDetectedDialog',
@@ -81,6 +86,7 @@ __all__ = [
     'show_detection_notification_dialog',
     'show_looky_lookup',
     'show_player_detection_dialog',
+    'show_player_joins',
     'show_seen_stats',
     'show_userip_detected_dialog',
     'tcp_port_ping',

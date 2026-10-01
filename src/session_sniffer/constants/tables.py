@@ -210,6 +210,27 @@ SESSION_TIMELINE_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
     'Rejoins': 96,
 }
 
+PLAYER_JOINS_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
+    '#': 45,
+    'Status': 89,
+    'Rejoin Time': 120,
+    'Last Seen': 120,
+    'Session Time': 110,
+    'First Port': 80,
+    'Middle Ports': 110,
+    'Last Port': 80,
+    'Ports': 90,
+    'Packets': 75,
+    'Packets Received': 115,
+    'Packets Sent': 95,
+    'Min Packet Length': 120,
+    'Avg Packet Length': 120,
+    'Max Packet Length': 120,
+    'Bandwidth': 90,
+    'Download': 90,
+    'Upload': 85,
+}
+
 COUNTRY_BREAKDOWN_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
     'Country': 102,
     'Players': 95,

@@ -542,6 +542,63 @@ class PlayerDateTime:
         )
 
 
+@dataclass(kw_only=True, slots=True)
+class PlayerJoin:
+    """Track information for a single join or rejoin session of a player.
+
+    Attributes:
+        join_index: The 1-based sequential index of this join (1 for initial, 2+ for rejoins).
+        rejoin_number: Number of prior rejoins (0 for initial join, 1 for first rejoin, etc.).
+        joined_at: Timestamp when this join session started.
+        last_seen: Timestamp when the player was last seen during this join session.
+        ports: Observed ports for this join session only.
+        packets: Packet tracking counters for this join session only.
+        bandwidth: Bandwidth tracking counters for this join session only.
+        session_time: Finalized session duration once the join has ended.
+        is_active: Whether this join session is currently ongoing.
+    """
+
+    join_index: int
+    rejoin_number: int
+    joined_at: datetime_type
+    last_seen: datetime_type
+    ports: PlayerPorts
+    packets: PlayerPackets
+    bandwidth: PlayerBandwidth
+    session_time: timedelta_type | None = None
+    is_active: bool = True
+
+    def get_session_time(self) -> timedelta_type:
+        """Return the session duration for this join."""
+        if self.session_time is not None:
+            return self.session_time
+        return max(self.last_seen, self.joined_at) - self.joined_at
+
+    def mark_as_seen(self, *, port: int, packet_datetime: datetime_type, packet_length: int, sent_by_local_host: bool) -> None:
+        """Update join state from an observed packet."""
+        self.last_seen = max(self.last_seen, packet_datetime)
+        self.packets.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
+        self.bandwidth.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
+
+        if port != self.ports.last:
+            if port not in self.ports.all:
+                self.ports.all.append(port)
+
+            if port in self.ports.middle:
+                self.ports.middle.remove(port)
+
+            if self.ports.last not in self.ports.middle and self.ports.last != self.ports.first:
+                self.ports.middle.append(self.ports.last)
+
+            self.ports.last = port
+
+    def mark_as_left(self) -> None:
+        """Finalize this join when the player leaves."""
+        self.is_active = False
+        self.last_seen = max(self.last_seen, self.joined_at)
+        self.session_time = self.last_seen - self.joined_at
+
+
 class PacketInfo(NamedTuple):
     """Bundle the fields from a single observed packet."""
 

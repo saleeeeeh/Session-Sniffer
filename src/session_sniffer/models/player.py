@@ -20,6 +20,7 @@ from session_sniffer.models.player_traffic import (
     PacketInfo,
     PlayerBandwidth,
     PlayerDateTime,
+    PlayerJoin,
     PlayerPackets,
     PlayerPorts,
 )
@@ -40,6 +41,7 @@ __all__ = [
     'PlayerGeoLite2',
     'PlayerIPAPI',
     'PlayerIPLookup',
+    'PlayerJoin',
     'PlayerLooky',
     'PlayerModMenus',
     'PlayerPackets',
@@ -72,12 +74,13 @@ class _PlayerLifecycleState:
 
 @dataclass(slots=True)
 class _PlayerTrafficState:
-    """Packet, bandwidth, ports, and datetime tracking state for a player."""
+    """Packet, bandwidth, ports, datetime, and joins tracking state for a player."""
 
     datetime: PlayerDateTime
     packets: PlayerPackets
     bandwidth: PlayerBandwidth
     ports: PlayerPorts
+    joins: list[PlayerJoin]
 
 
 @dataclass(slots=True)
@@ -113,11 +116,22 @@ class Player:  # pylint: disable=too-many-public-methods
         """
         self._ip = ip
         self._lifecycle = _PlayerLifecycleState()
+        initial_join = PlayerJoin(
+            join_index=1,
+            rejoin_number=0,
+            joined_at=packet.datetime,
+            last_seen=packet.datetime,
+            ports=PlayerPorts.from_packet_port(packet.port),
+            packets=PlayerPackets.from_packet_direction(packet_length=packet.length, sent_by_local_host=packet.sent_by_local_host),
+            bandwidth=PlayerBandwidth.from_packet_direction(packet_length=packet.length, sent_by_local_host=packet.sent_by_local_host),
+            is_active=True,
+        )
         self._traffic = _PlayerTrafficState(
             datetime=PlayerDateTime.from_packet_datetime(packet.datetime),
             packets=PlayerPackets.from_packet_direction(packet_length=packet.length, sent_by_local_host=packet.sent_by_local_host),
             bandwidth=PlayerBandwidth.from_packet_direction(packet_length=packet.length, sent_by_local_host=packet.sent_by_local_host),
             ports=PlayerPorts.from_packet_port(packet.port),
+            joins=[initial_join],
         )
         self._lookup = _PlayerLookupState()
         self._optional = _PlayerOptionalState()
@@ -323,6 +337,11 @@ class Player:  # pylint: disable=too-many-public-methods
         """Set the player's rejoin count."""
         self._lifecycle.rejoins = value
 
+    @property
+    def joins(self) -> list[PlayerJoin]:
+        """All observed join/rejoin sessions for this player."""
+        return self._traffic.joins
+
     def mark_as_seen(self, *, port: int, packet_datetime: datetime_type, packet_length: int, sent_by_local_host: bool) -> None:
         """Update per-player state from an observed packet."""
         self._traffic.datetime.last_seen = max(self._traffic.datetime.last_seen, packet_datetime)
@@ -341,6 +360,14 @@ class Player:  # pylint: disable=too-many-public-methods
 
             self._traffic.ports.last = port
 
+        if self._traffic.joins:
+            self._traffic.joins[-1].mark_as_seen(
+                port=port,
+                packet_datetime=packet_datetime,
+                packet_length=packet_length,
+                sent_by_local_host=sent_by_local_host,
+            )
+
     def mark_as_rejoined(self, *, packet_datetime: datetime_type, packet_length: int, port: int, sent_by_local_host: bool) -> None:
         """Handle a player rejoin by resetting current-session counters."""
         self.left_event.clear()
@@ -357,6 +384,21 @@ class Player:  # pylint: disable=too-many-public-methods
         if Settings.gui_reset_ports_on_rejoins:
             self.ports.reset(port)
 
+        if self._traffic.joins and self._traffic.joins[-1].is_active:
+            self._traffic.joins[-1].mark_as_left()
+
+        new_join = PlayerJoin(
+            join_index=len(self._traffic.joins) + 1,
+            rejoin_number=self.rejoins,
+            joined_at=packet_datetime,
+            last_seen=packet_datetime,
+            ports=PlayerPorts.from_packet_port(port),
+            packets=PlayerPackets.from_packet_direction(packet_length=packet_length, sent_by_local_host=sent_by_local_host),
+            bandwidth=PlayerBandwidth.from_packet_direction(packet_length=packet_length, sent_by_local_host=sent_by_local_host),
+            is_active=True,
+        )
+        self._traffic.joins.append(new_join)
+
     def mark_as_left(self) -> None:
         """Mark the player as disconnected and move it to the disconnected registry."""
         self.left_event.set()
@@ -366,5 +408,8 @@ class Player:  # pylint: disable=too-many-public-methods
         self.packets.ppm.reset()
         self.bandwidth.bps.reset()
         self.bandwidth.bpm.reset()
+
+        if self._traffic.joins:
+            self._traffic.joins[-1].mark_as_left()
 
         PlayersRegistry.move_player_to_disconnected(self)

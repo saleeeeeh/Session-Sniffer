@@ -29,6 +29,7 @@ from session_sniffer.guis.tables_player_actions import (
     show_crawler_request,
     show_detailed_ip_lookup,
     show_looky_lookup,
+    show_player_joins,
     show_seen_stats,
     tcp_port_ping,
     udp_port_ping,
@@ -507,6 +508,32 @@ class TableContextMenuMixin(QTableView):
                     handler=lambda: _unblacklist_handler(blacklisted_ip_addresses),
                     icon=icon,
                 )
+
+        def add_player_joins_action(players: list[Player]) -> None:
+            if not players:
+                return
+
+            if len(players) == 1:
+                add_action(
+                    context_menu,
+                    'Player Joins',
+                    tooltip='Shows session join and rejoin history for this player.',
+                    handler=lambda: show_player_joins(self, players[0]),
+                    icon=QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'history.svg')),
+                )
+                return
+
+            def _show_all_player_joins() -> None:
+                for player in players:
+                    show_player_joins(self, player)
+
+            add_action(
+                context_menu,
+                'Player Joins',
+                tooltip=f'Shows session join and rejoin history for {len(players)} selected player{pluralize(len(players))}.',
+                handler=_show_all_player_joins,
+                icon=QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'history.svg')),
+            )
 
         def add_seen_stats_action(players: list[Player]) -> None:
             if not players:
@@ -1095,6 +1122,7 @@ class TableContextMenuMixin(QTableView):
             add_ip_lookup_action(players)
             add_rate_graph_action(ip_addresses)
             add_high_rate_blacklist_action(ip_addresses)
+            add_player_joins_action(players)
             add_seen_stats_action(players)
             context_menu.addSeparator()
             add_looky_system_menu(context_menu, players)
