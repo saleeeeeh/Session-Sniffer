@@ -132,13 +132,15 @@ class PlayerJoinsWindow(StatTableWindowMixin):
                 header_item.setToolTip(_HEADER_TOOLTIPS[header_text])
 
         setup_stat_table(self._table, layout, sorting=True)
-        self.setup_stat_table_controls(layout, always_on_top=always_on_top, min_column_widths=PLAYER_JOINS_TABLE_MIN_COLUMN_WIDTHS)
 
         bottom_layout = QHBoxLayout()
+        self.setup_stat_table_controls(bottom_layout, always_on_top=always_on_top, min_column_widths=PLAYER_JOINS_TABLE_MIN_COLUMN_WIDTHS)
+        bottom_layout.addStretch(1)
+
         self._count_label = QLabel()
         self._count_label.setStyleSheet('color: #a0aec0; font-size: 9pt;')
         bottom_layout.addWidget(self._count_label)
-        bottom_layout.addStretch(1)
+        bottom_layout.addSpacing(12)
 
         close_button = QPushButton('Close')
         close_button.setToolTip('Close this window.')

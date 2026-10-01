@@ -338,7 +338,8 @@ class ToggleAlwaysOnTopMixin(QWidget):
         margins: tuple[int, int, int, int] = (8, 8, 8, 8),
         spacing: int = 4,
     ) -> QVBoxLayout:
-        """Set always-on-top flag, WA_DeleteOnClose, and return a configured QVBoxLayout."""
+        """Set window flags, WA_DeleteOnClose, and return a configured QVBoxLayout."""
+        self.setWindowFlag(Qt.WindowType.Window)
         if always_on_top:
             self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
