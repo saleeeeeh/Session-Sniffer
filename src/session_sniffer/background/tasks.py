@@ -70,6 +70,21 @@ def _on_pool_task_done(future: Future[None]) -> None:
 _detection_logging_file_write_lock = Lock()
 _protection_logging_file_write_lock = Lock()
 _userip_logging_file_write_lock = Lock()
+
+
+def _log_to_protection_csv(detection: str, usernames: str, ip: str, country: str) -> None:
+    """Append a protection event entry to Protection_Logging.csv."""
+    with _protection_logging_file_write_lock:
+        now = datetime.now(tz=LOCAL_TZ)
+        PROTECTION_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
+        write_csv_header = not PROTECTION_LOGGING_PATH.exists() or not PROTECTION_LOGGING_PATH.stat().st_size
+        with PROTECTION_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            if write_csv_header:
+                writer.writerow(['Detection', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
+            writer.writerow([detection, usernames, ip, now.strftime('%Y-%m-%d'), now.strftime('%H:%M:%S'), country])
+
+
 _active_userip_tasks: set[tuple[str, Literal['connected', 'disconnected']]] = set()
 _active_userip_tasks_lock = Lock()
 _VOICE_QUEUE_MAXSIZE = 10
@@ -463,24 +478,12 @@ def handle_detection_notification(
 
                 # Logging
                 if rule.logging:
-                    with _protection_logging_file_write_lock:
-                        now = datetime.now(tz=LOCAL_TZ)
-                        PROTECTION_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
-                        write_header = not PROTECTION_LOGGING_PATH.exists() or not PROTECTION_LOGGING_PATH.stat().st_size
-                        with PROTECTION_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
-                            writer = csv.writer(file)
-                            if write_header:
-                                writer.writerow(['Detection', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
-                            writer.writerow(
-                                [
-                                    f'COMBO RULE MATCHED: {rule.name}',
-                                    ', '.join(player.usernames),
-                                    player.ip,
-                                    now.strftime('%Y-%m-%d'),
-                                    now.strftime('%H:%M:%S'),
-                                    player.iplookup.geolite2.country,
-                                ],
-                            )
+                    _log_to_protection_csv(
+                        f'COMBO RULE MATCHED: {rule.name}',
+                        ', '.join(player.usernames),
+                        player.ip,
+                        player.iplookup.geolite2.country,
+                    )
 
                 # Message box
                 if rule.message_box and player.userip is None:
@@ -530,7 +533,13 @@ def process_userip_task(
     try:
         # We want to run this as fast as possible so it's on top of the function.
         # Protection actions are skipped when protection is not supported.
-        if connection_type == 'connected' and userip.settings.protection.enabled and Settings.is_gta5_feature_set() and CaptureState.is_local_capture():
+        protection_triggered = (
+            connection_type == 'connected'
+            and userip.settings.protection.enabled
+            and Settings.is_gta5_feature_set()
+            and CaptureState.is_local_capture()
+        )
+        if protection_triggered:
             GTASuspendManager.request_suspend(
                 reason_key=f'userip:{player.ip}',
                 left_event=player.left_event,
@@ -554,29 +563,39 @@ def process_userip_task(
 
                 gui_dispatcher.invoke(_show_userip_dialog)
 
-            if userip.settings.log:
+            if protection_triggered or userip.settings.log:
                 wait_for_player_data_ready(player, data_fields=('userip.usernames', 'iplookup.geolite2'), timeout=10.0)
 
                 relative_database_path = userip.db_path.relative_to(USERIP_DATABASES_DIR_PATH).with_suffix('')
+                date_part, time_part = player.userip_detection.date_time.split('_', maxsplit=1)
+                usernames_display = ', '.join(player.usernames) or ', '.join(userip.usernames)
 
-                with _userip_logging_file_write_lock:
-                    USERIP_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    write_csv_header = not USERIP_LOGGING_PATH.exists() or not USERIP_LOGGING_PATH.stat().st_size
-                    with USERIP_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
-                        writer = csv.writer(file)
-                        if write_csv_header:
-                            writer.writerow(['Database', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
-                        date_part, time_part = player.userip_detection.date_time.split('_', maxsplit=1)
-                        writer.writerow(
-                            [
-                                str(relative_database_path),
-                                ', '.join(userip.usernames),
-                                player.ip,
-                                date_part,
-                                time_part,
-                                player.iplookup.geolite2.country,
-                            ],
-                        )
+                if protection_triggered:
+                    _log_to_protection_csv(
+                        f'USERIP PROTECTION: {relative_database_path}',
+                        usernames_display,
+                        player.ip,
+                        player.iplookup.geolite2.country,
+                    )
+
+                if userip.settings.log:
+                    with _userip_logging_file_write_lock:
+                        USERIP_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
+                        write_csv_header = not USERIP_LOGGING_PATH.exists() or not USERIP_LOGGING_PATH.stat().st_size
+                        with USERIP_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
+                            writer = csv.writer(file)
+                            if write_csv_header:
+                                writer.writerow(['Database', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
+                            writer.writerow(
+                                [
+                                    str(relative_database_path),
+                                    ', '.join(userip.usernames),
+                                    player.ip,
+                                    date_part,
+                                    time_part,
+                                    player.iplookup.geolite2.country,
+                                ],
+                            )
     finally:
         with _active_userip_tasks_lock:
             _active_userip_tasks.discard(task_key)
@@ -650,24 +669,12 @@ def monitor_gta5_relay_task(player: Player) -> None:
         _voice_notification_queue.put(str(tts_candidate_path))
 
     if GUIDetectionSettings.gta5_relay_logging:
-        with _protection_logging_file_write_lock:
-            now = datetime.now(tz=LOCAL_TZ)
-            PROTECTION_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
-            write_csv_header = not PROTECTION_LOGGING_PATH.exists() or not PROTECTION_LOGGING_PATH.stat().st_size
-            with PROTECTION_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                if write_csv_header:
-                    writer.writerow(['Detection', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
-                writer.writerow(
-                    [
-                        'GTA5 RELAY DETECTED!',
-                        ', '.join(player.usernames),
-                        player.ip,
-                        now.strftime('%Y-%m-%d'),
-                        now.strftime('%H:%M:%S'),
-                        player.iplookup.geolite2.country,
-                    ],
-                )
+        _log_to_protection_csv(
+            'GTA5 RELAY DETECTED!',
+            ', '.join(player.usernames),
+            player.ip,
+            player.iplookup.geolite2.country,
+        )
 
     if GUIDetectionSettings.gta5_relay_message_box:
         _et = datetime.now(tz=LOCAL_TZ).strftime('%H:%M:%S')
@@ -721,24 +728,12 @@ def check_global_detections(player: Player) -> None:
             _voice_notification_queue.put(str(tts_candidate_path))
 
         if settings.log:
-            with _protection_logging_file_write_lock:
-                now = datetime.now(tz=LOCAL_TZ)
-                PROTECTION_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
-                write_csv_header = not PROTECTION_LOGGING_PATH.exists() or not PROTECTION_LOGGING_PATH.stat().st_size
-                with PROTECTION_LOGGING_PATH.open('a', newline='', encoding='utf-8') as file:
-                    writer = csv.writer(file)
-                    if write_csv_header:
-                        writer.writerow(['Detection', 'Usernames', 'IP', 'Date', 'Time', 'Country'])
-                    writer.writerow(
-                        [
-                            detection_title,
-                            ', '.join(player.usernames),
-                            player.ip,
-                            now.strftime('%Y-%m-%d'),
-                            now.strftime('%H:%M:%S'),
-                            player.iplookup.geolite2.country,
-                        ],
-                    )
+            _log_to_protection_csv(
+                detection_title,
+                ', '.join(player.usernames),
+                player.ip,
+                player.iplookup.geolite2.country,
+            )
 
         if settings.msgbox and player.userip is None:
             _event_time = datetime.now(tz=LOCAL_TZ).strftime('%H:%M:%S')
