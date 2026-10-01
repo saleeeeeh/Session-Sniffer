@@ -29,6 +29,8 @@ def format_player_column_value(player: Player, column_name: str, now: datetime) 
         'Last Seen': lambda: f'{format_elapsed_time(now - player.datetime.last_seen)} ago',
         'T. Session Time': lambda: format_elapsed_time(player.datetime.get_total_session_time()),
         'Session Time': lambda: format_elapsed_time(player.datetime.get_session_time()),
+        'Biggest Session Time': lambda: format_elapsed_time(player.datetime.get_biggest_session_time()),
+        'Lowest Session Time': lambda: format_elapsed_time(player.datetime.get_lowest_session_time()),
         'Rejoins': lambda: str(player.rejoins),
         'T. Packets': lambda: str(player.packets.total_exchanged),
         'Packets': lambda: str(player.packets.exchanged),

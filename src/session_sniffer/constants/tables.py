@@ -33,7 +33,7 @@ BANDWIDTH_STAT_COLUMNS: tuple[str, ...] = tuple(BANDWIDTH_BASE_COLUMN_ATTRS)
 CONNECTED_RATE_STAT_COLUMNS: tuple[str, ...] = (*PACKET_STAT_COLUMNS, 'PPS', 'PPM', *BANDWIDTH_STAT_COLUMNS, 'BPS', 'BPM')
 
 # Elapsed time + rejoin-count columns present in every all-columns list.
-SESSION_TRACKING_COLUMNS: tuple[str, ...] = ('T. Session Time', 'Session Time', 'Rejoins')
+SESSION_TRACKING_COLUMNS: tuple[str, ...] = ('T. Session Time', 'Session Time', 'Biggest Session Time', 'Lowest Session Time', 'Rejoins')
 
 # Timestamp columns that appear in both connected and disconnected rows.
 DATETIME_TRACKING_COLUMNS: tuple[str, ...] = ('First Seen', 'Last Rejoin', 'Last Seen')
@@ -90,6 +90,8 @@ SESSION_TABLE_MIN_COLUMN_WIDTHS: dict[str, int] = {
     'Last Seen': 109,
     'T. Session Time': 147,
     'Session Time': 132,
+    'Biggest Session Time': 175,
+    'Lowest Session Time': 165,
     'IP Address': 135,
     'Hostname': 140,
     'Middle Ports': 130,

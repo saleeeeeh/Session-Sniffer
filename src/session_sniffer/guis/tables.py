@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 # Category groupings for the Choose Columns submenu.
 # First match wins; columns not matched fall under 'Other'.
 _COLUMN_CATEGORY_GROUPS: tuple[tuple[str, frozenset[str]], ...] = (
-    ('Session', frozenset({'T. Session Time', 'Session Time'})),
+    ('Session', frozenset({'T. Session Time', 'Session Time', 'Biggest Session Time', 'Lowest Session Time'})),
     (
         'Packets',
         frozenset(

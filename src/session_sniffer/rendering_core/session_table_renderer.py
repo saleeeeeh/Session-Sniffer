@@ -194,6 +194,10 @@ def build_session_table_snapshot(
             connected_row_texts.append(format_elapsed_time(player.datetime.get_total_session_time()))
         if 'Session Time' in context.connected_shown_columns:
             connected_row_texts.append(format_elapsed_time(player.datetime.get_session_time()))
+        if 'Biggest Session Time' in context.connected_shown_columns:
+            connected_row_texts.append(format_elapsed_time(player.datetime.get_biggest_session_time()))
+        if 'Lowest Session Time' in context.connected_shown_columns:
+            connected_row_texts.append(format_elapsed_time(player.datetime.get_lowest_session_time()))
         connected_row_texts.append(f'{player.rejoins}')
         if 'T. Packets' in context.connected_shown_columns:
             connected_row_texts.append(f'{player.packets.total_exchanged}')
@@ -354,6 +358,10 @@ def build_session_table_snapshot(
             disconnected_row_texts.append(format_elapsed_time(player.datetime.get_total_session_time()))
         if 'Session Time' in context.disconnected_shown_columns:
             disconnected_row_texts.append(format_elapsed_time(player.datetime.get_session_time()))
+        if 'Biggest Session Time' in context.disconnected_shown_columns:
+            disconnected_row_texts.append(format_elapsed_time(player.datetime.get_biggest_session_time()))
+        if 'Lowest Session Time' in context.disconnected_shown_columns:
+            disconnected_row_texts.append(format_elapsed_time(player.datetime.get_lowest_session_time()))
         disconnected_row_texts.append(f'{player.rejoins}')
         if 'T. Packets' in context.disconnected_shown_columns:
             disconnected_row_texts.append(f'{player.packets.total_exchanged}')

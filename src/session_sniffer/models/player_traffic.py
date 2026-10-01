@@ -434,6 +434,8 @@ class PlayerDateTime:
     last_seen: datetime_type
     total_session_time: timedelta_type | None
     session_time: timedelta_type | None
+    biggest_session_time: timedelta_type | None
+    lowest_session_time: timedelta_type | None
 
     def set_session_time(self) -> None:
         """Finalize and store the session duration.
@@ -443,6 +445,10 @@ class PlayerDateTime:
         """
         self.last_seen = max(self.last_seen, self.last_rejoin)
         self.session_time = self.last_seen - self.last_rejoin
+        if self.biggest_session_time is None or self.session_time > self.biggest_session_time:
+            self.biggest_session_time = self.session_time
+        if self.lowest_session_time is None or self.session_time < self.lowest_session_time:
+            self.lowest_session_time = self.session_time
 
     def accumulate_session_to_total(self) -> None:
         """Add finalized session duration to the cumulative total and clear current session.
@@ -456,6 +462,10 @@ class PlayerDateTime:
                 self.total_session_time = self.session_time
             else:
                 self.total_session_time += self.session_time
+            if self.biggest_session_time is None or self.session_time > self.biggest_session_time:
+                self.biggest_session_time = self.session_time
+            if self.lowest_session_time is None or self.session_time < self.lowest_session_time:
+                self.lowest_session_time = self.session_time
             self.session_time = None
 
     def get_session_time(self) -> timedelta_type:
@@ -470,6 +480,29 @@ class PlayerDateTime:
         if self.session_time is None:
             return self.last_seen - self.last_rejoin
         return self.session_time
+
+    def get_biggest_session_time(self) -> timedelta_type:
+        """Return the maximum session duration across all sessions.
+
+        Returns:
+            The largest session duration. For connected players, includes the ongoing session time.
+            For disconnected players, returns their largest completed session duration.
+        """
+        current_session = self.get_session_time()
+        if self.biggest_session_time is None:
+            return current_session
+        return max(self.biggest_session_time, current_session)
+
+    def get_lowest_session_time(self) -> timedelta_type:
+        """Return the minimum session duration across all sessions.
+
+        Returns:
+            The smallest session duration across completed sessions, or the current
+            session duration if no completed session exists yet.
+        """
+        if self.lowest_session_time is None:
+            return self.get_session_time()
+        return self.lowest_session_time
 
     def get_total_session_time(self) -> timedelta_type:
         """Return total cumulative session duration across all sessions.
@@ -504,6 +537,8 @@ class PlayerDateTime:
             last_seen=packet_datetime,
             total_session_time=None,
             session_time=None,
+            biggest_session_time=None,
+            lowest_session_time=None,
         )
 
 

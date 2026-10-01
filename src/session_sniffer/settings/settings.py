@@ -242,6 +242,8 @@ class Settings:
     GUI_TOGGLEABLE_CONNECTED_COLUMNS: ClassVar[tuple[str, ...]] = (
         'T. Session Time',
         'Session Time',
+        'Biggest Session Time',
+        'Lowest Session Time',
         *CONNECTED_RATE_STAT_COLUMNS,
         'Hostname',
         *PORT_COLUMNS,
@@ -252,6 +254,8 @@ class Settings:
     GUI_TOGGLEABLE_DISCONNECTED_COLUMNS: ClassVar[tuple[str, ...]] = (
         'T. Session Time',
         'Session Time',
+        'Biggest Session Time',
+        'Lowest Session Time',
         *PACKET_STAT_COLUMNS,
         *BANDWIDTH_STAT_COLUMNS,
         'Hostname',

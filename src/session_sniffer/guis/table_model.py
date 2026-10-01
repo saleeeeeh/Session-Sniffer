@@ -78,6 +78,8 @@ GUI_COLUMN_HEADERS_TOOLTIPS = {
     'Last Seen': 'The most recent time the player was active in your session.',
     'T. Session Time': 'The total amount of time the player has been playing across all sessions.',
     'Session Time': 'The amount of time the player was playing in the last session before disconnecting.',
+    'Biggest Session Time': 'The longest session duration for the player across all sessions.',
+    'Lowest Session Time': 'The shortest session duration for the player across all sessions.',
     'Rejoins': 'The number of times the player has left and joined again your session across all sessions.',
     'T. Packets': 'The total number of packets exchanged with the player across all sessions.',
     'Packets': 'The number of packets exchanged (Received + Sent) with the player during the current session.',
@@ -232,6 +234,28 @@ def sort_table_rows(
 
         sorted_rows.sort(
             key=_session_time_sort_key,
+            reverse=sort_order_bool,
+        )
+    elif resolved_column_name == 'Biggest Session Time':
+        ip_biggest_session_time_map: dict[str, timedelta] = {
+            _extract_ip(row): (
+                matched_player.datetime.get_biggest_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD
+            )
+            for row, _ in sorted_rows
+        }
+        sorted_rows.sort(
+            key=lambda row: ip_biggest_session_time_map[_extract_ip(row[0])],
+            reverse=sort_order_bool,
+        )
+    elif resolved_column_name == 'Lowest Session Time':
+        ip_lowest_session_time_map: dict[str, timedelta] = {
+            _extract_ip(row): (
+                matched_player.datetime.get_lowest_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD
+            )
+            for row, _ in sorted_rows
+        }
+        sorted_rows.sort(
+            key=lambda row: ip_lowest_session_time_map[_extract_ip(row[0])],
             reverse=sort_order_bool,
         )
     elif resolved_column_name in {
