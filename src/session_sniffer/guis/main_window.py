@@ -539,6 +539,9 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         PingWindow.open_window()
 
     def _update_gui(self, payload: GUIUpdatePayload) -> None:
+        if payload.snapshot_version < self._state.min_accepted_snapshot_version:
+            return
+
         self._sync_capture_toggle_action()
         self._header.set_capture_running(is_running=self.capture.is_running())
         self._status_bar.set_texts(

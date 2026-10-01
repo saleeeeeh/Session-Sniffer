@@ -970,6 +970,10 @@ class InterfaceSelectionDialog(QDialog):
     @override
     def closeEvent(self, event: QCloseEvent) -> None:
         """Clean up background workers and timers on close."""
+        self._arp_refresh_cancelled = True
+        self._refresh_timer.stop()
+        if self._arp_refresh_progress_timer is not None:
+            self._arp_refresh_progress_timer.stop()
         self._hotspot_widget.cleanup()
         if InterfaceSelectionDialog._instance is self:
             InterfaceSelectionDialog._instance = None

@@ -711,12 +711,13 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             row_data: The data for the new row.
             row_colors: A list of `CellColor` objects corresponding to the row's colors.
         """
-        # Only update internal data without triggering signals
         row_index = len(self._data)
+        self.beginInsertRows(QModelIndex(), row_index, row_index)
         self._data.append(row_data)
         self._compiled_colors.append(row_colors)
         ip = self.get_ip_from_data_safely(row_data)
         self._ip_to_row_index[ip] = row_index
+        self.endInsertRows()
 
     def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]) -> None:
         """Update an existing row in the model with new data and colors without notifying the view in real time.
@@ -734,6 +735,9 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             self._compiled_colors[row_index] = row_colors
             new_ip = self.get_ip_from_data_safely(row_data)
             self._ip_to_row_index[new_ip] = row_index
+            top_left = self.index(row_index, 0)
+            bottom_right = self.index(row_index, len(self._headers) - 1)
+            self.dataChanged.emit(top_left, bottom_right)
 
     def delete_row(self, row_index: int) -> None:
         """Delete a row from the model along with its associated colors.
@@ -753,16 +757,6 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
 
             # Notify the view that the rows have been removed
             self.endRemoveRows()
-
-            # NOTE: Fixes a weird UI bug that when someone leaves, it makes it an empty row
-            if not self._data:
-                # Begin resetting the model to indicate it's empty
-                self.beginResetModel()
-                self._data = []
-                self._compiled_colors = []
-                self._ip_to_row_index.clear()
-                # End reset and notify the view that the model has been reset
-                self.endResetModel()
 
     def reset_columns(self, headers: list[str] | None = None) -> None:
         """Replace column headers and clear all data.
