@@ -564,32 +564,52 @@ def rendering_core(
                 if SessionHost.players_pending_for_disconnection and all(player.left_event.is_set() for player in SessionHost.players_pending_for_disconnection):
                     if not SessionHost.has_player():
                         logger.debug(
-                            '[SessionHost] All %d pending disconnection players have left, triggering search',
+                            '[SessionHost] All %d pending disconnection player%s have left, triggering search',
                             len(SessionHost.players_pending_for_disconnection),
+                            pluralize(len(SessionHost.players_pending_for_disconnection)),
                         )
                         _relay_host_logged_ip = None
                         SessionHost.set_player(None)
                         SessionHost.search_player = True
                         SessionHost.search_start_time = None
                     SessionHost.players_pending_for_disconnection.clear()
-                elif SessionHost.players_pending_for_disconnection and any(player.packets.pps.calculated_rate for player in p2p_session_connected):
-                    if SessionHost.has_player() or not SessionHost.search_player:
+                elif SessionHost.players_pending_for_disconnection:
+                    recovered_players = [
+                        player
+                        for player in SessionHost.players_pending_for_disconnection
+                        if not player.left_event.is_set() and player.packets.pps.calculated_rate
+                    ]
+                    if recovered_players:
                         logger.debug(
-                            '[SessionHost] New active player(s) detected while %d player(s) pending disconnection, resetting host and triggering search',
+                            '[SessionHost] %d pending disconnection player%s recovered non-zero PPS, clearing from pending list (likely a transient network issue)',
+                            len(recovered_players),
+                            pluralize(len(recovered_players)),
+                        )
+                        SessionHost.players_pending_for_disconnection = [
+                            player for player in SessionHost.players_pending_for_disconnection if player not in recovered_players
+                        ]
+
+                    new_active_players = (
+                        [
+                            player
+                            for player in p2p_session_connected
+                            if player not in SessionHost.players_pending_for_disconnection and player.packets.pps.calculated_rate
+                        ]
+                        if SessionHost.players_pending_for_disconnection
+                        else []
+                    )
+                    if new_active_players and (SessionHost.has_player() or not SessionHost.search_player):
+                        logger.debug(
+                            '[SessionHost] %d new active player%s detected while %d player%s pending disconnection, resetting host and triggering search',
+                            len(new_active_players),
+                            pluralize(len(new_active_players)),
                             len(SessionHost.players_pending_for_disconnection),
+                            pluralize(len(SessionHost.players_pending_for_disconnection)),
                         )
                         _relay_host_logged_ip = None
                         SessionHost.set_player(None)
                         SessionHost.search_player = True
                         SessionHost.search_start_time = None
-                elif SessionHost.players_pending_for_disconnection and any(
-                    not player.left_event.is_set() and player.packets.pps.calculated_rate for player in SessionHost.players_pending_for_disconnection
-                ):
-                    logger.debug(
-                        '[SessionHost] %d pending disconnection player(s) recovered non-zero PPS, clearing pending list (likely a transient network issue)',
-                        len(SessionHost.players_pending_for_disconnection),
-                    )
-                    SessionHost.players_pending_for_disconnection.clear()
 
                 # Sniffer startup: wait the full window before deciding.
                 # Players seen before the window expires suppress the search; once the window
