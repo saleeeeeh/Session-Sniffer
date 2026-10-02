@@ -1,9 +1,9 @@
-"""Plain-text log tab — for warnings.log and errors.log."""
+"""Plain-text log tab — for debug.log and crash.log."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, override
 
-from PySide6.QtGui import QColor, QIcon, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QIcon, QShowEvent, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -45,6 +45,7 @@ class TextLogTab(QWidget):
         self._file_path = file_path
         self._search_matches: list[QTextCursor] = []
         self._current_match_index = -1
+        self._initial_shown = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -112,10 +113,21 @@ class TextLogTab(QWidget):
     def start_watching(self) -> None:
         """Start auto-refresh watcher from disk."""
         self._watcher.watch(files=[self._file_path], directories=[self._file_path.parent])
+        self.load_data()
 
     def stop_watching(self) -> None:
         """Stop auto-refresh watcher from disk."""
         self._watcher.stop()
+
+    @override
+    def showEvent(self, a0: QShowEvent) -> None:
+        """Scroll to the bottom on first display if no manual scroll occurred."""
+        super().showEvent(a0)
+        if not self._initial_shown:
+            self._initial_shown = True
+            scrollbar = self._viewer.verticalScrollBar()
+            if scrollbar:
+                scrollbar.setValue(scrollbar.maximum())
 
     # ------------------------------------------------------------------
     # Data loading
@@ -148,7 +160,7 @@ class TextLogTab(QWidget):
             self._viewer.setPlainText(prefix + text)
 
             if scrollbar:
-                if old_max > 0 and old_scroll >= old_max - 5:
+                if not self._initial_shown or (old_max > 0 and old_scroll >= old_max - 5):
                     scrollbar.setValue(scrollbar.maximum())
                 else:
                     scrollbar.setValue(old_scroll)
