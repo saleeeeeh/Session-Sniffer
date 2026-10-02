@@ -164,7 +164,12 @@ def rendering_core(
         reader = geoip2_readers.asn_reader if geoip2_readers.enabled else None
         return extract_asn_info(reader, ip_address)
 
+    _disconnected_json_cache: dict[str, tuple[tuple[object, ...], dict[str, object]]] = {}
+    _session_logging_writing: bool = False
+    _session_logging_lock = threading.Lock()
+
     def process_session_logging() -> None:
+        nonlocal _session_logging_writing
         # JSON session snapshots are the canonical persisted format.
         SESSIONS_LOGGING_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -305,12 +310,43 @@ def rendering_core(
                 'columns': columns,
             }
 
+        def _get_player_json_dict(player: Player) -> dict[str, object]:
+            if player.left_event.is_set():
+                lookup_key = (
+                    player.rejoins,
+                    player.iplookup.geolite2.is_initialized,
+                    player.iplookup.ipapi.is_initialized,
+                    player.reverse_dns.is_initialized,
+                    player.looky_system.is_initialized,
+                )
+                cached = _disconnected_json_cache.get(player.ip)
+                if cached is not None and cached[0] == lookup_key:
+                    return cached[1]
+                data = _player_to_json_dict(player)
+                _disconnected_json_cache[player.ip] = (lookup_key, data)
+                return data
+            return _player_to_json_dict(player)
+
+        with _session_logging_lock:
+            if _session_logging_writing:
+                return
+            _session_logging_writing = True
+
         snapshot_model = SessionLogFile(
-            connected={player.ip: _player_to_json_dict(player) for player in session_connected},
-            disconnected={player.ip: _player_to_json_dict(player) for player in session_disconnected},
+            connected={player.ip: _get_player_json_dict(player) for player in session_connected},
+            disconnected={player.ip: _get_player_json_dict(player) for player in session_disconnected},
         )
-        json_path = SESSIONS_LOGGING_PATH.with_suffix('.json')
-        json_path.write_text(snapshot_model.model_dump_json(by_alias=True), encoding='utf-8')
+
+        def _write_session_logging_task(model_snapshot: SessionLogFile) -> None:
+            nonlocal _session_logging_writing
+            try:
+                json_path = SESSIONS_LOGGING_PATH.with_suffix('.json')
+                json_path.write_text(model_snapshot.model_dump_json(by_alias=True), encoding='utf-8')
+            finally:
+                with _session_logging_lock:
+                    _session_logging_writing = False
+
+        Thread(target=_write_session_logging_task, args=(snapshot_model,), name='SessionLoggingWriter', daemon=True).start()
 
     def process_gui_session_tables_rendering() -> SessionTableSnapshot:
         return build_session_table_snapshot(
@@ -468,6 +504,14 @@ def rendering_core(
             del session_connected[i]
 
         for player in chain(session_connected, session_disconnected):
+            if (
+                player.left_event.is_set()
+                and not _userip_db_rebuilt
+                and player.iplookup.geolite2.is_initialized
+                and (player.country_flag is not None or player.iplookup.ipapi.is_initialized)
+            ):
+                continue
+
             if _userip_db_rebuilt and (player.userip is not None or player.userip_detection is not None) and not UserIPDatabases.is_known_ip(player.ip):
                 player.userip = None
                 player.userip_detection = None

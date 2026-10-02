@@ -4,6 +4,7 @@ import logging
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from http import HTTPStatus
+from itertools import chain
 from threading import Event, Thread
 from threading import enumerate as enumerate_threads
 from typing import TYPE_CHECKING, cast
@@ -143,7 +144,7 @@ def iplookup_core() -> None:
 
         ips_to_lookup: list[str] = []
 
-        for player in PlayersRegistry.get_default_sorted_players():
+        for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
             if player.iplookup.ipapi.is_initialized:
                 continue
 
@@ -293,7 +294,9 @@ def _run_player_future_core[T](
     handle_exception: Callable[[str, Exception], bool] | None = None,
 ) -> None:
     """Run a background player task using one future per pending IP."""
-    with ThreadPoolExecutor(max_workers=_PLAYER_CORE_MAX_WORKERS, thread_name_prefix='PlayerCore') as executor:
+    is_pinger = worker is ping_player
+    thread_name_prefix = 'Pinger' if is_pinger else 'Hostname'
+    with ThreadPoolExecutor(max_workers=_PLAYER_CORE_MAX_WORKERS, thread_name_prefix=thread_name_prefix) as executor:
         futures: dict[Future[T], str] = {}  # Maps futures to their corresponding IPs
         pending_ips: set[str] = set()  # Tracks IPs currently being processed
 
@@ -301,9 +304,17 @@ def _run_player_future_core[T](
             if ScriptControl.has_crashed():
                 return
 
-            for player in PlayersRegistry.get_default_sorted_players():
+            players_to_check = (
+                PlayersRegistry.get_connected_players()
+                if is_pinger
+                else chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players())
+            )
+            for player in players_to_check:
                 if gui_closed__event.is_set():
                     return
+
+                if len(futures) >= _PLAYER_CORE_MAX_WORKERS * 2:
+                    break
 
                 if player.ip in pending_ips or not should_submit(player):
                     continue
@@ -364,7 +375,7 @@ def pinger_core() -> None:
     exhausted_ips: dict[str, float] = {}  # Maps IPs to their retry-after timestamp
 
     def should_submit(player: Player) -> bool:
-        if player.ping.is_initialized:
+        if player.left_event.is_set() or player.ping.is_initialized:
             return False
 
         retry_after = exhausted_ips.get(player.ip)
@@ -480,7 +491,7 @@ def looky_core() -> None:
 
         pending_ips = [
             player.ip
-            for player in PlayersRegistry.get_default_sorted_players()
+            for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players())
             if not is_third_party_server_ip(player.ip)
             and (
                 not Settings.looky_exclusive_gta5_process

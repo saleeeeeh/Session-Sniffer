@@ -1,6 +1,8 @@
 """Main window implementation for Session Sniffer."""
 
+import logging
 import sys
+import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
@@ -21,6 +23,7 @@ from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.core import terminate_script
 from session_sniffer.gta5.suspend_manager import GTASuspendManager
+from session_sniffer.guis._crashing_qthread import CrashingQThread
 from session_sniffer.guis._main_header import SessionHeader
 from session_sniffer.guis._main_window_files_mixin import FilesMixin
 from session_sniffer.guis._main_window_game_mixin import GameMixin
@@ -60,8 +63,9 @@ if TYPE_CHECKING:
 
     from session_sniffer.capture.packet_capture import CaptureHolder
     from session_sniffer.guis.detections_manager import DetectionsManagerDialog
-    from session_sniffer.guis.table_model import SessionTableModel
     from session_sniffer.guis.userip_manager import UserIPDatabasesManager
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,6 +327,11 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._stats_timer.timeout.connect(self._tick_stats)
         self._stats_timer.start()
 
+        self._thread_health_timer = QTimer(self)
+        self._thread_health_timer.setInterval(30_000)
+        self._thread_health_timer.timeout.connect(self._log_thread_health)
+        self._thread_health_timer.start()
+
         self.installEventFilter(self)
 
         self._apply_always_on_top()
@@ -469,9 +478,22 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
             return
         status_bar.setEnabled(True)
 
+    def _log_thread_health(self) -> None:
+        """Periodically log thread health and active workers."""
+        active_qthreads = CrashingQThread.get_active_threads()
+        running_qthreads = [(t.thread_name, t.cpp_ptr) for t in active_qthreads if t.isRunning()]
+        logger.debug(
+            'Thread health check: %d active Python threads, %d tracked QThreads (%s running)',
+            threading.active_count(),
+            len(active_qthreads),
+            running_qthreads,
+        )
+
     @override
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Handle the main window close event and terminate background work."""
+        self._thread_health_timer.stop()
+        self._stats_timer.stop()
         if Settings.gui_remember_window_layout:
             gui_state = GUIState.load()
             if self._connected.is_expanded and self._disconnected.is_expanded:
@@ -493,8 +515,11 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
             gui_state.save()
 
+        logger.info('MainWindow closeEvent received')
         gui_closed__event.set()
+        GUIRenderingState.wake()
         wake_all_player_cores()
+        logger.debug('MainWindow closeEvent: closing child windows')
         self._player_resolver_window.close()
         if self._settings_dialog_window is not None:
             self._settings_dialog_window.close()
@@ -513,10 +538,12 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         close_all_crawler_dialogs()
         close_all_lookup_dialogs()
         if self.capture.is_running():
+            logger.debug('MainWindow closeEvent: stopping packet capture')
             self.capture.stop()
         GTASuspendManager.shutdown()
-        self._state.worker_thread.quit()
-        self._state.worker_thread.wait()
+        logger.debug('MainWindow closeEvent: stopping all active CrashingQThreads')
+        CrashingQThread.stop_all_active_threads()
+        logger.info('MainWindow closeEvent: all active threads stopped, terminating script')
         if a0 is not None:
             a0.accept()
         terminate_script('EXIT')
@@ -542,6 +569,13 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         if payload.snapshot_version < self._state.min_accepted_snapshot_version:
             return
 
+        logger.debug(
+            '_update_gui started: snapshot_version=%d, connected=%d, disconnected=%d',
+            payload.snapshot_version,
+            payload.connected_count,
+            payload.disconnected_count,
+        )
+
         self._sync_capture_toggle_action()
         self._header.set_capture_running(is_running=self.capture.is_running())
         self._status_bar.set_texts(
@@ -562,52 +596,18 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         if connected_count_changed:
             self._connected.update_current_count(payload.connected_count)
 
-        self._connected.table_view.capture_selection()
-        self._disconnected.table_view.capture_selection()
-
-        connected_payload_ips: set[str] = set()
-        for processed_data, compiled_colors in payload.connected_rows_with_colors:
-            ip = self._connected.table_model.get_ip_from_data_safely(processed_data)
-            connected_payload_ips.add(ip)
-
-            disconnected_row_index = self._disconnected.table_model.get_row_index_by_ip(ip)
-            if disconnected_row_index is not None:
-                self._disconnected.table_model.delete_row(disconnected_row_index)
-
-            connected_row_index = self._connected.table_model.get_row_index_by_ip(ip)
-            if connected_row_index is None:
-                self._connected.table_model.add_row_without_refresh(processed_data, compiled_colors)
-            else:
-                self._connected.table_model.update_row_without_refresh(connected_row_index, processed_data, compiled_colors)
-
-        self._prune_missing_rows(self._connected.table_model, connected_payload_ips)
-
-        if self._connected.table_view.isVisible():
-            self._connected.table_view.sort_current_column()
-            self._connected.table_view.check_initial_data_column_sizing()
-
         if disconnected_count_changed:
             self._disconnected.update_current_count(payload.disconnected_count)
 
-        disconnected_payload_ips: set[str] = set()
-        for processed_data, compiled_colors in payload.disconnected_rows_with_colors:
-            ip = self._disconnected.table_model.get_ip_from_data_safely(processed_data)
-            disconnected_payload_ips.add(ip)
+        self._connected.table_view.capture_selection()
+        self._disconnected.table_view.capture_selection()
 
-            connected_row_index = self._connected.table_model.get_row_index_by_ip(ip)
-            if connected_row_index is not None:
-                self._connected.table_model.delete_row(connected_row_index)
+        connected_table_changed = self._connected.table_model.sync_rows(payload.connected_rows_with_colors)
+        if self._connected.table_view.isVisible() and (connected_table_changed or connected_count_changed):
+            self._connected.table_view.check_initial_data_column_sizing()
 
-            disconnected_row_index = self._disconnected.table_model.get_row_index_by_ip(ip)
-            if disconnected_row_index is None:
-                self._disconnected.table_model.add_row_without_refresh(processed_data, compiled_colors)
-            else:
-                self._disconnected.table_model.update_row_without_refresh(disconnected_row_index, processed_data, compiled_colors)
-
-        self._prune_missing_rows(self._disconnected.table_model, disconnected_payload_ips)
-
-        if self._disconnected.table_view.isVisible():
-            self._disconnected.table_view.sort_current_column()
+        disconnected_table_changed = self._disconnected.table_model.sync_rows(payload.disconnected_rows_with_colors)
+        if self._disconnected.table_view.isVisible() and (disconnected_table_changed or disconnected_count_changed):
             self._disconnected.table_view.check_initial_data_column_sizing()
 
         self._connected.table_view.restore_selection()
@@ -634,12 +634,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         if self._capture_statistics_window is not None:
             self._capture_statistics_window.refresh()
 
-    @staticmethod
-    def _prune_missing_rows(model: SessionTableModel, ips_to_keep: set[str]) -> None:
-        """Remove rows from the model whose IPs are not in the current payload."""
-        stale_ips = set(model.get_all_ips()) - ips_to_keep
-        for ip in stale_ips:
-            model.remove_player_by_ip(ip)
+        logger.debug('_update_gui completed: snapshot_version=%d', payload.snapshot_version)
 
     def _apply_always_on_top(self) -> None:
         """Apply the always-on-top setting to the main window."""

@@ -275,3 +275,24 @@ class GUIDetectionSettings:
     def save_to_settings(cls) -> None:
         """Persist current detection settings to the default detections JSON file."""
         cls.export_to_file(DETECTIONS_JSON_PATH)
+
+    @classmethod
+    def has_any_global_detection_enabled(cls) -> bool:
+        """Return True if any global IP or network-based detection is active."""
+        return (
+            cls.mobile_suspend_enabled
+            or bool(cls.mobile_voice_notifications)
+            or cls.mobile_logging
+            or cls.mobile_message_box
+            or cls.vpn_suspend_enabled
+            or bool(cls.vpn_voice_notifications)
+            or cls.vpn_logging
+            or cls.vpn_message_box
+            or cls.hosting_suspend_enabled
+            or bool(cls.hosting_voice_notifications)
+            or cls.hosting_logging
+            or cls.hosting_message_box
+            or bool(cls.country_detection_list)
+            or bool(cls.isp_detection_list)
+            or bool(cls.asn_detection_list)
+        )

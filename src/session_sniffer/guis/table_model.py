@@ -196,9 +196,10 @@ def sort_table_rows(
     elif resolved_column_name in {'First Seen', 'Last Rejoin', 'Last Seen'}:
         datetime_attr = {'First Seen': 'first_seen', 'Last Rejoin': 'last_rejoin', 'Last Seen': 'last_seen'}[resolved_column_name]
         default_datetime = datetime.max.replace(tzinfo=UTC) if sort_order_bool else datetime.min.replace(tzinfo=UTC)
+        players_map = PlayersRegistry.get_players_map()
         ip_datetime_map: dict[str, datetime] = {
             _extract_ip(row): (
-                getattr(matched_player.datetime, datetime_attr) if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else default_datetime
+                getattr(matched_player.datetime, datetime_attr) if (matched_player := players_map.get(_extract_ip(row))) is not None else default_datetime
             )
             for row, _ in sorted_rows
         }
@@ -207,9 +208,10 @@ def sort_table_rows(
             reverse=not sort_order_bool,
         )
     elif resolved_column_name == 'T. Session Time':
+        players_map = PlayersRegistry.get_players_map()
         ip_total_session_time_map: dict[str, timedelta] = {
             _extract_ip(row): (
-                matched_player.datetime.get_total_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD
+                matched_player.datetime.get_total_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
             )
             for row, _ in sorted_rows
         }
@@ -218,8 +220,9 @@ def sort_table_rows(
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Session Time':
+        players_map = PlayersRegistry.get_players_map()
         ip_session_time_map: dict[str, timedelta] = {
-            _extract_ip(row): (matched_player.datetime.get_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD)
+            _extract_ip(row): (matched_player.datetime.get_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD)
             for row, _ in sorted_rows
         }
 
@@ -237,9 +240,10 @@ def sort_table_rows(
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Biggest Session Time':
+        players_map = PlayersRegistry.get_players_map()
         ip_biggest_session_time_map: dict[str, timedelta] = {
             _extract_ip(row): (
-                matched_player.datetime.get_biggest_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD
+                matched_player.datetime.get_biggest_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
             )
             for row, _ in sorted_rows
         }
@@ -248,9 +252,10 @@ def sort_table_rows(
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Lowest Session Time':
+        players_map = PlayersRegistry.get_players_map()
         ip_lowest_session_time_map: dict[str, timedelta] = {
             _extract_ip(row): (
-                matched_player.datetime.get_lowest_session_time() if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else _ZERO_TD
+                matched_player.datetime.get_lowest_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
             )
             for row, _ in sorted_rows
         }
@@ -284,8 +289,9 @@ def sort_table_rows(
             'BPM': 'bandwidth.bpm.calculated_rate',
         }
         bandwidth_attribute = bandwidth_attr_map[resolved_column_name]
+        players_map = PlayersRegistry.get_players_map()
         ip_bandwidth_map: dict[str, int] = {
-            _extract_ip(row): (attrgetter(bandwidth_attribute)(matched_player) if (matched_player := PlayersRegistry.get_player_by_ip(_extract_ip(row))) is not None else 0)
+            _extract_ip(row): (attrgetter(bandwidth_attribute)(matched_player) if (matched_player := players_map.get(_extract_ip(row))) is not None else 0)
             for row, _ in sorted_rows
         }
         sorted_rows.sort(
@@ -452,7 +458,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         column_index = index.column()
 
         # Check bounds
-        if row_index >= len(self._data) or column_index >= len(self._data[row_index]):
+        if row_index < 0 or row_index >= len(self._data) or column_index < 0 or column_index >= len(self._data[row_index]):
             return None  # Return None for invalid index
 
         output: str | QBrush | QIcon | None = None
@@ -481,10 +487,10 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         elif role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
             output = self._data[row_index][column_index]
-        elif role == Qt.ItemDataRole.ForegroundRole and row_index < len(self._compiled_colors) and column_index < len(self._compiled_colors[row_index]):
+        elif role == Qt.ItemDataRole.ForegroundRole and 0 <= row_index < len(self._compiled_colors) and 0 <= column_index < len(self._compiled_colors[row_index]):
             # Return the cell's foreground color
             output = QBrush(self._compiled_colors[row_index][column_index].foreground)
-        elif role == Qt.ItemDataRole.BackgroundRole and row_index < len(self._compiled_colors) and column_index < len(self._compiled_colors[row_index]):
+        elif role == Qt.ItemDataRole.BackgroundRole and 0 <= row_index < len(self._compiled_colors) and 0 <= column_index < len(self._compiled_colors[row_index]):
             # Return the cell's background color
             bg_color = self._compiled_colors[row_index][column_index].background
             if bg_color is not None:
@@ -524,7 +530,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
     @override
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> str | None:
         """Return header display text and tooltips for the table model."""
-        if orientation == Qt.Orientation.Horizontal:
+        if orientation == Qt.Orientation.Horizontal and 0 <= section < len(self._headers):
             if role == Qt.ItemDataRole.DisplayRole:
                 return self._headers[section]  # Display the header name
             if role == Qt.ItemDataRole.ToolTipRole:
@@ -557,6 +563,9 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
 
         if not self._compiled_colors:
             raise TableDataConsistencyError(case='data_without_colors')
+
+        if column < 0 or column >= len(self._headers):
+            return
 
         self.layoutAboutToBeChanged.emit()
 
@@ -619,12 +628,11 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             row: The row index.
 
         Returns:
-            The IP address string for the row.
-
-        Raises:
-            IndexError: If the row index is out of bounds.
+            The IP address string for the row, or empty string if out of bounds.
         """
-        return self.get_ip_from_data_safely(self._data[row])
+        if 0 <= row < len(self._data):
+            return self.get_ip_from_data_safely(self._data[row])
+        return ''
 
     def get_all_ips(self) -> list[str]:
         """Return the IP address for every row currently in the model."""
@@ -639,15 +647,10 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             row_data: The row data list containing the IP address.
 
         Returns:
-            The IP address as a clean string (with crown suffix removed if present).
-
-        Raises:
-            IndexError: If the IP column index is out of bounds.
-            TypeError: If the IP data is not a string.
+            The IP address as a clean string, or empty string if index is out of bounds.
         """
-        if self.ip_column_index >= len(row_data):
-            message = f'IP column index {self.ip_column_index} is out of bounds for row data with {len(row_data)} columns'
-            raise IndexError(message)
+        if self.ip_column_index < 0 or self.ip_column_index >= len(row_data):
+            return ''
 
         return row_data[self.ip_column_index]
 
@@ -704,40 +707,46 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             return False
         return any(len(row_data) > ports_column and ',' in row_data[ports_column] for row_data in self._data)
 
-    def add_row_without_refresh(self, row_data: list[str], row_colors: list[CellColor]) -> None:
-        """Add a new row to the model without notifying the view in real time.
+    def sync_rows(self, rows_with_colors: list[tuple[list[str], list[CellColor]]]) -> bool:
+        """Synchronize the table model with pre-sorted, paginated rows and colors.
 
         Args:
-            row_data: The data for the new row.
-            row_colors: A list of `CellColor` objects corresponding to the row's colors.
-        """
-        row_index = len(self._data)
-        self.beginInsertRows(QModelIndex(), row_index, row_index)
-        self._data.append(row_data)
-        self._compiled_colors.append(row_colors)
-        ip = self.get_ip_from_data_safely(row_data)
-        self._ip_to_row_index[ip] = row_index
-        self.endInsertRows()
+            rows_with_colors: List of (row_cells, cell_colors) tuples.
 
-    def update_row_without_refresh(self, row_index: int, row_data: list[str], row_colors: list[CellColor]) -> None:
-        """Update an existing row in the model with new data and colors without notifying the view in real time.
-
-        Args:
-            row_index: The index of the row to update.
-            row_data: The new data for the row.
-            row_colors: A list of `CellColor` objects corresponding to the row's colors.
+        Returns:
+            True if the table content changed, False otherwise.
         """
-        if 0 <= row_index < self.rowCount():
-            # Remove old IP mapping before updating
-            old_ip = self.get_ip_from_data_safely(self._data[row_index])
-            self._ip_to_row_index.pop(old_ip, None)
-            self._data[row_index] = row_data
-            self._compiled_colors[row_index] = row_colors
-            new_ip = self.get_ip_from_data_safely(row_data)
-            self._ip_to_row_index[new_ip] = row_index
-            top_left = self.index(row_index, 0)
-            bottom_right = self.index(row_index, len(self._headers) - 1)
+        if not rows_with_colors:
+            if not self._data:
+                return False
+            self.beginResetModel()
+            self._data = []
+            self._compiled_colors = []
+            self._ip_to_row_index.clear()
+            self.endResetModel()
+            return True
+
+        new_data, new_compiled_colors = map(list, zip(*rows_with_colors, strict=True))
+
+        if new_data == self._data and new_compiled_colors == self._compiled_colors:
+            return False
+
+        if len(new_data) != len(self._data):
+            self.beginResetModel()
+            self._data = new_data
+            self._compiled_colors = new_compiled_colors
+            self._rebuild_ip_index()
+            self.endResetModel()
+            return True
+
+        self._data = new_data
+        self._compiled_colors = new_compiled_colors
+        self._rebuild_ip_index()
+        if new_data and self._headers:
+            top_left = self.index(0, 0)
+            bottom_right = self.index(len(new_data) - 1, len(self._headers) - 1)
             self.dataChanged.emit(top_left, bottom_right)
+        return True
 
     def delete_row(self, row_index: int) -> None:
         """Delete a row from the model along with its associated colors.

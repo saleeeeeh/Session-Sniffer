@@ -175,6 +175,14 @@ class PlayersRegistry:
             return list(cls._connected_players_registry.values()) + list(cls._disconnected_players_registry.values())
 
     @classmethod
+    def get_players_map(cls) -> dict[str, Player]:
+        """Return an unsorted snapshot mapping of all connected and disconnected players by IP in a single lock acquisition."""
+        with cls._registry_lock:
+            players_map = dict(cls._disconnected_players_registry)
+            players_map.update(cls._connected_players_registry)
+            return players_map
+
+    @classmethod
     def get_total_count(cls) -> int:
         """Return the total number of tracked players (connected + disconnected) in O(1)."""
         with cls._registry_lock:

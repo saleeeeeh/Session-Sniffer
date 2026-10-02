@@ -121,11 +121,7 @@ class _DeduplicatedQueue:
         ensure_voice_notification_worker_running()
 
     def get(self, timeout: float) -> str | None:
-        """Dequeue the oldest item, waiting up to *timeout* seconds. Returns `None` on timeout.
-
-        The item stays in the duplicate-rejection set until :meth:`acknowledge` is called,
-        so concurrent enqueues of the same value are still rejected during playback.
-        """
+        """Dequeue oldest item, waiting up to *timeout* seconds, returning None on timeout while retaining duplicate rejection."""
         if not self._not_empty.wait(timeout):
             return None
         with self._lock:
@@ -141,6 +137,11 @@ class _DeduplicatedQueue:
         """Remove *item* from the duplicate-rejection set after it has been fully processed."""
         with self._lock:
             self._set.discard(item)
+
+    def empty(self) -> bool:
+        """Return True if the queue has no pending items."""
+        with self._lock:
+            return not self._deque
 
     def clear(self) -> None:
         """Remove all pending items."""
@@ -201,33 +202,36 @@ def ensure_voice_notification_worker_running() -> None:
 
 
 def _voice_notification_worker() -> None:
-    """Worker that plays queued voice notification WAV files sequentially until the queue is empty.
-
-    Dequeues one WAV path at a time, plays it synchronously (blocking until done),
-    then waits a short pause before checking for the next sound. Exits when the queue is drained.
-    """
+    """Worker that sequentially plays queued voice notification WAV files until drained."""
     try:
         while not gui_closed__event.is_set():
-            with _voice_notification_lock:
-                if not Settings.voice_notifications_enabled:
-                    _voice_notification_queue.clear()
-                    _voice_notification_worker_state.is_running = False
-                    return
-                wav_path = _voice_notification_queue.get(timeout=0.0)
-                if wav_path is None:
-                    _voice_notification_worker_state.is_running = False
-                    return
+            if not Settings.voice_notifications_enabled:
+                _voice_notification_queue.clear()
+                return
 
-            if sys.platform == 'win32':
-                import winsound  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-                try:
-                    winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_NODEFAULT)
-                except RuntimeError as e:
-                    logger.warning('Failed to play voice notification %s: %s', wav_path, e)
-            else:
-                _play_wav_linux(wav_path)
-            gui_closed__event.wait(_INTER_SOUND_PAUSE_SECONDS)
-            _voice_notification_queue.acknowledge(wav_path)
+            wav_path = _voice_notification_queue.get(timeout=1.0)
+            if wav_path is None:
+                with _voice_notification_lock:
+                    if _voice_notification_queue.empty():
+                        _voice_notification_worker_state.is_running = False
+                        return
+                    continue
+
+            try:
+                if sys.platform == 'win32':
+                    import winsound  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
+                    try:
+                        if not Path(wav_path).is_file():
+                            logger.warning('Voice notification file not found: %s', wav_path)
+                        else:
+                            winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_NODEFAULT)
+                    except (RuntimeError, OSError, ValueError) as e:
+                        logger.warning('Failed to play voice notification %s: %s', wav_path, e)
+                else:
+                    _play_wav_linux(wav_path)
+                gui_closed__event.wait(_INTER_SOUND_PAUSE_SECONDS)
+            finally:
+                _voice_notification_queue.acknowledge(wav_path)
     finally:
         with _voice_notification_lock:
             _voice_notification_worker_state.is_running = False
@@ -380,23 +384,23 @@ def handle_detection_notification(
         notification_type: Type of notification - `player_joined_session`,
             `player_rejoined_session`, or `player_left_session`
     """
+    prefix = _NOTIFICATION_TYPE_SETTING_PREFIX[notification_type]
+
+    enabled = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_enabled'))
+    voice_setting = cast('Literal["Male", "Female"] | bool', getattr(GUIDetectionSettings, f'{prefix}_voice_notifications'))
+    logging_setting = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_logging'))
+    msgbox_setting = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_message_box'))
+
+    # Check if there are combo rules with event conditions that might need evaluation
+    has_event_combo_rules = any(rule.has_event_condition for rule in ComboRulesManager.rules if rule.enabled)
+
+    standalone_active = enabled or voice_setting or logging_setting or msgbox_setting
+    if not standalone_active and not has_event_combo_rules:
+        return
 
     def notification_thread() -> None:
         """Thread function to handle voice, logging, message box, and suspension actions."""
         config = _NOTIFICATION_CONFIGS[notification_type]
-        prefix = _NOTIFICATION_TYPE_SETTING_PREFIX[notification_type]
-
-        enabled = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_enabled'))
-        voice_setting = cast('Literal["Male", "Female"] | bool', getattr(GUIDetectionSettings, f'{prefix}_voice_notifications'))
-        logging_setting = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_logging'))
-        msgbox_setting = cast('bool', getattr(GUIDetectionSettings, f'{prefix}_message_box'))
-
-        # Check if there are combo rules with event conditions that might need evaluation
-        has_event_combo_rules = any(rule.has_event_condition for rule in ComboRulesManager.rules if rule.enabled)
-
-        standalone_active = enabled or voice_setting or logging_setting or msgbox_setting
-        if not standalone_active and not has_event_combo_rules:
-            return
 
         data_ready = False
 
@@ -927,6 +931,9 @@ def check_global_detections(player: Player) -> None:
 def submit_global_detections_check(player: Player) -> None:
     """Submit global detection checks to the background detection worker pool."""
     wake_all_player_cores()
+    has_non_event_combo_rules = any(not rule.has_event_condition for rule in ComboRulesManager.rules if rule.enabled)
+    if not GUIDetectionSettings.has_any_global_detection_enabled() and not has_non_event_combo_rules:
+        return
     _detection_check_pool.submit(check_global_detections, player).add_done_callback(_on_pool_task_done)
 
 

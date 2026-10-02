@@ -3,6 +3,7 @@
 This module ensures there's only one QApplication instance throughout the application.
 """
 
+import logging
 import os
 import sys
 from typing import override
@@ -22,15 +23,39 @@ from PySide6.QtWidgets import (
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.guis.theme import get_dark_palette
 
+logger = logging.getLogger(__name__)
 
-def _qt_message_handler(message_type: QtMsgType, _context: QMessageLogContext, message: str) -> None:
-    if 'Portal operation not allowed' in message or 'QFileSystemWatcher: FindNextChangeNotification failed' in message:
+
+def _qt_message_handler(message_type: QtMsgType, context: QMessageLogContext, message: str) -> None:
+    if (
+        'Portal operation not allowed' in message
+        or 'QFileSystemWatcher: FindNextChangeNotification failed' in message
+        or 'QThreadStorage: entry' in message
+        or 'QWaitCondition: Destroyed while threads are still waiting' in message
+    ):
         return
+    type_name = {
+        QtMsgType.QtDebugMsg: 'DEBUG',
+        QtMsgType.QtInfoMsg: 'INFO',
+        QtMsgType.QtWarningMsg: 'WARNING',
+        QtMsgType.QtCriticalMsg: 'CRITICAL',
+        QtMsgType.QtFatalMsg: 'FATAL',
+    }.get(message_type, 'UNKNOWN')
+    ctx_info = f' ({context.file}:{context.line}, {context.function})' if context.file else ''
+    full_message = f'Qt {type_name}: {message}{ctx_info}'
+    if message_type == QtMsgType.QtFatalMsg:
+        logger.critical('%s', full_message)
+    elif message_type == QtMsgType.QtCriticalMsg:
+        logger.error('%s', full_message)
+    elif message_type == QtMsgType.QtWarningMsg:
+        logger.warning('%s', full_message)
     if message_type in (QtMsgType.QtWarningMsg, QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
         if sys.stderr is not None:
-            sys.stderr.write(f'{message}\n')
+            sys.stderr.write(f'{full_message}\n')
+            sys.stderr.flush()
     elif sys.stdout is not None:
-        sys.stdout.write(f'{message}\n')
+        sys.stdout.write(f'{full_message}\n')
+        sys.stdout.flush()
 
 
 def _configure_platform_qt_environment() -> None:

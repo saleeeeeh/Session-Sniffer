@@ -592,10 +592,14 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
         model = self.model()
         self._saved_selection.clear()
         for model_index in selected_indexes:
+            if not model_index.isValid():
+                continue
             row = model_index.row()
-            if 0 <= row < model.rowCount():
+            column = model_index.column()
+            if 0 <= row < model.rowCount() and 0 <= column < model.columnCount():
                 ip = model.get_ip_for_row(row)
-                self._saved_selection.append((ip, model_index.column()))
+                if ip:
+                    self._saved_selection.append((ip, column))
 
     def restore_selection(self) -> None:
         """Restore cell selection and scroll positions from previously captured state."""
@@ -611,9 +615,10 @@ class SessionTableView(TableContextMenuMixin, QTableView):  # pylint: disable=to
 
         for ip, column in self._saved_selection:
             row = model.get_row_index_by_ip(ip)
-            if row is not None:
+            if row is not None and 0 <= row < model.rowCount() and 0 <= column < model.columnCount():
                 index = model.index(row, column)
-                selection.select(index, index)
+                if index.isValid():
+                    selection.select(index, index)
 
         self.selectionModel().select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
         self._saved_selection.clear()

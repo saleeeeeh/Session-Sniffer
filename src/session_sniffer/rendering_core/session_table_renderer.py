@@ -41,15 +41,17 @@ def format_player_ip(player_ip: str) -> str:
 
 def format_player_middle_ports(player: Player) -> str:
     """Format player middle ports as comma-separated string in reverse order."""
-    if player.ports.middle:
-        return ', '.join(map(str, reversed(player.ports.middle)))
+    middle_ports = tuple(player.ports.middle)
+    if middle_ports:
+        return ', '.join(map(str, reversed(middle_ports)))
     return ''
 
 
 def format_player_ports(player: Player) -> str:
     """Format all player ports as comma-separated string in order of discovery."""
-    if player.ports.all:
-        return ', '.join(map(str, player.ports.all))
+    all_ports = tuple(player.ports.all)
+    if all_ports:
+        return ', '.join(map(str, all_ports))
     return ''
 
 

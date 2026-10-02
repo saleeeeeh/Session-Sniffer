@@ -32,7 +32,7 @@ class PortHeatmapWindow(StatTableWindowMixin):
         all_players = PlayersRegistry.get_all_players()
         counts: dict[int, int] = {}
         for player in all_players:
-            for port in player.ports.all:
+            for port in tuple(player.ports.all):
                 counts[port] = counts.get(port, 0) + 1
 
         total = sum(counts.values())
