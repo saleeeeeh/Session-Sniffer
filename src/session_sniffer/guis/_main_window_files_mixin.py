@@ -88,9 +88,9 @@ class FilesMixin(QMainWindow):
         """Open the Logs Manager on the Sessions Logging tab and start a global search for `text`."""
         self._open_logs_manager().search_in_sessions_logging(text)
 
-    def open_logs_manager_and_show_debug_log(self) -> None:
-        """Open the Logs Manager on the Debug Log tab."""
-        self._open_logs_manager().show_debug_log()
+    def open_logs_manager_and_show_debug_log(self, severity: str | None = None) -> None:
+        """Open the Logs Manager on the Debug Log tab, optionally filtering by severity."""
+        self._open_logs_manager().show_debug_log(severity=severity)
 
     def open_logs_manager_and_show_crash_log(self) -> None:
         """Open the Logs Manager on the Crash Log tab."""
