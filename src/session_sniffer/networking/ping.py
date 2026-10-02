@@ -10,7 +10,7 @@ import struct
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final, Self, cast
+from typing import TYPE_CHECKING, Final, Self, cast
 
 from session_sniffer.networking.endpoint_ping_manager import PingResult, fetch_and_parse_ping
 from session_sniffer.networking.http_session import session
@@ -67,6 +67,33 @@ class _IcmpEchoReply(ctypes.Structure):
         ('Data', ctypes.c_void_p),
         ('Options', _IPOptionInformation),
     ]
+
+
+_INVALID_HANDLE_VALUE: Final[int] = cast('int', ctypes.c_void_p(-1).value)
+
+if sys.platform == 'win32':
+    _iphlpapi = ctypes.windll.iphlpapi
+
+    _IcmpCreateFile = _iphlpapi.IcmpCreateFile
+    _IcmpCreateFile.argtypes = []
+    _IcmpCreateFile.restype = ctypes.c_void_p
+
+    _IcmpCloseHandle = _iphlpapi.IcmpCloseHandle
+    _IcmpCloseHandle.argtypes = [ctypes.c_void_p]
+    _IcmpCloseHandle.restype = ctypes.wintypes.BOOL
+
+    _IcmpSendEcho = _iphlpapi.IcmpSendEcho
+    _IcmpSendEcho.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_char_p,
+        ctypes.c_ushort,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+    ]
+    _IcmpSendEcho.restype = ctypes.wintypes.DWORD
 
 
 class PingMode(enum.StrEnum):
@@ -159,29 +186,16 @@ class IcmpEchoEngine:
     def __init__(self) -> None:
         """Initialize the native ICMP engine."""
         self._is_windows = sys.platform == 'win32'
-        self._iphlpapi: Any = None
         self._handle: int | None = None
         self._linux_socket: socket.socket | None = None
 
         if self._is_windows:
-            self._iphlpapi = ctypes.windll.iphlpapi
-            self._iphlpapi.IcmpCreateFile.restype = ctypes.c_void_p
-            self._iphlpapi.IcmpCloseHandle.argtypes = [ctypes.c_void_p]
-            self._iphlpapi.IcmpSendEcho.restype = ctypes.wintypes.DWORD
-            self._iphlpapi.IcmpSendEcho.argtypes = [
-                ctypes.c_void_p,
-                ctypes.c_ulong,
-                ctypes.c_char_p,
-                ctypes.c_ushort,
-                ctypes.c_void_p,
-                ctypes.c_void_p,
-                ctypes.wintypes.DWORD,
-                ctypes.wintypes.DWORD,
-            ]
-            self._handle = self._iphlpapi.IcmpCreateFile()
-            if not self._handle or self._handle == -1:
+            handle = _IcmpCreateFile()
+            if not handle or handle == _INVALID_HANDLE_VALUE:
                 self._handle = None
                 logger.error('Failed to create Win32 ICMP handle')
+            else:
+                self._handle = handle
         else:
             try:
                 self._linux_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_ICMP)
@@ -211,8 +225,8 @@ class IcmpEchoEngine:
     def close(self) -> None:
         """Close the native ICMP handle or socket."""
         if self._is_windows:
-            if self._handle is not None and self._iphlpapi is not None:
-                self._iphlpapi.IcmpCloseHandle(self._handle)
+            if self._handle is not None:
+                _IcmpCloseHandle(self._handle)
                 self._handle = None
         elif self._linux_socket is not None:
             self._linux_socket.close()
@@ -360,11 +374,11 @@ class IcmpEchoEngine:
                     payload_bytes=payload_bytes,
                 )
 
-        reply_buffer_size = ctypes.sizeof(_IcmpEchoReply) + len(payload_data) + 16
+        reply_buffer_size = max(512, ctypes.sizeof(_IcmpEchoReply) + len(payload_data) + 64)
         reply_buffer = ctypes.create_string_buffer(reply_buffer_size)
         timeout_milliseconds = max(100, int(timeout_seconds * 1000))
 
-        return_value = self._iphlpapi.IcmpSendEcho(
+        return_value = _IcmpSendEcho(
             self._handle,
             destination_address,
             payload_data,
