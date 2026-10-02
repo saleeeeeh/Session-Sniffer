@@ -324,7 +324,9 @@ class GTASuspendManager:
     def _reason_ok(reason: _SuspendReason, now: float) -> bool:
         if reason.manual:
             return False
-        return reason.left_event.is_set() and (now - reason.added_at) >= reason.min_duration
+        if reason.min_duration > 0:
+            return (now - reason.added_at) >= reason.min_duration
+        return reason.left_event.is_set()
 
     @staticmethod
     def _next_timeout(state: _ProcessState, now: float) -> float:
