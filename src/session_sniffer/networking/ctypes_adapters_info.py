@@ -28,6 +28,7 @@ ERROR_SUCCESS = 0
 IF_MAX_STRING_SIZE = 256
 IF_MAX_PHYS_ADDRESS_LENGTH = 32
 ERROR_INSUFFICIENT_BUFFER = 122
+ERROR_NO_DATA = 232
 
 # OperStatus values (export only what's used externally)
 IF_OPER_STATUS_UP = 1  # Interface is up and operational
@@ -315,8 +316,10 @@ def iterate_ipv4_neighbors() -> Iterator[tuple[int, str | None, str | None]]:
     base = ctypes.addressof(buf)
     header_size = ctypes.sizeof(wintypes.DWORD)
     row_size = ctypes.sizeof(MIB_IPNETROW)
+    max_entries = (size.value - header_size) // row_size
+    valid_entries = min(num_entries, max_entries)
 
-    for i in range(num_entries):
+    for i in range(valid_entries):
         row_ptr = ctypes.cast(base + header_size + i * row_size, ctypes.POINTER(MIB_IPNETROW))
         row = row_ptr.contents
 
@@ -491,6 +494,8 @@ def get_adapters_info() -> Iterator[AdapterData]:
         )
         if ret == ERROR_BUFFER_OVERFLOW:
             continue
+        if ret == ERROR_NO_DATA:
+            return
         if ret != ERROR_SUCCESS:
             raise GetAdaptersAddressesError(ret)
         break

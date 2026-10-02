@@ -205,16 +205,20 @@ def _classify_connection(
                 ctypes.POINTER(ctypes.c_wchar_p),
             )(props_vtable[7])
             bstr_guid = ctypes.c_wchar_p()
-            if not get_guid(props_ptr, ctypes.byref(bstr_guid)) and bstr_guid.value:
-                guid_normalized = _normalize_guid(bstr_guid.value)
-                oleaut32.SysFreeString(bstr_guid)
-                role: AdapterClassification | None = None
-                if sharing_type.value == _ICSSHARINGTYPE_PUBLIC:
-                    role = 'sharing'
-                elif sharing_type.value == _ICSSHARINGTYPE_PRIVATE:
-                    role = 'shared'
-                if role:
-                    return (guid_normalized, role)
+            if not get_guid(props_ptr, ctypes.byref(bstr_guid)):
+                try:
+                    if bstr_guid.value:
+                        guid_normalized = _normalize_guid(bstr_guid.value)
+                        role: AdapterClassification | None = None
+                        if sharing_type.value == _ICSSHARINGTYPE_PUBLIC:
+                            role = 'sharing'
+                        elif sharing_type.value == _ICSSHARINGTYPE_PRIVATE:
+                            role = 'shared'
+                        if role:
+                            return (guid_normalized, role)
+                finally:
+                    if bstr_guid:
+                        oleaut32.SysFreeString(bstr_guid)
         finally:
             _release_com_interface(props_ptr)
     finally:
@@ -270,6 +274,10 @@ def _enumerate_ics_connections(
     if not enum_variant_ptr:
         return result
 
+    variant_clear = oleaut32.VariantClear
+    variant_clear.argtypes = [ctypes.c_void_p]
+    variant_clear.restype = wintypes.HRESULT
+
     try:
         enum_vtable = ctypes.cast(enum_variant_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
         next_enum = ctypes.WINFUNCTYPE(
@@ -282,17 +290,19 @@ def _enumerate_ics_connections(
 
         variant_buffer = (ctypes.c_byte * 24)()
         fetched_count = wintypes.ULONG()
-        while not next_enum(enum_variant_ptr, 1, ctypes.byref(variant_buffer), ctypes.byref(fetched_count)) and fetched_count.value == 1:
-            connection_val = (ctypes.c_void_p.from_buffer(variant_buffer, 8)).value
-            if not connection_val:
-                continue
-            connection_ptr = wintypes.LPVOID(connection_val)
+        while next_enum(enum_variant_ptr, 1, ctypes.byref(variant_buffer), ctypes.byref(fetched_count)) == 0 and fetched_count.value == 1:
             try:
-                classified = _classify_connection(manager_ptr, connection_ptr, oleaut32)
-                if classified is not None:
-                    result[classified[0]] = classified[1]
+                connection_val = (ctypes.c_void_p.from_buffer(variant_buffer, 8)).value
+                if connection_val:
+                    connection_ptr = wintypes.LPVOID(connection_val)
+                    try:
+                        classified = _classify_connection(manager_ptr, connection_ptr, oleaut32)
+                        if classified is not None:
+                            result[classified[0]] = classified[1]
+                    except OSError as e:
+                        logger.debug('Failed to classify ICS connection: %s', e)
             finally:
-                _release_com_interface(connection_ptr)
+                variant_clear(ctypes.byref(variant_buffer))
     finally:
         _release_com_interface(enum_variant_ptr)
 
@@ -327,8 +337,12 @@ def _get_ics_classification() -> dict[str, AdapterClassification]:
                 installed = wintypes.SHORT()
                 if not get_sharing_installed(manager_ptr, ctypes.byref(installed)) and installed.value:
                     result = _enumerate_ics_connections(manager_ptr, oleaut32)
+            except OSError as e:
+                logger.debug('ICS COM query encountered error: %s', e)
             finally:
                 _release_com_interface(manager_ptr)
+    except OSError as e:
+        logger.debug('Failed to initialize ICS COM interface: %s', e)
     finally:
         if need_uninit:
             ole32.CoUninitialize()
@@ -373,8 +387,11 @@ def get_adapter_classification() -> dict[str, AdapterClassification]:
     except OSError:
         logger.exception('Failed to query Network Bridge registry information')
 
-    for guid, value in _get_ics_classification().items():
-        # Bridged classification wins if both apply (rare).
-        classification.setdefault(guid, value)
+    try:
+        for guid, value in _get_ics_classification().items():
+            # Bridged classification wins if both apply (rare).
+            classification.setdefault(guid, value)
+    except OSError as e:
+        logger.debug('Failed to query ICS adapter classification: %s', e)
 
     return classification

@@ -184,7 +184,7 @@ class AllInterfaces:
         Yields:
             Each interface from `all_interfaces`.
         """
-        yield from cls.all_interfaces.values()
+        yield from list(cls.all_interfaces.values())
 
     @classmethod
     def get_interface(cls, index: int) -> Interface | None:

@@ -46,6 +46,7 @@ from session_sniffer.guis._crashing_qthread import CrashingQThread
 from session_sniffer.guis.app import app
 from session_sniffer.guis.exceptions import UnsupportedScreenResolutionError
 from session_sniffer.guis.interface_selection import select_interface
+from session_sniffer.guis.interface_selection_dialog import InterfaceSelectionDialog
 from session_sniffer.guis.main_window import MainWindow
 from session_sniffer.guis.player_rate_graph import DEFAULT_MAX_HISTORY
 from session_sniffer.guis.relay_conflict import prompt_to_disable_gta5_relay_if_filtered
@@ -438,6 +439,14 @@ def main() -> None:
     rendering_core__thread.start()
 
     def _switch_interface(*, initial_tab: int = 0) -> None:
+        active_dialog = InterfaceSelectionDialog.get_active_instance()
+        if active_dialog is not None:
+            if initial_tab == 1:
+                active_dialog.select_hotspot_tab()
+            active_dialog.raise_()
+            active_dialog.activateWindow()
+            return
+
         window.set_change_interface_button_enabled(enabled=False)
 
         # Build interface list from the existing registry without calling
@@ -605,6 +614,8 @@ def main() -> None:
                 capture_holder.stop()
             window.on_interface_switched()
             window.set_capture_toggle_enabled(enabled=False)
+            if InterfaceSelectionDialog.get_active_instance() is not None:
+                return
             if warning_message is not None:
                 QMessageBox.warning(window, 'Capture Interrupted', warning_message)
             _switch_interface()
@@ -676,6 +687,15 @@ def main() -> None:
         nonlocal _adapter_lost_attempts
 
         if gui_closed__event.is_set():
+            return
+
+        if InterfaceSelectionDialog.get_active_instance() is not None:
+            _adapter_lost_attempts = 0
+            if capture_holder.is_running():
+                capture_holder.stop()
+                window.on_interface_switched()
+                window.set_capture_toggle_enabled(enabled=False)
+            _adapter_lost_event.clear()
             return
 
         if not _adapter_lost_event.is_set():
@@ -752,7 +772,16 @@ def main() -> None:
 
     def _on_arp_failed_poll() -> None:
         """Poll for ARP spoofing failures and re-show the interface selection dialog."""
-        if gui_closed__event.is_set() or not _arp_failed_event.is_set():
+        if gui_closed__event.is_set():
+            return
+        if InterfaceSelectionDialog.get_active_instance() is not None:
+            _arp_failed_event.clear()
+            if capture_holder.is_running():
+                capture_holder.stop()
+                window.on_interface_switched()
+                window.set_capture_toggle_enabled(enabled=False)
+            return
+        if not _arp_failed_event.is_set():
             return
         _arp_failed_event.clear()
         _handle_capture_lost(stop_capture=True, warning_message=None)

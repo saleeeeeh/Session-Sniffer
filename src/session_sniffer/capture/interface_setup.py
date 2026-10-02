@@ -1,5 +1,6 @@
 """Network interface population, capture interface discovery, and interface refresh logic."""
 
+import logging
 import sys
 
 from session_sniffer.networking.bridge_ics import get_adapter_classification
@@ -17,6 +18,8 @@ from session_sniffer.networking.interface import (
 )
 from session_sniffer.networking.manuf_lookup import MacLookup
 from session_sniffer.networking.utils import is_valid_private_ipv4
+
+logger = logging.getLogger(__name__)
 
 EXCLUDED_CAPTURE_NETWORK_INTERFACES = {
     'Adapter for loopback traffic capture',
@@ -123,7 +126,11 @@ def refresh_available_interfaces() -> list[Interface]:
         The updated list of capture-capable Interface objects.
     """
     AllInterfaces.clear()
-    populate_network_interfaces_info()
+    try:
+        populate_network_interfaces_info()
+    except OSError as e:
+        logger.warning('Failed to refresh network interfaces: %s', e)
+        return []
 
     available: list[Interface] = []
     for device_name, friendly_name in get_filtered_capture_interfaces():

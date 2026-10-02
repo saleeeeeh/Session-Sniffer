@@ -703,6 +703,8 @@ class InterfaceSelectionDialog(QDialog):
         Preserves the user's current selection by matching on
         (interface_name, ip_address, is_neighbour).
         """
+        if not isValid(self):
+            return
         new_interfaces = refresh_available_interfaces()
         self._data.all_interfaces = new_interfaces
         self.apply_filters()
@@ -752,11 +754,12 @@ class InterfaceSelectionDialog(QDialog):
         if previously_selected_key is not None:
             for i, (interface, ip_address, is_neighbour) in enumerate(self._data.interface_rows):
                 if (interface.identity.name, ip_address, is_neighbour) == previously_selected_key:
-                    self.table.selectRow(i)
+                    if self.table.currentRow() != i:
+                        self.table.selectRow(i)
                     restored = True
                     break
 
-        if not restored and self._data.interface_rows:
+        if not restored and self._data.interface_rows and (self.table.currentRow() < 0 or self.table.currentRow() >= len(self._data.interface_rows)):
             self.table.selectRow(0)
 
         # Ensure select button state reflects restored selection
@@ -791,12 +794,24 @@ class InterfaceSelectionDialog(QDialog):
 
     def populate_table(self) -> None:
         """Populate the table with the current filtered interface list."""
-        # Clear existing rows
-        self.table.setRowCount(0)
+        target_rows = len(self._data.interface_rows)
+        if self.table.rowCount() != target_rows:
+            self.table.setRowCount(target_rows)
+
+        def set_or_update_item(row: int, column: int, text: str, alignment: Qt.AlignmentFlag | None = None) -> None:
+            existing = self.table.item(row, column)
+            if existing is None:
+                new_item = QTableWidgetItem(text)
+                if alignment is not None:
+                    new_item.setTextAlignment(alignment)
+                self.table.setItem(row, column, new_item)
+            else:
+                if existing.text() != text:
+                    existing.setText(text)
+                if alignment is not None and existing.textAlignment() != alignment:
+                    existing.setTextAlignment(alignment)
 
         for i, (interface, ip_address, is_neighbour) in enumerate(self._data.interface_rows):
-            self.table.insertRow(i)
-
             # Get display values
             mac_address = interface.identity.mac_address or 'N/A'
             vendor_name = interface.identity.vendor_name or 'N/A'
@@ -814,13 +829,10 @@ class InterfaceSelectionDialog(QDialog):
                 packets_recv_str = f'{interface.traffic.packets_recv:,}'
 
             # Name column
-            item = QTableWidgetItem(interface.identity.name)
-            self.table.setItem(i, 0, item)
+            set_or_update_item(i, 0, interface.identity.name)
 
             # Description
-            item = QTableWidgetItem(interface.identity.description)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(i, 1, item)
+            set_or_update_item(i, 1, interface.identity.description, Qt.AlignmentFlag.AlignCenter)
 
             # Type
             # Neighbour rows under a Bridged/Shared interface inherit the parent's type because their
@@ -828,37 +840,26 @@ class InterfaceSelectionDialog(QDialog):
             type_display = (
                 interface.interface_type if not is_neighbour or interface.interface_type in (INTERFACE_TYPE_BRIDGED, INTERFACE_TYPE_SHARED) else INTERFACE_TYPE_NEIGHBOUR
             )
-            item = QTableWidgetItem(type_display)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(i, 2, item)
+            set_or_update_item(i, 2, type_display, Qt.AlignmentFlag.AlignCenter)
 
             # Packets Sent
-            item = QTableWidgetItem(packets_sent_str)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(i, 3, item)
+            set_or_update_item(i, 3, packets_sent_str, Qt.AlignmentFlag.AlignCenter)
 
             # Packets Received
-            item = QTableWidgetItem(packets_recv_str)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(i, 4, item)
+            set_or_update_item(i, 4, packets_recv_str, Qt.AlignmentFlag.AlignCenter)
 
             # Gateway IP
             gateway_ip = interface.gateway_addresses[0] if interface.gateway_addresses else 'N/A'
-            item = QTableWidgetItem(gateway_ip)
-            self.table.setItem(i, 5, item)
+            set_or_update_item(i, 5, gateway_ip)
 
             # IP Address
-            item = QTableWidgetItem(ip_address)
-            self.table.setItem(i, 6, item)
+            set_or_update_item(i, 6, ip_address)
 
             # MAC Address
-            item = QTableWidgetItem(mac_address)
-            self.table.setItem(i, 7, item)
+            set_or_update_item(i, 7, mac_address)
 
             # Vendor Name
-            item = QTableWidgetItem(vendor_name)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(i, 8, item)
+            set_or_update_item(i, 8, vendor_name, Qt.AlignmentFlag.AlignCenter)
 
         # Reset selection state
         self.update_select_button_state()
