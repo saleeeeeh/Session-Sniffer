@@ -1018,10 +1018,10 @@ class DetailedMessageDialog(QDialog):
             icon_label.setAlignment(Qt.AlignmentFlag.AlignTop)
             content_layout.addWidget(icon_label)
 
-        message_label = QLabel(text)
-        message_label.setWordWrap(True)
-        message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        content_layout.addWidget(message_label, stretch=1)
+        self._message_label = QLabel(text)
+        self._message_label.setWordWrap(True)
+        self._message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        content_layout.addWidget(self._message_label, stretch=1)
         main_layout.addLayout(content_layout)
 
         self._details_edit: QPlainTextEdit | None = None
@@ -1078,6 +1078,13 @@ class DetailedMessageDialog(QDialog):
         target_height = self.heightForWidth(self.width()) if self.hasHeightForWidth() else self.sizeHint().height()
         self.resize(self.width(), max(target_height, self.minimumSizeHint().height()))
 
+    def set_text(self, text: str) -> None:
+        """Update the displayed message text."""
+        self._message_label.setText(text)
+        dialog_layout = self.layout()
+        if dialog_layout is not None:
+            dialog_layout.activate()
+
 
 def show_detailed_message(
     parent: QWidget | None,
@@ -1093,6 +1100,31 @@ def show_detailed_message(
     dialog.raise_()
     dialog.activateWindow()
     return dialog
+
+
+_active_ipapi_dialogs: ActiveDialogRegistry[str, DetailedMessageDialog] = ActiveDialogRegistry()
+
+
+def show_ipapi_unavailable_dialog(reason: str) -> None:
+    """Show or focus the singleton warning dialog indicating ip-api.com geolocation is unavailable."""
+    text = (
+        'IP geolocation via ip-api.com is currently unavailable.\n\n'
+        f'{reason}\n\n'
+        'Country, City, ISP, ASN and related ip-api.com fields will not be populated until the network connection '
+        'to ip-api.com is restored (e.g. disconnecting a VPN or switching to an unblocked interface). Lookups will '
+        'automatically resume once the connection is restored.'
+    )
+    existing = _active_ipapi_dialogs.get('ipapi_unavailable')
+    if existing is not None:
+        existing.set_text(text)
+        activate_window(existing)
+        return
+
+    parent = find_main_window()
+    _active_ipapi_dialogs.show_or_focus(
+        'ipapi_unavailable',
+        lambda: DetailedMessageDialog(parent, TITLE, text, icon=QMessageBox.Icon.Warning),
+    )
 
 
 def setup_stat_table(table: QTableWidget, layout: QVBoxLayout, *, sorting: bool = True) -> None:

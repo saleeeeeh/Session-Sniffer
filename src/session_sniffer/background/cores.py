@@ -12,11 +12,10 @@ from typing import TYPE_CHECKING, cast
 import requests
 from pydantic import ValidationError
 
-from session_sniffer import msgbox
 from session_sniffer.background.events import gui_closed__event
-from session_sniffer.constants.standalone import TITLE
 from session_sniffer.core import ScriptControl
 from session_sniffer.guis.looky_text import LOOKY_LOG_API_KEY_INVALID, LOOKY_LOG_VERIFICATION_HTTP_FAILED_TEMPLATE
+from session_sniffer.guis.utils import show_ipapi_unavailable_dialog
 from session_sniffer.models import IpApiResponse
 from session_sniffer.networking.exceptions import AllEndpointsExhaustedError
 from session_sniffer.networking.http_session import session
@@ -27,6 +26,7 @@ from session_sniffer.networking.ping import ping_player
 from session_sniffer.networking.reverse_dns import reverse_dns_lookup
 from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry
+from session_sniffer.player.userip import gui_dispatcher
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
 
@@ -57,25 +57,10 @@ def _notify_ipapi_unavailable(reason: str) -> None:
     """Log and show a one-time user-facing warning that ip-api.com geolocation is unavailable.
 
     `reason` is a single sentence explaining why ip-api.com cannot be used (e.g. an HTTPS redirect or a
-    blocked connection); it is embedded into both the log line and the user-facing message box.
+    blocked connection); it is embedded into both the log line and the user-facing dialog.
     """
     logger.warning('[ip-api.com] %s IP geolocation via ip-api.com will be unavailable until connection is restored.', reason)
-    Thread(
-        target=msgbox.show,
-        args=(
-            TITLE,
-            (
-                'IP geolocation via ip-api.com is currently unavailable.\n\n'
-                f'{reason}\n\n'
-                'Country, City, ISP, ASN and related ip-api.com fields will not be populated until the network connection '
-                'to ip-api.com is restored (e.g. disconnecting a VPN or switching to an unblocked interface). Lookups will '
-                'automatically resume once the connection is restored.'
-            ),
-            msgbox.Style.MB_OK | msgbox.Style.MB_ICONWARNING,
-        ),
-        name='IpApiUnavailableMessageBox',
-        daemon=True,
-    ).start()
+    gui_dispatcher.invoke(lambda: show_ipapi_unavailable_dialog(reason))
 
 
 _iplookup_wakeup_event = Event()
