@@ -26,6 +26,7 @@ from session_sniffer.background import (
     player_rates_core,
     process_userip_task,
     submit_global_detections_check,
+    wake_all_player_cores,
 )
 from session_sniffer.background.events import gui_closed__event
 from session_sniffer.capture.arp_spoofing import ArpSpoofingController
@@ -41,6 +42,7 @@ from session_sniffer.constants.standard import LOCAL_TZ
 from session_sniffer.ctypes_console import hide_console_window
 from session_sniffer.error_messages import format_capture_interrupted_message, format_outdated_packages_message
 from session_sniffer.exceptions import UnsupportedPlatformError
+from session_sniffer.guis._crashing_qthread import CrashingQThread
 from session_sniffer.guis.app import app
 from session_sniffer.guis.exceptions import UnsupportedScreenResolutionError
 from session_sniffer.guis.interface_selection import select_interface
@@ -70,7 +72,7 @@ from session_sniffer.rendering_core.types import CaptureState, CaptureStats, Geo
 from session_sniffer.settings import Settings
 from session_sniffer.updater import UpdateCheckOutcome, check_for_updates
 from session_sniffer.utils import dedup_preserve_order, is_pyinstaller_compiled
-from session_sniffer.webserver import start_webserver_from_settings
+from session_sniffer.webserver import WebServer, start_webserver_from_settings
 
 setup_logging(console_level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -811,9 +813,39 @@ def main() -> None:
     if Settings.show_discord_popup:
         QTimer.singleShot(3000, _show_discord_intro)
 
-    sys.exit(app.exec())
+    def _on_app_about_to_quit() -> None:
+        logger.info('_on_app_about_to_quit triggered: setting gui_closed, waking rendering state and player cores')
+        gui_closed__event.set()
+        GUIRenderingState.wake()
+        wake_all_player_cores()
+        if capture.is_running():
+            logger.info('Stopping packet capture during aboutToQuit')
+            capture.stop()
+        if Settings.webserver_enabled:
+            logger.info('Stopping webserver during aboutToQuit')
+            WebServer.stop_server()
+        logger.info('Stopping all active CrashingQThreads during aboutToQuit')
+        CrashingQThread.stop_all_active_threads()
+        logger.info('_on_app_about_to_quit completed')
+
+    def _on_last_window_closed() -> None:
+        logger.info('Qt lastWindowClosed signal received (quitOnLastWindowClosed=%s)', app.quitOnLastWindowClosed())
+
+    app.lastWindowClosed.connect(_on_last_window_closed)
+    app.aboutToQuit.connect(_on_app_about_to_quit)
+
+    logger.info('Entering Qt application event loop (app.exec())')
+    exit_code = app.exec()
+    logger.info('Qt application event loop exited with code: %d', exit_code)
+    _on_app_about_to_quit()
+    sys.exit(exit_code)
+
+
+def _on_process_exit() -> None:
+    logger.info('Application process exit hook executed (atexit)')
 
 
 if __name__ == '__main__':
     atexit.register(logging.shutdown)
+    atexit.register(_on_process_exit)
     main()

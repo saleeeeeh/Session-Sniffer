@@ -10,7 +10,9 @@ import faulthandler
 import logging
 import os
 import sys
+import threading
 import time
+import traceback
 from logging.handlers import RotatingFileHandler
 from threading import Event, RLock, local
 from typing import TYPE_CHECKING, Self, TextIO, cast, override
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 
-__all__ = ['clear_secret_cache', 'register_secret_provider', 'setup_logging']
+__all__ = ['clear_secret_cache', 'register_diagnostic_provider', 'register_secret_provider', 'setup_logging']
 
 # --- Handler names for idempotency ---
 _CONSOLE_HANDLER_NAME = 'console_handler'
@@ -64,6 +66,17 @@ def _app_only_filter(record: logging.LogRecord) -> bool:
 # Callables registered by the application layer to supply secret values at
 # emit time.  Populated via `register_secret_provider()` after Settings load.
 _secret_providers: list[Callable[[], str | None]] = []
+
+# Callables registered by subsystems to provide diagnostic thread state dumps.
+_diagnostic_providers: list[Callable[[], list[str]]] = []
+_diagnostic_provider_lock = RLock()
+
+
+def register_diagnostic_provider(fn: Callable[[], list[str]]) -> None:
+    """Register a callable that returns diagnostic lines when an abnormal thread error occurs."""
+    with _diagnostic_provider_lock:
+        if fn not in _diagnostic_providers:
+            _diagnostic_providers.append(fn)
 
 
 def _invalidate_secret_cache() -> None:
@@ -288,8 +301,40 @@ class _StderrToLogger:
         _stderr_reentry_state.active = True
         try:
             self._logger.log(self._level, message)
+            if any(marker in message for marker in ('QThread: Destroyed', 'Fatal Python error')):
+                self._dump_thread_diagnostics(message)
         finally:
             _stderr_reentry_state.active = False
+
+    def _dump_thread_diagnostics(self, reason: str) -> None:
+        """Dump active threads and call stacks when an abnormal thread event occurs."""
+        try:
+            lines: list[str] = [
+                f'=== THREAD DIAGNOSTIC DUMP (triggered by stderr: {reason}) ===',
+                f'Active Python threads count: {threading.active_count()}',
+            ]
+            current_frames = sys._current_frames()  # noqa: SLF001 # pyright: ignore[reportPrivateUsage] # pylint: disable=protected-access
+            for thread in threading.enumerate():
+                native_id = getattr(thread, 'native_id', None)
+                lines.append(f'Thread name="{thread.name}", ident={thread.ident}, native_id={native_id}, daemon={thread.daemon}, alive={thread.is_alive()}')
+                frame = current_frames.get(thread.ident or 0)
+                if frame is not None:
+                    stack = ''.join(traceback.format_stack(frame))
+                    lines.append(f'  Call stack:\n{stack.rstrip()}')
+
+            with _diagnostic_provider_lock:
+                providers = list(_diagnostic_providers)
+            for provider in providers:
+                try:
+                    lines.extend(provider())
+                except Exception as e:  # noqa: BLE001 # pylint: disable=broad-exception-caught
+                    lines.append(f'Diagnostic provider error: {e}')
+
+            lines.append('=== END THREAD DIAGNOSTIC DUMP ===')
+            for diag_line in lines:
+                self._logger.log(self._level, diag_line)
+        except Exception as e:  # noqa: BLE001 # pylint: disable=broad-exception-caught
+            self._logger.debug('Failed to dump thread diagnostics: %s', e)
 
     def _write_fallback(self, message: str) -> None:
         """Write directly to the original stderr stream during recursive logging."""

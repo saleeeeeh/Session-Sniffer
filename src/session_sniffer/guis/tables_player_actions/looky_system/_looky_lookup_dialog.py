@@ -87,6 +87,8 @@ class _LookyFetchWorker(CrashingQThread):
             logger.warning('Looky System IP lookup failed with validation error: %s', e)
             self.fetch_failed.emit(f'Looky System response format unexpected: {e}')
             return
+        if self.isInterruptionRequested():
+            return
         self.results = results
         self.fetch_succeeded.emit()
 
@@ -169,8 +171,11 @@ _active_dialogs: ActiveDialogRegistry[str, LookyLookupDialog] = ActiveDialogRegi
 
 
 def close_all_lookup_dialogs() -> None:
-    """Close and cleanly cancel all open Looky lookup dialogs."""
+    """Close and cleanly cancel all open Looky lookup dialogs and pending fetch requests."""
     _active_dialogs.close_all()
+    for worker in list(_active_lookup_workers):
+        worker.cancel()
+    _active_lookup_workers.clear()
 
 
 def show_looky_lookup(parent: QWidget, player: Player | StandaloneIPLookup) -> None:

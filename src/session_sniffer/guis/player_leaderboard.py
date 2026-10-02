@@ -1439,12 +1439,12 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         if watched_paths:
             self._sessions_watcher.removePaths(watched_paths)
         if self._scan_worker is not None and self._scan_worker.isRunning():
-            self._scan_worker.requestInterruption()
-            self._scan_worker.wait()
+            self._scan_worker.cancel()
+        self._scan_worker = None
         if self._baseline_worker is not None and self._baseline_worker.isRunning():
-            self._baseline_worker.requestInterruption()
-            self._baseline_worker.wait()
+            self._baseline_worker.cancel()
+        self._baseline_worker = None
         if self._overlay_worker is not None and self._overlay_worker.isRunning():
-            self._overlay_worker.requestInterruption()
-            self._overlay_worker.wait()
+            self._overlay_worker.cancel()
+        self._overlay_worker = None
         super().closeEvent(event)

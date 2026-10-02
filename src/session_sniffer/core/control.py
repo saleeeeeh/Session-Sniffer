@@ -5,6 +5,7 @@ import signal
 import sys
 import threading
 import time
+import traceback
 from threading import Lock
 from types import TracebackType
 from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
@@ -48,12 +49,26 @@ class ScriptControl:
 
 
 def terminate_script(
-    terminate_method: Literal['EXIT', 'SIGINT', 'THREAD_RAISED'],
+    terminate_method: Literal['EXIT', 'SIGINT', 'SIGTERM', 'SIGBREAK', 'THREAD_RAISED'],
     msgbox_crash_text: str | None = None,
     stdout_crash_text: str | None = None,
     exception_info: ExceptionInfo | None = None,
 ) -> None:
     """Terminate the application and optionally display crash information."""
+    caller_thread = threading.current_thread()
+    caller_native_id = getattr(caller_thread, 'native_id', 'unknown')
+    logger.info(
+        'terminate_script invoked: method=%s, caller_thread=%s (native_id=%s, ident=%s)',
+        terminate_method,
+        caller_thread.name,
+        caller_native_id,
+        caller_thread.ident,
+    )
+    caller_stack = ''.join(traceback.format_stack()[:-1])
+    logger.debug('terminate_script caller stack:\n%s', caller_stack.rstrip())
+    active_thread_names = [f'{t.name} (native_id={getattr(t, "native_id", "unknown")})' for t in threading.enumerate()]
+    logger.info('Active threads at terminate_script (%d): %s', len(active_thread_names), active_thread_names)
+
     GTASuspendManager.shutdown()
 
     ScriptControl.set_crashed()
@@ -74,9 +89,9 @@ def terminate_script(
         msgbox.show(msgbox_title, msgbox_message, msgbox_style)
         time.sleep(1)
 
-    # If the termination method is "EXIT", do not sleep unless crash messages are present
+    # If the termination method is a normal exit/signal, do not sleep unless crash messages are present
     need_sleep = True
-    if terminate_method == 'EXIT' and msgbox_crash_text is None and stdout_crash_text is None:
+    if terminate_method in ('EXIT', 'SIGINT', 'SIGTERM', 'SIGBREAK') and msgbox_crash_text is None and stdout_crash_text is None:
         need_sleep = False
     if need_sleep:
         time.sleep(3)
@@ -89,6 +104,12 @@ def handle_exception(exc_type: type[BaseException], exc_value: BaseException, ex
     if issubclass(exc_type, KeyboardInterrupt):
         return
 
+    logger.critical(
+        'handle_exception invoked for main script: %s: %s',
+        exc_type.__name__,
+        exc_value,
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
     exception_info = ExceptionInfo(exc_type, exc_value, exc_traceback)
     terminate_script(
         'EXIT',
@@ -111,6 +132,14 @@ def terminate_on_uncaught_exception(exc: BaseException) -> None:
     Shared helper used by pool-task callbacks and QThread wrappers so the
     crash call is not duplicated across modules.
     """
+    current_thread = threading.current_thread()
+    logger.critical(
+        'terminate_on_uncaught_exception invoked from thread %s (native_id: %s): %s',
+        current_thread.name,
+        getattr(current_thread, 'native_id', 'unknown'),
+        exc,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
     terminate_script(
         'THREAD_RAISED',
         f'An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\n{GITHUB_ISSUES_URL}',
@@ -123,8 +152,17 @@ def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
     if args.exc_type is SystemExit:
         return
 
+    thread_name = getattr(args.thread, 'name', 'unknown')
     exc_value = args.exc_value if args.exc_value is not None else RuntimeError('Unknown thread error')
-    exception_info = ExceptionInfo(args.exc_type, exc_value, args.exc_traceback)
+    exc_type = args.exc_type
+    logger.critical(
+        '_handle_thread_exception invoked for thread %s: %s: %s',
+        thread_name,
+        exc_type.__name__,
+        exc_value,
+        exc_info=(exc_type, exc_value, args.exc_traceback),
+    )
+    exception_info = ExceptionInfo(exc_type, exc_value, args.exc_traceback)
     terminate_script(
         'THREAD_RAISED',
         (f'An unexpected (uncaught) error occurred.\n\nPlease kindly report it to:\n{GITHUB_ISSUES_URL}'),
@@ -132,7 +170,19 @@ def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
     )
 
 
+def handle_sigterm(sig: int, _frame: FrameType | None) -> None:
+    """Handle termination signals (SIGTERM / SIGBREAK)."""
+    if not ScriptControl.has_crashed():
+        sig_name: Literal['SIGBREAK', 'SIGTERM'] = 'SIGBREAK' if hasattr(signal, 'SIGBREAK') and sig == signal.SIGBREAK else 'SIGTERM'
+        logger.info('Termination signal %s (sig=%d) received. Exiting script...', sig_name, sig)
+        terminate_script(sig_name)
+
+
 # Install global exception/signal handlers at import time
 sys.excepthook = handle_exception
 threading.excepthook = _handle_thread_exception
 signal.signal(signal.SIGINT, handle_sigint)
+if hasattr(signal, 'SIGTERM'):
+    signal.signal(signal.SIGTERM, handle_sigterm)
+if hasattr(signal, 'SIGBREAK'):
+    signal.signal(signal.SIGBREAK, handle_sigterm)

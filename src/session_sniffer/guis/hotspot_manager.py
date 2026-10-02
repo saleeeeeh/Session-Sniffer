@@ -179,8 +179,9 @@ class HotspotManagerWidget(QWidget):
     def cleanup(self) -> None:
         """Stop refresh timer and await any active background worker."""
         self._refresh_timer.stop()
-        if self._active_worker and self._active_worker.isRunning():
-            self._active_worker.wait(1000)
+        if self._active_worker is not None and self._active_worker.isRunning():
+            self._active_worker.cancel()
+        self._active_worker = None
 
     @override
     def showEvent(self, event: QShowEvent) -> None:

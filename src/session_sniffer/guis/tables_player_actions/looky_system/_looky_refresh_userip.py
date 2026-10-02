@@ -660,8 +660,7 @@ def looky_refresh_userip_entries(
             worker.finished_error.disconnect(_on_finished_error)
         except TypeError as e:
             logger.debug('Failed to disconnect worker signals: %s', e)
-        worker.requestInterruption()
-        worker.wait()
+        worker.cancel()
 
     loading_dialog.rejected.connect(_on_rejected)
 
@@ -670,5 +669,4 @@ def looky_refresh_userip_entries(
         loading_dialog.exec()
     finally:
         if worker.isRunning():
-            worker.requestInterruption()
-            worker.wait()
+            worker.cancel()

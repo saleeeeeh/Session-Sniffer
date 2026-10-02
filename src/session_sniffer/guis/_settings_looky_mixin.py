@@ -68,6 +68,8 @@ class _LookyVerifyWorker(CrashingQThread):
         """Call `looky_verify_token` and emit the result or error signal."""
         try:
             result = looky_verify_token(self._api_key)
+            if self.isInterruptionRequested():
+                return
             self.verified.emit(result)
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else 'unknown'
@@ -272,8 +274,7 @@ class SettingsDialogLookyMixin(QDialog):
         if not api_key:
             return
         if self._verify_worker is not None and self._verify_worker.isRunning():
-            self._verify_worker.quit()
-            self._verify_worker.wait()
+            self._verify_worker.cancel()
         self._verify_worker = _LookyVerifyWorker(api_key)
         self._verify_worker.verified.connect(self._on_verify_success)
         self._verify_worker.failed.connect(self._on_verify_failed)
@@ -301,8 +302,8 @@ class SettingsDialogLookyMixin(QDialog):
         if event and not event.isAccepted():
             return
         if self._verify_worker is not None and self._verify_worker.isRunning():
-            self._verify_worker.quit()
-            self._verify_worker.wait()
+            self._verify_worker.cancel()
+            self._verify_worker = None
 
     @override
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:

@@ -87,9 +87,11 @@ class PortScannerWorkerThread(CrashingQThread):
         self._scan_config = scan_config
         self._abort_signal = Event()
 
-    def cancel(self) -> None:
+    @override
+    def cancel(self, timeout_ms: int = 2000) -> bool:
         """Signal the worker thread to abort scanning."""
         self._abort_signal.set()
+        return super().cancel(timeout_ms=timeout_ms)
 
     @override
     def _run(self) -> None:
@@ -115,7 +117,7 @@ class PortScannerWorkerThread(CrashingQThread):
         with port_scan_execution(worker_count), ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix='PortScan') as executor:
             future_to_task: dict[Future[PortScanResult], tuple[int, str]] = {}
             for port, protocol in probe_tasks:
-                if self._abort_signal.is_set():
+                if self._abort_signal.is_set() or self.isInterruptionRequested():
                     break
                 future = executor.submit(
                     probe_single_target,
@@ -128,7 +130,7 @@ class PortScannerWorkerThread(CrashingQThread):
                 future_to_task[future] = (port, protocol)
 
             for future in as_completed(future_to_task):
-                if self._abort_signal.is_set():
+                if self._abort_signal.is_set() or self.isInterruptionRequested():
                     executor.shutdown(wait=False, cancel_futures=True)
                     break
 
@@ -443,7 +445,6 @@ class PortScannerTabWidget(QWidget):
         active_worker = self._worker_thread
         if active_worker is not None and active_worker.isRunning():
             active_worker.cancel()
-            active_worker.wait(2000)
         self._on_worker_finished()
 
     def _toggle_start_stop(self) -> None:

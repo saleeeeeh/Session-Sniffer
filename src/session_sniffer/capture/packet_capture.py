@@ -58,8 +58,8 @@ def _log_malformed_packet_skip(
     *,
     raw_length: int,
 ) -> None:
-    """Log a malformed packet including reason and length."""
-    logger.warning(
+    """Log a malformed or non-matching packet skip at debug level."""
+    logger.debug(
         '%s (Packet skipped). length=%d',
         reason,
         raw_length,

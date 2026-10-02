@@ -70,11 +70,13 @@ class GUIWorkerThread(CrashingQThread):
         last_pagination_version: int = -1
         last_sort_version: int = -1
 
-        while not gui_closed__event.is_set():
+        while not gui_closed__event.is_set() and not self.isInterruptionRequested():
             snapshot, last_seen_version = GUIRenderingState.wait_rendering_snapshot(
                 timeout=0.1,
                 last_seen_version=last_seen_version,
             )
+            if self.isInterruptionRequested() or gui_closed__event.is_set():
+                return
 
             search_text, search_column_name, search_version = SearchState.get()
             connected_rows_per_page, connected_page, disconnected_rows_per_page, disconnected_page, pagination_version = PaginationState.get()

@@ -69,9 +69,11 @@ class PingWorkerThread(CrashingQThread):
         self._configuration = configuration
         self._cancel_event = Event()
 
-    def cancel(self) -> None:
+    @override
+    def cancel(self, timeout_ms: int = 2000) -> bool:
         """Signal the worker thread to stop probing."""
         self._cancel_event.set()
+        return super().cancel(timeout_ms=timeout_ms)
 
     @override
     def _run(self) -> None:
@@ -82,7 +84,7 @@ class PingWorkerThread(CrashingQThread):
         if config.mode == PingMode.ICMP:
             icmp_engine = IcmpEchoEngine()
             try:
-                while not self._cancel_event.is_set():
+                while not self._cancel_event.is_set() and not self.isInterruptionRequested():
                     result = icmp_engine.ping(
                         config.target_host,
                         timeout_seconds=config.timeout_seconds,
@@ -100,7 +102,7 @@ class PingWorkerThread(CrashingQThread):
 
         elif config.mode == PingMode.TCP:
             port_to_probe = config.port if config.port is not None else _DEFAULT_PORT
-            while not self._cancel_event.is_set():
+            while not self._cancel_event.is_set() and not self.isInterruptionRequested():
                 result = TcpPortProbeEngine.probe(
                     config.target_host,
                     port_to_probe,
@@ -116,7 +118,7 @@ class PingWorkerThread(CrashingQThread):
 
         elif config.mode == PingMode.UDP:
             port_to_probe = config.port if config.port is not None else _DEFAULT_PORT
-            while not self._cancel_event.is_set():
+            while not self._cancel_event.is_set() and not self.isInterruptionRequested():
                 result = UdpPortProbeEngine.probe(
                     config.target_host,
                     port_to_probe,
@@ -132,7 +134,7 @@ class PingWorkerThread(CrashingQThread):
                     break
 
         else:  # PingMode.WEB
-            while not self._cancel_event.is_set():
+            while not self._cancel_event.is_set() and not self.isInterruptionRequested():
                 results = CheckHostPingEngine.probe(config.target_host, sequence=sequence_number)
                 for probe_result in results:
                     self.result_received.emit(probe_result)
@@ -380,7 +382,6 @@ class PingTabWidget(QWidget):
         """Signal the worker thread to stop and restore controls."""
         if self._worker_thread is not None and self._worker_thread.isRunning():
             self._worker_thread.cancel()
-            self._worker_thread.wait(2000)
 
         self._on_worker_finished()
 

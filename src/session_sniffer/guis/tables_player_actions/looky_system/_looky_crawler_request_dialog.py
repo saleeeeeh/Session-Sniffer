@@ -123,7 +123,8 @@ class _CrawlerWatchWorker(CrashingQThread):
         self._rid = rid
         self._active_response: requests.Response | None = None
 
-    def cancel(self) -> None:
+    @override
+    def cancel(self, timeout_ms: int = 2000) -> bool:
         """Signal interruption and close the active socket from a daemon thread.
 
         `requestInterruption()` sets a flag instantly (no I/O). The socket close
@@ -139,6 +140,7 @@ class _CrawlerWatchWorker(CrashingQThread):
                 except OSError as e:
                     logger.debug('Failed to close crawler active response socket: %s', e)
             Thread(target=_close_socket, name='CrawlerCancel-closeSSE', daemon=True).start()
+        return super().cancel(timeout_ms=timeout_ms)
 
     def _on_response(self, response: requests.Response) -> None:
         self._active_response = response
@@ -498,7 +500,7 @@ class _CrawlerRequestDialog(QDialog):
             watch_worker = self._watch_worker
             self._watch_worker = None
             if watch_worker.isRunning():
-                watch_worker.cancel()
+                watch_worker.cancel(timeout_ms=0)
                 _CrawlerRequestDialog._detaching_workers.add(watch_worker)
 
                 def _remove_watch_worker(detached_worker: _CrawlerWatchWorker = watch_worker) -> None:
@@ -508,7 +510,7 @@ class _CrawlerRequestDialog(QDialog):
             send_worker = self._send_worker
             self._send_worker = None
             if send_worker.isRunning():
-                send_worker.requestInterruption()
+                send_worker.cancel(timeout_ms=0)
                 _CrawlerRequestDialog._detaching_workers.add(send_worker)
 
                 def _remove_send_worker(detached_worker: _CrawlerSendWorker = send_worker) -> None:

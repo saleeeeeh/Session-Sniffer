@@ -76,9 +76,11 @@ class _DownloadWorker(CrashingQThread):
         self._dest_path = dest_path
         self._cancel_event = threading.Event()
 
-    def cancel(self) -> None:
+    @override
+    def cancel(self, timeout_ms: int = 2000) -> bool:
         """Signal the download thread to abort."""
         self._cancel_event.set()
+        return super().cancel(timeout_ms=timeout_ms)
 
     @override
     def _run(self) -> None:
@@ -98,7 +100,7 @@ class _DownloadWorker(CrashingQThread):
 
             with self._dest_path.open('wb') as file:
                 for chunk in response.iter_content(chunk_size=chunk_size):
-                    if self._cancel_event.is_set():
+                    if self._cancel_event.is_set() or self.isInterruptionRequested():
                         self.finished_signal.emit(False, 'Cancelled')  # noqa: FBT003
                         return
                     file.write(chunk)
