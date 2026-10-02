@@ -40,6 +40,7 @@ from session_sniffer.models.combo_rules import ComboRule
 from session_sniffer.networking.ip_range import is_valid_ip_range_entry
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+from session_sniffer.text_utils import DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS
 
 
 def set_duration_widgets_helper(combo: QComboBox, spin: QSpinBox, duration: int | str) -> None:
@@ -277,7 +278,7 @@ class ComboRuleEditorDialog(QDialog):
         duration_row.addWidget(self._duration_combo)
         self._duration_spin = QSpinBox()
         self._duration_spin.setRange(1, MAX_SUSPEND_DURATION_SECONDS)
-        self._duration_spin.setValue(60)
+        self._duration_spin.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
         self._duration_spin.setSuffix(' seconds')
         self._duration_spin.setVisible(False)
         self._duration_combo.currentTextChanged.connect(self._on_duration_text_changed)

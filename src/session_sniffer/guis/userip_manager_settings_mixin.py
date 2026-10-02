@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
+from session_sniffer.constants.standalone import MAX_SUSPEND_DURATION_SECONDS
 from session_sniffer.guis.color_picker_dialog import SVGColorPickerDialog
 from session_sniffer.guis.stylesheets import (
     COLOR_BUTTON_EMPTY_STYLESHEET,
@@ -32,6 +33,7 @@ from session_sniffer.guis.utils import (
 )
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+from session_sniffer.text_utils import DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS
 
 
 class SettingsPanelMixin(QDialog):
@@ -182,9 +184,9 @@ class SettingsPanelMixin(QDialog):
         self._setting_suspend_mode.currentTextChanged.connect(self._on_suspend_mode_changed)
         suspend_row.addWidget(self._setting_suspend_mode)
         self._setting_suspend_custom = QSpinBox()
-        self._setting_suspend_custom.setSingleStep(1)
-        self._setting_suspend_custom.setMinimum(0)
-        self._setting_suspend_custom.setMaximum(99999)
+        self._setting_suspend_custom.setRange(1, MAX_SUSPEND_DURATION_SECONDS)
+        self._setting_suspend_custom.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
+        self._setting_suspend_custom.setSuffix(' seconds')
         self._setting_suspend_custom.setToolTip('Fixed suspend duration in seconds')
         self._setting_suspend_custom.setVisible(False)
         self._setting_suspend_custom.valueChanged.connect(self._on_setting_changed)
@@ -224,9 +226,11 @@ class SettingsPanelMixin(QDialog):
         suspend_val = settings_dict.get('PROTECTION_SUSPEND_PROCESS_MODE', 'Auto').strip()
         if prot_val.lower() in ('false', '0', ''):
             self._setting_suspend_mode.setCurrentIndex(0)  # Disabled
+            self._setting_suspend_custom.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
             self._setting_suspend_custom.setVisible(False)
         elif suspend_val.lower() == 'auto':
             self._setting_suspend_mode.setCurrentIndex(1)  # Auto
+            self._setting_suspend_custom.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
             self._setting_suspend_custom.setVisible(False)
         else:
             self._setting_suspend_mode.setCurrentIndex(2)  # Manual
@@ -237,7 +241,7 @@ class SettingsPanelMixin(QDialog):
                 else:
                     self._setting_suspend_custom.setValue(int(suspend_val))
             except ValueError:
-                self._setting_suspend_custom.setValue(0)
+                self._setting_suspend_custom.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
 
         self._update_enabled_body_visible()
 
@@ -304,7 +308,10 @@ class SettingsPanelMixin(QDialog):
 
     def _on_suspend_mode_changed(self, text: str) -> None:
         """Show/hide the custom duration spin box based on suspend mode selection."""
-        self._setting_suspend_custom.setVisible(text == 'Manual')
+        is_manual = text == 'Manual'
+        if is_manual and self._setting_suspend_custom.value() <= 0:
+            self._setting_suspend_custom.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
+        self._setting_suspend_custom.setVisible(is_manual)
         self._on_setting_changed()
 
     def _update_enabled_body_visible(self) -> None:

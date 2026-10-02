@@ -52,6 +52,7 @@ from session_sniffer.guis.utils import (
 from session_sniffer.models.combo_rules import ComboRule
 from session_sniffer.player.combo_rules import ComboRulesManager
 from session_sniffer.settings import Settings
+from session_sniffer.text_utils import DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS
 
 
 class DetectionsManagerTabsMixin(QDialog):
@@ -544,7 +545,7 @@ class DetectionsManagerTabsMixin(QDialog):
 
         duration_spin = QSpinBox()
         duration_spin.setRange(1, MAX_SUSPEND_DURATION_SECONDS)
-        duration_spin.setValue(60)
+        duration_spin.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
         duration_spin.setSuffix(' seconds')
         duration_spin.setVisible(False)
 
@@ -633,7 +634,7 @@ class DetectionsManagerTabsMixin(QDialog):
 
         duration_spin = QSpinBox()
         duration_spin.setRange(1, MAX_SUSPEND_DURATION_SECONDS)
-        duration_spin.setValue(60)
+        duration_spin.setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
         duration_spin.setSuffix(' seconds')
         duration_spin.setVisible(False)
 

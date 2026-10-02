@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS = 60
+DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS = 8
 _ONE_MS = timedelta(milliseconds=1)
 
 

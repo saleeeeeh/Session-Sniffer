@@ -45,6 +45,7 @@ from session_sniffer.player.combo_rules import ComboRulesManager
 from session_sniffer.player.detections import GUIDetectionSettings
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+from session_sniffer.text_utils import DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QKeyEvent, QShowEvent
@@ -428,6 +429,7 @@ class DetectionsManagerDialog(UnsavedChangesMixin, DetectionsManagerTabsMixin, Q
                 getattr(self, f'{prefix}_duration_spin'),
                 'Disabled',
             )
+            getattr(self, f'{prefix}_duration_spin').setValue(DEFAULT_MANUAL_SUSPEND_DURATION_SECONDS)
             self._set_voice_combo(getattr(self, f'{prefix}_voice_combo'), value=False)
             getattr(self, f'{prefix}_logging_checkbox').setChecked(False)
             getattr(self, f'{prefix}_msgbox_checkbox').setChecked(False)
