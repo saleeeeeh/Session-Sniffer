@@ -47,7 +47,7 @@ from session_sniffer.guis.stylesheets import (
     SVG_ICON_CONTEXT_MENU_STYLESHEET,
 )
 from session_sniffer.guis.table_column_resizing import TableColumnResizeController, setup_table_header_context_menu
-from session_sniffer.guis.utils import scale_by_ui, set_clipboard_text
+from session_sniffer.guis.utils import animate_button_feedback, scale_by_ui, set_clipboard_text
 from session_sniffer.networking.ping import PingMode
 from session_sniffer.networking.port_scanner import (
     DEFAULT_SCAN_THREADS,
@@ -86,6 +86,12 @@ class PortScannerWorkerThread(CrashingQThread):
         super().__init__()
         self._scan_config = scan_config
         self._abort_signal = Event()
+
+    @override
+    def requestInterruption(self) -> None:
+        """Signal interruption and wake the abort event."""
+        self._abort_signal.set()
+        super().requestInterruption()
 
     @override
     def cancel(self, timeout_ms: int = 2000) -> bool:
@@ -249,10 +255,12 @@ class PortScannerTabWidget(QWidget):
         copy_selected_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'copy.svg')), ' Copy Selected')
         copy_selected_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
         copy_selected_button.clicked.connect(self._copy_selected_rows)
+        self._copy_selected_button = copy_selected_button
 
         copy_all_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'copy.svg')), ' Copy All Open')
         copy_all_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
         copy_all_button.clicked.connect(self._copy_all_open)
+        self._copy_all_button = copy_all_button
 
         export_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'save.svg')), ' Export…')
         export_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
@@ -565,12 +573,14 @@ class PortScannerTabWidget(QWidget):
 
         if lines:
             set_clipboard_text('\n'.join(lines))
+            animate_button_feedback(self._copy_selected_button)
 
     def _copy_all_open(self) -> None:
         """Copy all open ports to the clipboard as a comma-separated list."""
         open_ports = [str(r.port) for r in self._results if r.state == PortScanState.OPEN]
         if open_ports:
             set_clipboard_text(', '.join(open_ports))
+            animate_button_feedback(self._copy_all_button)
 
     def _export_results(self) -> None:
         """Export current scan results to a CSV or text file."""

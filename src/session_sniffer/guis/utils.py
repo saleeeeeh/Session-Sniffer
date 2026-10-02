@@ -1250,6 +1250,64 @@ def set_clipboard_text(text: str) -> None:
     clipboard.setText(text)
 
 
+def animate_button_feedback(
+    button: QPushButton,
+    *,
+    feedback_text: str = ' Copied!',
+    feedback_tooltip: str = 'Copied to clipboard!',
+    duration_milliseconds: int = 1500,
+) -> None:
+    """Temporarily update a button's icon, text, and tooltip to show confirmation feedback."""
+    existing_timer: QTimer | None = button.property('_feedback_timer')
+    if existing_timer is not None and existing_timer.isActive():
+        existing_timer.stop()
+
+    if button.property('_feedback_orig_text') is None:
+        button.setProperty('_feedback_orig_text', button.text())
+        button.setProperty('_feedback_orig_icon', button.icon())
+        button.setProperty('_feedback_orig_tooltip', button.toolTip())
+        button.setProperty('_feedback_orig_min_width', button.minimumWidth())
+
+    orig_text = str(button.property('_feedback_orig_text') or '')
+    prefix = ' ' if orig_text.startswith(' ') else ''
+    display_text = f'{prefix}{feedback_text.lstrip()}'
+
+    button.setMinimumWidth(max(button.minimumWidth(), button.width()))
+    button.setText(display_text)
+    button.setIcon(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'check.svg')))
+    button.setToolTip(feedback_tooltip)
+
+    def _reset() -> None:
+        try:
+            saved_text = button.property('_feedback_orig_text')
+            saved_icon = button.property('_feedback_orig_icon')
+            saved_tooltip = button.property('_feedback_orig_tooltip')
+            saved_min_width = button.property('_feedback_orig_min_width')
+
+            if saved_text is not None:
+                button.setText(str(saved_text))
+            if isinstance(saved_icon, QIcon):
+                button.setIcon(saved_icon)
+            if saved_tooltip is not None:
+                button.setToolTip(str(saved_tooltip))
+            if isinstance(saved_min_width, int):
+                button.setMinimumWidth(saved_min_width)
+
+            button.setProperty('_feedback_orig_text', None)
+            button.setProperty('_feedback_orig_icon', None)
+            button.setProperty('_feedback_orig_tooltip', None)
+            button.setProperty('_feedback_orig_min_width', None)
+            button.setProperty('_feedback_timer', None)
+        except RuntimeError:
+            return
+
+    timer = QTimer(button)
+    timer.setSingleShot(True)
+    timer.timeout.connect(_reset)
+    button.setProperty('_feedback_timer', timer)
+    timer.start(duration_milliseconds)
+
+
 def popup_menu_at_table_widget(menu: QMenu, table: QTableWidget, pos: QPoint) -> None:
     """Pop up *menu* at the viewport-relative position *pos* of a `QTableWidget`.
 

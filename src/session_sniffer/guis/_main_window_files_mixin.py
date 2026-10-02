@@ -51,7 +51,7 @@ from session_sniffer.guis.detections_manager import DetectionsManagerDialog
 from session_sniffer.guis.interface_selection_dialog import InterfaceSelectionDialog
 from session_sniffer.guis.logs_manager import LogsManager
 from session_sniffer.guis.userip_manager import UserIPDatabasesManager
-from session_sniffer.guis.utils import activate_window, set_clipboard_text, show_or_focus_window
+from session_sniffer.guis.utils import activate_window, animate_button_feedback, set_clipboard_text, show_or_focus_window
 from session_sniffer.settings import Settings
 from session_sniffer.updater import UpdateCheckOutcome, check_for_updates
 
@@ -395,7 +395,12 @@ class FilesMixin(QMainWindow):
 
         if copy_button:
             copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
-            copy_button.clicked.connect(lambda: set_clipboard_text(copy_text))
+
+            def _on_copy_details() -> None:
+                set_clipboard_text(copy_text)
+                animate_button_feedback(copy_button)
+
+            copy_button.clicked.connect(_on_copy_details)
 
         button_box.rejected.connect(dialog.reject)
         layout.addWidget(button_box)

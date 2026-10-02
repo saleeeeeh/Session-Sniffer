@@ -34,7 +34,7 @@ from session_sniffer.guis.stylesheets import (
     DIALOG_DANGER_BUTTON_STYLESHEET,
     DIALOG_PRIMARY_BUTTON_STYLESHEET,
 )
-from session_sniffer.guis.utils import scale_by_ui
+from session_sniffer.guis.utils import animate_button_feedback, scale_by_ui
 from session_sniffer.networking.ping import (
     CheckHostPingEngine,
     IcmpEchoEngine,
@@ -68,6 +68,12 @@ class PingWorkerThread(CrashingQThread):
         super().__init__()
         self._configuration = configuration
         self._cancel_event = Event()
+
+    @override
+    def requestInterruption(self) -> None:
+        """Signal interruption and wake the cancellation event."""
+        self._cancel_event.set()
+        super().requestInterruption()
 
     @override
     def cancel(self, timeout_ms: int = 2000) -> bool:
@@ -292,6 +298,7 @@ class PingTabWidget(QWidget):
         copy_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'copy.svg')), ' Copy Log')
         copy_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
         copy_button.clicked.connect(self._copy_log)
+        self._copy_button = copy_button
 
         clear_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'clear_all.svg')), ' Clear')
         clear_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
@@ -500,6 +507,7 @@ class PingTabWidget(QWidget):
         plain_text = self._console_log.toPlainText()
         if plain_text:
             QApplication.clipboard().setText(plain_text)
+            animate_button_feedback(self._copy_button)
 
     def _clear_log(self) -> None:
         """Clear the console log and reset statistics."""

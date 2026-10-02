@@ -15,7 +15,7 @@ from session_sniffer.constants.local import CRASH_LOG_PATH, DEBUG_LOG_PATH, RESO
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.guis.stylesheets import DIALOG_BUTTON_STYLESHEET, DIALOG_DANGER_BUTTON_STYLESHEET
 from session_sniffer.guis.userip_manager_helpers import BYTES_PER_UNIT, human_readable_size
-from session_sniffer.guis.utils import apply_search_icon, set_clipboard_text
+from session_sniffer.guis.utils import animate_button_feedback, apply_search_icon, set_clipboard_text
 from session_sniffer.logging_setup import purge_crash_log, purge_debug_log
 
 if TYPE_CHECKING:
@@ -307,7 +307,12 @@ def setup_copy_save_button_row(
     copy_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'copy.svg')), ' Copy All')
     copy_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
     copy_button.setToolTip(copy_tooltip)
-    copy_button.clicked.connect(copy_fn)
+
+    def _on_copy_clicked() -> None:
+        copy_fn()
+        animate_button_feedback(copy_button)
+
+    copy_button.clicked.connect(_on_copy_clicked)
     button_row.addWidget(copy_button)
 
     save_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'save.svg')), ' Save As...')

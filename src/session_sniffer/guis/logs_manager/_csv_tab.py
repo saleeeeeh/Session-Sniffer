@@ -62,7 +62,7 @@ from session_sniffer.guis.tables_player_actions import (
     udp_port_ping,
     web_ping,
 )
-from session_sniffer.guis.utils import SearchHighlightDelegate, set_clipboard_text
+from session_sniffer.guis.utils import SearchHighlightDelegate, animate_button_feedback, set_clipboard_text
 from session_sniffer.text_utils import pluralize
 
 if TYPE_CHECKING:
@@ -203,6 +203,7 @@ class CsvLogTab(QWidget):
         copy_button.setToolTip('Copy selected rows to clipboard')
         copy_button.clicked.connect(self._copy_selected)
         button_row.addWidget(copy_button)
+        self._copy_button = copy_button
 
         export_button = QPushButton(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'export.svg')), ' Export As...')
         export_button.setStyleSheet(DIALOG_BUTTON_STYLESHEET)
@@ -671,6 +672,7 @@ class CsvLogTab(QWidget):
             lines.append(','.join(cells))
 
         set_clipboard_text('\n'.join(lines))
+        animate_button_feedback(self._copy_button)
 
     def _copy_all(self) -> None:
         lines: list[str] = []
