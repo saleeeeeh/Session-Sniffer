@@ -1,26 +1,16 @@
-# pylint: disable=too-many-lines
 """Utility functions for GUI-related operations."""
 
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, override
 
-from PySide6.QtCore import QByteArray, QEvent, QModelIndex, QPersistentModelIndex, QPoint, QPointF, QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QByteArray, QPoint, QRectF, Qt, QTimer
 from PySide6.QtGui import (
-    QBrush,
     QColor,
-    QFont,
-    QFontMetrics,
-    QHelpEvent,
     QIcon,
     QImage,
-    QLinearGradient,
     QPainter,
-    QPalette,
     QPixmap,
-    QTextCharFormat,
-    QTextLayout,
-    QTextOption,
 )
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
@@ -37,30 +27,18 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMenu,
-    QMessageBox,
-    QPlainTextEdit,
     QPushButton,
-    QStyle,
-    QStyledItemDelegate,
-    QStyleOptionViewItem,
     QTableView,
     QTableWidget,
     QTableWidgetItem,
-    QToolTip,
+    QTreeView,
     QVBoxLayout,
     QWidget,
 )
 
 from session_sniffer.constants.local import IMAGES_DIR_PATH, RESOURCES_DIR_PATH
-from session_sniffer.constants.standalone import TITLE
-from session_sniffer.constants.tables import (
-    DEFAULT_MIN_COLUMN_WIDTH,
-    FLEXIBLE_COLUMN_WEIGHTS,
-    FLEXIBLE_STRETCH_COLUMNS,
-)
-from session_sniffer.guis.colors import TableColors
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.settings.settings import Settings
-from session_sniffer.text_utils import split_usernames
 
 from .app import app
 from .exceptions import PrimaryScreenNotFoundError, UnsupportedScreenResolutionError
@@ -91,8 +69,6 @@ _TARGET_HD_WIDTH = 860
 _TARGET_HD_HEIGHT = 620
 
 _FALLBACK_MARGIN = 80
-
-MINIMUM_VIEWPORT_WIDTH_THRESHOLD: int = 100
 
 
 # ---------------------------------------------------------------------------
@@ -517,305 +493,6 @@ class ActiveDialogRegistry[K, V: QWidget]:
         return dialog
 
 
-_STANDARD_ICON_SIZE = 16
-
-
-class ElidedTextTooltipDelegate(QStyledItemDelegate):
-    """Custom delegate that reliably shows a tooltip only if the text is horizontally truncated."""
-
-    @override
-    def helpEvent(
-        self,
-        event: QHelpEvent,
-        view: QAbstractItemView,
-        option: QStyleOptionViewItem,
-        index: QModelIndex | QPersistentModelIndex,
-    ) -> bool:
-        """Show tooltip for elided cells, let the default handle the rest."""
-        if event and event.type() == QEvent.Type.ToolTip:
-            if index.data(Qt.ItemDataRole.ToolTipRole):
-                return super().helpEvent(event, view, option, index)
-
-            text = index.data(Qt.ItemDataRole.DisplayRole)
-            if isinstance(text, str) and text:
-                opt = QStyleOptionViewItem(option)
-                self.initStyleOption(opt, index)
-                if QFontMetrics(cast('QFont', opt.font)).horizontalAdvance(text) > view.visualRect(index).width() - 6:  # type: ignore[redundant-cast]
-                    QToolTip.showText(event.globalPos(), text, view)
-                    return True
-
-        return super().helpEvent(event, view, option, index)
-
-    @override
-    def initStyleOption(self, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
-        """Initialize style option and adjust decoration size for custom-sized decorations."""
-        super().initStyleOption(option, index)
-        if option.features & QStyleOptionViewItem.ViewItemFeature.HasDecoration and not option.icon.isNull():
-            if option.decorationSize.width() <= 0 or option.decorationSize.height() <= 0:
-                option.decorationSize = QSize(_STANDARD_ICON_SIZE, _STANDARD_ICON_SIZE)
-            model = index.model()
-            ip_column = getattr(model, 'ip_column_index', -1)
-            if 0 <= ip_column == index.column():
-                size = option.icon.actualSize(QSize(100, _STANDARD_ICON_SIZE))
-                if size.width() > _STANDARD_ICON_SIZE:
-                    option.decorationSize = size
-
-    @override
-    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
-        """Paint table cell with hover gradient and preserve custom ForegroundRole/BackgroundRole."""
-        if painter:
-            is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-            is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
-
-            if is_hovered:
-                is_connected: bool | None = None
-                view = self.parent()
-                if view is not None and hasattr(view, 'is_connected_table'):
-                    raw_is_connected = getattr(view, 'is_connected_table', None)
-                    if isinstance(raw_is_connected, bool):
-                        is_connected = raw_is_connected
-
-                painter.save()
-                rect = cast('QRect', option.rect)  # type: ignore[redundant-cast]
-
-                if is_connected is True:
-                    grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-                    if is_selected:
-                        grad.setColorAt(0, QColor(42, 110, 85, 160))
-                        grad.setColorAt(1, QColor(28, 75, 58, 160))
-                    else:
-                        grad.setColorAt(0, QColor(42, 110, 85, 100))
-                        grad.setColorAt(1, QColor(28, 75, 58, 100))
-                elif is_connected is False:
-                    grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-                    if is_selected:
-                        grad.setColorAt(0, QColor(130, 45, 45, 160))
-                        grad.setColorAt(1, QColor(85, 28, 28, 160))
-                    else:
-                        grad.setColorAt(0, QColor(130, 45, 45, 100))
-                        grad.setColorAt(1, QColor(85, 28, 28, 100))
-                else:
-                    grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-                    if is_selected:
-                        grad.setColorAt(0, QColor('#2f4f64'))
-                        grad.setColorAt(1, QColor('#2f4f64'))
-                    else:
-                        grad.setColorAt(0, QColor('#2d2d30'))
-                        grad.setColorAt(1, QColor('#2d2d30'))
-
-                painter.fillRect(rect, grad)
-                painter.restore()
-            else:
-                bg_brush = index.data(Qt.ItemDataRole.BackgroundRole)
-                if isinstance(bg_brush, QBrush) and not is_selected:
-                    painter.save()
-                    painter.fillRect(cast('QRect', option.rect), bg_brush)  # type: ignore[redundant-cast]
-                    painter.restore()
-
-        opt = QStyleOptionViewItem(option)
-        self.initStyleOption(opt, index)
-        # Clear HasFocus so that global stylesheet focus rules do not force white text onto unselected cells
-        opt.state &= ~QStyle.StateFlag.State_HasFocus
-        if not bool(opt.state & QStyle.StateFlag.State_Selected):
-            fg_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-            if isinstance(fg_brush, QBrush):
-                opt.palette.setBrush(QPalette.ColorRole.Text, fg_brush)
-                opt.palette.setBrush(QPalette.ColorRole.WindowText, fg_brush)
-        else:
-            opt.palette.setColor(QPalette.ColorRole.Text, QColor('#ffffff'))
-            opt.palette.setColor(QPalette.ColorRole.HighlightedText, QColor('#ffffff'))
-
-        super().paint(painter, opt, index)
-
-
-class SearchHighlightDelegate(ElidedTextTooltipDelegate):
-    """Item delegate that highlights search query matches and Looky-resolved usernames."""
-
-    def __init__(
-        self,
-        parent: QWidget,
-        get_search_text: Callable[[], str],
-        get_search_column: Callable[[], int] | None = None,
-    ) -> None:
-        """Initialize the delegate with callables for the active search query and target column."""
-        super().__init__(parent)
-        self._get_search_text = get_search_text
-        self._get_search_column = get_search_column
-
-    @override
-    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
-        """Paint cell with highlighted search substrings or Looky usernames."""
-        search_column_matches = True
-        if self._get_search_column is not None:
-            target_column = self._get_search_column()
-            if target_column >= 0 and index.column() != target_column:
-                search_column_matches = False
-
-        search_query = self._get_search_text().strip()
-        text = index.data(Qt.ItemDataRole.DisplayRole)
-        user_role_data = index.data(Qt.ItemDataRole.UserRole)
-        unregistered_looky_names: set[str] | None = cast('set[str]', user_role_data) if isinstance(user_role_data, set) and user_role_data else None
-
-        has_search_match = bool(search_column_matches and search_query and isinstance(text, str) and search_query.lower() in text.lower())
-
-        if not isinstance(text, str) or (not has_search_match and not unregistered_looky_names):
-            super().paint(painter, option, index)
-            return
-
-        if painter:
-            cell_rectangle = cast('QRect', option.rect)  # type: ignore[redundant-cast]
-            is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-            is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
-
-            if is_hovered:
-                painter.save()
-                gradient = QLinearGradient(cell_rectangle.topLeft(), cell_rectangle.bottomLeft())
-                if is_selected:
-                    gradient.setColorAt(0, QColor('#2f4f64'))
-                    gradient.setColorAt(1, QColor('#2f4f64'))
-                else:
-                    gradient.setColorAt(0, QColor('#2d2d30'))
-                    gradient.setColorAt(1, QColor('#2d2d30'))
-                painter.fillRect(cell_rectangle, gradient)
-                painter.restore()
-            elif is_selected:
-                painter.save()
-                painter.fillRect(cell_rectangle, option.palette.highlight())
-                painter.restore()
-            else:
-                background_brush = index.data(Qt.ItemDataRole.BackgroundRole)
-                if isinstance(background_brush, QBrush):
-                    painter.save()
-                    painter.fillRect(cell_rectangle, background_brush)
-                    painter.restore()
-
-        style_option = QStyleOptionViewItem(option)
-        self.initStyleOption(style_option, index)
-        style_option.state &= ~QStyle.StateFlag.State_HasFocus
-
-        text_color = QColor('#ffffff')
-        if not bool(style_option.state & QStyle.StateFlag.State_Selected):
-            foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-            if isinstance(foreground_brush, QBrush):
-                text_color = foreground_brush.color()
-
-        if painter:
-            cell_rectangle = cast('QRect', option.rect)  # type: ignore[redundant-cast]
-            font = cast('QFont', style_option.font)  # type: ignore[redundant-cast]
-            painter.save()
-            painter.setFont(font)
-
-            icon_offset = 0
-            icon_data = index.data(Qt.ItemDataRole.DecorationRole)
-            if isinstance(icon_data, (QIcon, QPixmap)) and not (isinstance(icon_data, QIcon) and icon_data.isNull()):
-                view = self.parent()
-                icon_size = view.iconSize() if isinstance(view, QAbstractItemView) else None
-                if icon_size is None or not icon_size.isValid():
-                    icon_size = option.decorationSize if option.decorationSize.isValid() else None
-                if icon_size is None or not icon_size.isValid():
-                    icon_size = QSize(16, 16)
-                icon_rectangle = QRect(
-                    cell_rectangle.left() + 6,
-                    cell_rectangle.top() + (cell_rectangle.height() - icon_size.height()) // 2,
-                    icon_size.width(),
-                    icon_size.height(),
-                )
-                if isinstance(icon_data, QIcon):
-                    icon_data.paint(painter, icon_rectangle, Qt.AlignmentFlag.AlignCenter)
-                else:
-                    painter.drawPixmap(icon_rectangle, icon_data)
-                icon_offset = icon_size.width() + 6
-
-            text_rectangle = cell_rectangle.adjusted(6 + icon_offset, 0, -6, 0)
-            painter.setClipRect(cell_rectangle)
-
-            font_metrics = QFontMetrics(font)
-            display_text = text
-            if font_metrics.horizontalAdvance(text) > text_rectangle.width():
-                display_text = font_metrics.elidedText(text, Qt.TextElideMode.ElideRight, text_rectangle.width())
-
-            formats: list[QTextLayout.FormatRange] = []
-
-            base_format = QTextLayout.FormatRange()
-            base_format.start = 0
-            base_format.length = len(display_text)
-            base_char_format = QTextCharFormat()
-            base_char_format.setForeground(text_color)
-            base_format.format = base_char_format
-            formats.append(base_format)
-
-            if unregistered_looky_names:
-                unregistered_looky_casefolded = {name.casefold() for name in unregistered_looky_names}
-                looky_format = QTextCharFormat()
-                foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-                is_disconnected = isinstance(foreground_brush, QBrush) and foreground_brush.color() == QColor(TableColors.DISCONNECTED_TEXT)
-                looky_color = QColor(TableColors.DISCONNECTED_LOOKY_TEXT) if is_disconnected else QColor(TableColors.LOOKY_TEXT)
-                looky_format.setForeground(looky_color)
-
-                tokens = split_usernames(text)
-                display_segments = split_usernames(display_text)
-                current_offset = 0
-
-                for i, segment in enumerate(display_segments):
-                    segment_pos = display_text.find(segment, current_offset)
-                    if segment_pos == -1:
-                        segment_pos = current_offset
-                    if i < len(tokens) and tokens[i].casefold() in unregistered_looky_casefolded:
-                        format_range = QTextLayout.FormatRange()
-                        format_range.start = segment_pos
-                        format_range.length = len(segment)
-                        format_range.format = looky_format
-                        formats.append(format_range)
-                    current_offset = segment_pos + len(segment) + 2
-
-            if has_search_match:
-                lower_display_text = display_text.lower()
-                lower_query = search_query.lower()
-                search_position = 0
-
-                highlight_format = QTextCharFormat()
-                highlight_format.setBackground(QColor('#e3b341'))
-                highlight_format.setForeground(QColor('#000000'))
-
-                while True:
-                    match_index = lower_display_text.find(lower_query, search_position)
-                    if match_index == -1:
-                        break
-                    format_range = QTextLayout.FormatRange()
-                    format_range.start = match_index
-                    format_range.length = len(lower_query)
-                    format_range.format = highlight_format
-                    formats.append(format_range)
-                    search_position = match_index + len(lower_query)
-
-            text_option = QTextOption()
-            text_option.setWrapMode(QTextOption.WrapMode.NoWrap)
-
-            layout = QTextLayout(display_text, font)
-            layout.setTextOption(text_option)
-            layout.setFormats(formats)
-
-            layout.beginLayout()
-            line = layout.createLine()
-            if line.isValid():
-                line.setLineWidth(text_rectangle.width())
-            layout.endLayout()
-
-            vertical_offset = text_rectangle.top() + max(0, round((text_rectangle.height() - line.height()) / 2))
-
-            alignment_data = index.data(Qt.ItemDataRole.TextAlignmentRole)
-            alignment = Qt.AlignmentFlag(alignment_data) if isinstance(alignment_data, int) else Qt.AlignmentFlag.AlignLeft
-            if bool(alignment & Qt.AlignmentFlag.AlignRight):
-                horizontal_offset = text_rectangle.right() - line.naturalTextWidth()
-            elif bool(alignment & Qt.AlignmentFlag.AlignHCenter):
-                horizontal_offset = text_rectangle.left() + max(0.0, (text_rectangle.width() - line.naturalTextWidth()) / 2)
-            else:
-                horizontal_offset = float(text_rectangle.left())
-
-            layout.draw(painter, QPointF(horizontal_offset, float(vertical_offset)))
-            painter.restore()
-
-
 def setup_table_view_headers(table: QTableView) -> QHeaderView:
     """Hide the vertical header of *table* and return the horizontal header.
 
@@ -838,325 +515,11 @@ def setup_table_view_headers(table: QTableView) -> QHeaderView:
     return h_header
 
 
-def setup_static_table_column_resizing(
-    table: QTableView,
-    *,
-    custom_widths: dict[str, int] | None = None,
-    min_column_widths: dict[str, int] | None = None,
-    max_column_widths: dict[str, int] | None = None,
-) -> None:
-    """Set up column sizing for a table, fitting columns and distributing extra space to flexible columns."""
-    table_model = table.model()
-    if not table_model:
-        return
-
-    horizontal_header = table.horizontalHeader()
-    if not horizontal_header:
-        return
-
-    viewport = table.viewport()
-    viewport_width = viewport.width() if viewport and viewport.width() > MINIMUM_VIEWPORT_WIDTH_THRESHOLD else table.width()
-    if viewport_width <= 0:
-        return
-
-    font_metrics = table.fontMetrics()
-    header_font_metrics = horizontal_header.fontMetrics()
-    header_sort_padding = scale_by_ui(28)
-    cell_padding = scale_by_ui(32)
-    row_count = table_model.rowCount()
-    widths_map = min_column_widths or {}
-    max_bounds_map = max_column_widths or {}
-
-    is_sort_active = horizontal_header.isSortIndicatorShown()
-    sorted_column_index = horizontal_header.sortIndicatorSection() if is_sort_active else -1
-
-    visible_columns: list[tuple[int, str, int, int]] = []
-    for column in range(table_model.columnCount()):
-        if horizontal_header.isSectionHidden(column):
-            continue
-        header_label = str(table_model.headerData(column, Qt.Orientation.Horizontal) or '')
-        sort_padding = header_sort_padding if column == sorted_column_index else 0
-        header_needed = max(
-            header_font_metrics.horizontalAdvance(header_label) + sort_padding,
-            horizontal_header.sectionSizeFromContents(column).width(),
-        )
-        min_width = max(scale_by_ui(widths_map.get(header_label, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
-        custom_width = custom_widths.get(header_label) if custom_widths is not None else None
-        floor_width = max(min_width, custom_width) if custom_width is not None else min_width
-
-        needed_width = min_width
-
-        sample_rows = min(row_count, 100)
-        for row in range(sample_rows):
-            index = table_model.index(row, column)
-            text = table_model.data(index, Qt.ItemDataRole.DisplayRole)
-            text_str = str(text) if text is not None and not isinstance(text, bool) else ''
-            text_width = font_metrics.horizontalAdvance(text_str) if text_str else 0
-            icon = table_model.data(index, Qt.ItemDataRole.DecorationRole)
-            icon_offset = 0
-            if isinstance(icon, QIcon):
-                icon_width = icon.actualSize(QSize(100, _STANDARD_ICON_SIZE)).width()
-                icon_offset = icon_width + scale_by_ui(6)
-            elif icon is not None:
-                icon_offset = scale_by_ui(22)
-            cell_needed = text_width + icon_offset + cell_padding
-            needed_width = max(needed_width, cell_needed)
-
-        max_bound = scale_by_ui(max_bounds_map[header_label]) if header_label in max_bounds_map else None
-        if max_bound is not None:
-            needed_width = min(needed_width, max(floor_width, max_bound))
-
-        visible_columns.append((column, header_label, floor_width, needed_width))
-
-    if not visible_columns:
-        return
-
-    final_widths: dict[int, int] = {column_index: floor_width for column_index, _, floor_width, _ in visible_columns}
-    total_allocated = sum(final_widths.values())
-    surplus = viewport_width - total_allocated
-
-    # Detect truncated columns: columns whose needed content width exceeds currently allocated floor width
-    truncated_columns: dict[int, int] = {}
-    for column_index, _, floor_width, needed_width in visible_columns:
-        if needed_width > floor_width:
-            truncated_columns[column_index] = needed_width - floor_width
-
-    total_deficit = sum(truncated_columns.values())
-
-    # If there is a deficit and surplus is insufficient, reclaim excess width from columns sitting above their needed width
-    if total_deficit > 0 and surplus < total_deficit:
-        deficit_to_cover = total_deficit - max(0, surplus)
-        for column_index, header_label, _, needed_width in visible_columns:
-            if custom_widths is not None and header_label in custom_widths:
-                continue
-            if deficit_to_cover <= 0:
-                break
-            sort_padding = header_sort_padding if column_index == sorted_column_index else 0
-            header_needed = max(
-                header_font_metrics.horizontalAdvance(header_label) + sort_padding,
-                horizontal_header.sectionSizeFromContents(column_index).width(),
-            )
-            min_bound = max(scale_by_ui(widths_map.get(header_label, DEFAULT_MIN_COLUMN_WIDTH)), header_needed)
-            reclaim_limit = max(min_bound, needed_width)
-            if final_widths[column_index] > reclaim_limit:
-                available_to_reclaim = final_widths[column_index] - reclaim_limit
-                reclaimed_amount = min(available_to_reclaim, deficit_to_cover)
-                final_widths[column_index] -= reclaimed_amount
-                surplus += reclaimed_amount
-                deficit_to_cover -= reclaimed_amount
-
-    # Allocate surplus to truncated columns to eliminate or reduce text clipping
-    if surplus > 0 and total_deficit > 0:
-        if surplus >= total_deficit:
-            for column_index, deficit in truncated_columns.items():
-                final_widths[column_index] += deficit
-            surplus -= total_deficit
-        else:
-            allocated = 0
-            for column_index, deficit in truncated_columns.items():
-                share = (surplus * deficit) // total_deficit
-                final_widths[column_index] += share
-                allocated += share
-            remainder = surplus - allocated
-            if remainder > 0:
-                top_column = max(truncated_columns, key=lambda col_idx: truncated_columns[col_idx])
-                final_widths[top_column] += remainder
-            surplus = 0
-
-    # Distribute any remaining surplus across flexible stretch columns to fill the table to the right edge
-    if surplus > 0:
-        flexible_columns = [
-            (column_index, label)
-            for column_index, label, _, _ in visible_columns
-            if label in FLEXIBLE_STRETCH_COLUMNS and (custom_widths is None or label not in custom_widths)
-        ]
-        if not flexible_columns:
-            flexible_columns = [(column_index, label) for column_index, label, _, _ in visible_columns if label in FLEXIBLE_STRETCH_COLUMNS]
-        if not flexible_columns:
-            non_custom_visible = [(column_index, label) for column_index, label, _, _ in visible_columns if custom_widths is None or label not in custom_widths]
-            flexible_columns = [non_custom_visible[-1]] if non_custom_visible else [(visible_columns[-1][0], visible_columns[-1][1])]
-
-        total_weight = sum(FLEXIBLE_COLUMN_WEIGHTS.get(label, 1) for _, label in flexible_columns)
-        if total_weight <= 0:
-            total_weight = len(flexible_columns)
-
-        allocated = 0
-        for column_index, label in flexible_columns:
-            weight = FLEXIBLE_COLUMN_WEIGHTS.get(label, 1)
-            share = (surplus * weight) // total_weight
-            final_widths[column_index] += share
-            allocated += share
-
-        remainder = surplus - allocated
-        if remainder > 0:
-            top_column = max(flexible_columns, key=lambda item: FLEXIBLE_COLUMN_WEIGHTS.get(item[1], 1))[0]
-            final_widths[top_column] += remainder
-
-    for column, width in final_widths.items():
-        horizontal_header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
-        if horizontal_header.sectionSize(column) != width:
-            horizontal_header.resizeSection(column, width)
-
-
 def find_main_window() -> QMainWindow | None:
     """Return the first visible top-level QMainWindow, or None."""
     return next(
         (widget for widget in QApplication.topLevelWidgets() if isinstance(widget, QMainWindow) and widget.isVisible()),
         None,
-    )
-
-
-def create_nonmodal_warning(parent: QWidget | None, text: str) -> QMessageBox:
-    """Create a pre-configured non-modal warning QMessageBox without showing it."""
-    dlg = QMessageBox(parent)
-    dlg.setWindowModality(Qt.WindowModality.NonModal)
-    dlg.setWindowTitle(TITLE)
-    dlg.setText(text)
-    dlg.setIcon(QMessageBox.Icon.Warning)
-    dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    return dlg
-
-
-class DetailedMessageDialog(QDialog):
-    """A non-modal dialog displaying a message with an expandable details section."""
-
-    def __init__(
-        self,
-        parent: QWidget | None,
-        title: str,
-        text: str,
-        detailed_text: str | None = None,
-        *,
-        icon: QMessageBox.Icon = QMessageBox.Icon.Information,
-    ) -> None:
-        """Initialize the detailed message dialog and construct its layout."""
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        set_dialog_window_flags(self)
-        self.setMinimumWidth(scale_by_ui(520))
-
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
-
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(12)
-
-        standard_pixmap = self._get_standard_pixmap(icon)
-        if standard_pixmap is not None:
-            icon_label = QLabel()
-            icon_size = scale_by_ui(32)
-            icon_label.setPixmap(self.style().standardIcon(standard_pixmap).pixmap(icon_size, icon_size))
-            icon_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-            content_layout.addWidget(icon_label)
-
-        self._message_label = QLabel(text)
-        self._message_label.setWordWrap(True)
-        self._message_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        content_layout.addWidget(self._message_label, stretch=1)
-        main_layout.addLayout(content_layout)
-
-        self._details_edit: QPlainTextEdit | None = None
-        self._toggle_button: QPushButton | None = None
-
-        if detailed_text:
-            self._details_edit = QPlainTextEdit(detailed_text)
-            self._details_edit.setReadOnly(True)
-            self._details_edit.setFont(QFont('Consolas', 9))
-            self._details_edit.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-            self._details_edit.setMinimumHeight(scale_by_ui(240))
-            self._details_edit.hide()
-            main_layout.addWidget(self._details_edit, stretch=1)
-
-            self._toggle_button = QPushButton('Show More')
-            self._toggle_button.clicked.connect(self._toggle_details)
-
-        button_layout = QHBoxLayout()
-        if self._toggle_button is not None:
-            button_layout.addWidget(self._toggle_button)
-        button_layout.addStretch(1)
-
-        ok_button = QPushButton('OK')
-        ok_button.setDefault(True)
-        ok_button.clicked.connect(self.accept)
-        button_layout.addWidget(ok_button)
-
-        main_layout.addLayout(button_layout)
-
-        initial_height = self.heightForWidth(scale_by_ui(520)) if self.hasHeightForWidth() else self.sizeHint().height()
-        self.resize(scale_by_ui(520), max(scale_by_ui(160), initial_height))
-
-    @staticmethod
-    def _get_standard_pixmap(icon: QMessageBox.Icon) -> QStyle.StandardPixmap | None:
-        if icon == QMessageBox.Icon.Information:
-            return QStyle.StandardPixmap.SP_MessageBoxInformation
-        if icon == QMessageBox.Icon.Warning:
-            return QStyle.StandardPixmap.SP_MessageBoxWarning
-        if icon == QMessageBox.Icon.Critical:
-            return QStyle.StandardPixmap.SP_MessageBoxCritical
-        if icon == QMessageBox.Icon.Question:
-            return QStyle.StandardPixmap.SP_MessageBoxQuestion
-        return None
-
-    def _toggle_details(self) -> None:
-        if self._details_edit is None or self._toggle_button is None:
-            return
-        is_visible = self._details_edit.isVisible()
-        self._details_edit.setVisible(not is_visible)
-        self._toggle_button.setText('Show More' if is_visible else 'Hide More')
-        dialog_layout = self.layout()
-        if dialog_layout is not None:
-            dialog_layout.activate()
-        target_height = self.heightForWidth(self.width()) if self.hasHeightForWidth() else self.sizeHint().height()
-        self.resize(self.width(), max(target_height, self.minimumSizeHint().height()))
-
-    def set_text(self, text: str) -> None:
-        """Update the displayed message text."""
-        self._message_label.setText(text)
-        dialog_layout = self.layout()
-        if dialog_layout is not None:
-            dialog_layout.activate()
-
-
-def show_detailed_message(
-    parent: QWidget | None,
-    title: str,
-    text: str,
-    detailed_text: str | None = None,
-    *,
-    icon: QMessageBox.Icon = QMessageBox.Icon.Information,
-) -> DetailedMessageDialog:
-    """Display a non-modal dialog with an expandable Show More details section."""
-    dialog = DetailedMessageDialog(parent, title, text, detailed_text=detailed_text, icon=icon)
-    dialog.show()
-    dialog.raise_()
-    dialog.activateWindow()
-    return dialog
-
-
-_active_ipapi_dialogs: ActiveDialogRegistry[str, DetailedMessageDialog] = ActiveDialogRegistry()
-
-
-def show_ipapi_unavailable_dialog(reason: str) -> None:
-    """Show or focus the singleton warning dialog indicating ip-api.com geolocation is unavailable."""
-    text = (
-        'IP geolocation via ip-api.com is currently unavailable.\n\n'
-        f'{reason}\n\n'
-        'Country, City, ISP, ASN and related ip-api.com fields will not be populated until the network connection '
-        'to ip-api.com is restored (e.g. disconnecting a VPN or switching to an unblocked interface). Lookups will '
-        'automatically resume once the connection is restored.'
-    )
-    existing = _active_ipapi_dialogs.get('ipapi_unavailable')
-    if existing is not None:
-        existing.set_text(text)
-        activate_window(existing)
-        return
-
-    parent = find_main_window()
-    _active_ipapi_dialogs.show_or_focus(
-        'ipapi_unavailable',
-        lambda: DetailedMessageDialog(parent, TITLE, text, icon=QMessageBox.Icon.Warning),
     )
 
 
@@ -1215,12 +578,12 @@ def popup_menu_at_table(menu: QMenu, table: QTableView, pos: QPoint) -> None:
     menu.popup(viewport.mapToGlobal(pos))
 
 
-def copy_table_widget_selection(table: QTableWidget) -> None:
+def copy_table_selection(table: QTableView | QTreeView) -> None:
     """Copy the selected rows from *table* to the system clipboard as tab-separated values.
 
     Each selected row is collected once (deduplication by row index) and its columns are
-    joined with a tab character. Rows are separated by newlines so the result pastes cleanly
-    into spreadsheets and plain-text editors alike.
+    joined with a tab character. Hidden columns are excluded. Rows are separated by newlines
+    so the result pastes cleanly into spreadsheets and plain-text editors alike.
     """
     selection_model = table.selectionModel()
     if not selection_model:
@@ -1230,16 +593,49 @@ def copy_table_widget_selection(table: QTableWidget) -> None:
         return
 
     rows: dict[int, dict[int, str]] = {}
-    for index in selected_indexes:
-        row = index.row()
-        column = index.column()
-        item = table.item(row, column)
-        rows.setdefault(row, {})[column] = item.text() if item else ''
+    for model_index in selected_indexes:
+        column = model_index.column()
+        if table.isColumnHidden(column):
+            continue
+        row = model_index.row()
+        cell_data = model_index.data(Qt.ItemDataRole.DisplayRole)
+        rows.setdefault(row, {})[column] = str(cell_data) if cell_data is not None else ''
 
     lines: list[str] = []
     for row in sorted(rows):
         column_map = rows[row]
         lines.append('\t'.join(column_map[column] for column in sorted(column_map)))
+
+    if not lines:
+        return
+
+    set_clipboard_text('\n'.join(lines))
+
+
+def copy_table_all_rows(table: QTableView | QTreeView) -> None:
+    """Copy all rows from *table* model to the system clipboard as tab-separated values.
+
+    Hidden columns are excluded. Rows are separated by newlines so the result pastes cleanly
+    into spreadsheets and plain-text editors alike.
+    """
+    model = table.model()
+    if not model:
+        return
+    column_count = model.columnCount()
+    row_count = model.rowCount()
+    lines: list[str] = []
+    for row_index in range(row_count):
+        cells: list[str] = []
+        for column_index in range(column_count):
+            if table.isColumnHidden(column_index):
+                continue
+            index = model.index(row_index, column_index)
+            cell_data = model.data(index, Qt.ItemDataRole.DisplayRole)
+            cells.append(str(cell_data) if cell_data is not None else '')
+        lines.append('\t'.join(cells))
+
+    if not lines:
+        return
 
     set_clipboard_text('\n'.join(lines))
 
@@ -1323,7 +719,8 @@ def animate_button_feedback(
     duration_milliseconds: int = 1500,
 ) -> None:
     """Temporarily update a button's icon, text, and tooltip to show confirmation feedback."""
-    existing_timer: QTimer | None = button.property('_feedback_timer')
+    raw_timer = button.property('_feedback_timer')
+    existing_timer = raw_timer if isinstance(raw_timer, QTimer) else None
     if existing_timer is not None and existing_timer.isActive():
         existing_timer.stop()
 
@@ -1364,7 +761,7 @@ def animate_button_feedback(
             button.setProperty('_feedback_orig_min_width', None)
             button.setProperty('_feedback_timer', None)
         except RuntimeError:
-            return
+            pass
 
     timer = QTimer(button)
     timer.setSingleShot(True)

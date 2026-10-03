@@ -17,12 +17,13 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.standalone import TITLE
+from session_sniffer.guis.delegates import SearchHighlightDelegate
 from session_sniffer.guis.stylesheets import (
     COMPACT_BUTTON_STYLESHEET,
     DIALOG_BUTTON_STYLESHEET,
     DIALOG_PRIMARY_BUTTON_STYLESHEET,
 )
-from session_sniffer.guis.utils import SearchHighlightDelegate, apply_search_icon
+from session_sniffer.guis.utils import apply_search_icon
 from session_sniffer.text_utils import pluralize
 
 _MAX_DISPLAY_SELECTED_IPS = 3

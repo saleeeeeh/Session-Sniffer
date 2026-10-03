@@ -35,6 +35,7 @@ from session_sniffer.capture.utils.arp_refresh import refresh_arp_table
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.tables import DEFAULT_MIN_COLUMN_WIDTH, INTERFACE_SELECTION_TABLE_MIN_COLUMN_WIDTHS
 from session_sniffer.error_messages import ensure_instance
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.guis.hotspot_manager import HotspotManagerWidget
 from session_sniffer.guis.stylesheets import (
     INTERFACE_BOTTOM_CONTAINER_STYLESHEET,
@@ -53,7 +54,6 @@ from session_sniffer.guis.stylesheets import (
 )
 from session_sniffer.guis.table_column_resizing import TableColumnResizeController, setup_table_header_context_menu
 from session_sniffer.guis.utils import (
-    ElidedTextTooltipDelegate,
     compute_ui_scale,
     make_padded_icon,
     render_svg_pixmap_from_resource,

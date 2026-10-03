@@ -16,9 +16,9 @@ from session_sniffer.error_messages import (
     format_game_solo_session_suspend_failed_message,
 )
 from session_sniffer.gta5.suspend_manager import GTASuspendManager
+from session_sniffer.guis.dialogs import show_detailed_message
 from session_sniffer.guis.session_host_history_window import setup_session_host_actions
 from session_sniffer.guis.stylesheets import GTA5_STATUS_LABEL_STYLESHEET
-from session_sniffer.guis.utils import show_detailed_message
 from session_sniffer.player.registry import PlayersRegistry, SessionHost
 from session_sniffer.rdr2.suspend_manager import RDR2SuspendManager
 from session_sniffer.rendering_core.types import CaptureState

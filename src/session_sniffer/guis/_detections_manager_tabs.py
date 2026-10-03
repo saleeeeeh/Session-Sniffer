@@ -33,6 +33,7 @@ from session_sniffer.guis._combo_rule_editor import (
     set_voice_combo_helper,
 )
 from session_sniffer.guis.country_data import get_country_flag_code
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.guis.stylesheets import (
     DESC_LABEL_STYLESHEET,
     GROUPBOX_STYLE,
@@ -45,7 +46,6 @@ from session_sniffer.guis.utils import (
     SUSPEND_TOOLTIP_AUTO,
     SUSPEND_TOOLTIP_DISABLED,
     SUSPEND_TOOLTIP_MANUAL,
-    ElidedTextTooltipDelegate,
     create_section_separator,
     load_country_flag_icon,
 )

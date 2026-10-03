@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import DISCORD_INVITE_URL
 from session_sniffer.guis.color_picker_dialog import ColorPickerButton
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.guis.secret_line_edit import SecretLineEdit
 from session_sniffer.guis.stylesheets import (
     COMPACT_BUTTON_STYLESHEET,
@@ -36,7 +37,6 @@ from session_sniffer.guis.stylesheets import (
     WEBSERVER_HELP_LABEL_STYLESHEET,
 )
 from session_sniffer.guis.userip_manager_helpers import IPRangeBuilderDialog
-from session_sniffer.guis.utils import ElidedTextTooltipDelegate
 from session_sniffer.settings import SETTING_DEFAULTS, SettingMeta, SettingType
 from session_sniffer.settings.settings import Settings
 

@@ -29,10 +29,10 @@ from session_sniffer.constants.tables import (
     DEFAULT_MIN_COLUMN_WIDTH,
     TARGET_PROCESS_TABLE_MIN_COLUMN_WIDTHS,
 )
+from session_sniffer.guis.delegates import SearchHighlightDelegate
 from session_sniffer.guis.stylesheets import SVG_ICON_CONTEXT_MENU_STYLESHEET
 from session_sniffer.guis.table_column_resizing import TableColumnResizeController, setup_table_header_context_menu
 from session_sniffer.guis.utils import (
-    SearchHighlightDelegate,
     apply_search_icon,
     scale_by_ui,
     set_clipboard_text,

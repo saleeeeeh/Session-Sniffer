@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.guis._crashing_qthread import CrashingQThread
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.guis.looky_text import (
     LOOKY_MENU_TOOLTIP_GTA5_NOT_RUNNING,
     LOOKY_TITLE,
@@ -39,7 +40,7 @@ from session_sniffer.guis.tables_player_actions.looky_system._looky_helpers impo
     build_looky_progress_widgets,
     check_looky_prerequisites,
 )
-from session_sniffer.guis.utils import ElidedTextTooltipDelegate, set_dialog_window_flags
+from session_sniffer.guis.utils import set_dialog_window_flags
 from session_sniffer.networking.looky_system import (
     LookyInstructionContext,
     LookyState,

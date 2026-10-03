@@ -100,7 +100,9 @@ class PlayerIdentifierProgressBar(QProgressBar):
         self.update()
 
     @override
-    def paintEvent(self, a0: QPaintEvent | None) -> None:  # pylint: disable=unused-argument
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        if a0 is None:
+            return
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)

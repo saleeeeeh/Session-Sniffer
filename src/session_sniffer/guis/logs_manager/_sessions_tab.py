@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.constants.tables import DATETIME_TRACKING_COLUMNS, SEARCHABLE_COLUMN_EXCLUSIONS
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
 from session_sniffer.guis.file_watch import DebouncedFileWatcher
 from session_sniffer.guis.logs_manager._helpers import (
     copy_viewer_text_to_clipboard,
@@ -49,7 +50,7 @@ from session_sniffer.guis.stylesheets import (
     SVG_ICON_CONTEXT_MENU_STYLESHEET,
 )
 from session_sniffer.guis.userip_manager_helpers import human_readable_size
-from session_sniffer.guis.utils import SPINNER_FRAMES, ElidedTextTooltipDelegate
+from session_sniffer.guis.utils import SPINNER_FRAMES
 from session_sniffer.models import SessionLogFile
 from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_single_border_table
@@ -205,16 +206,10 @@ class SessionsLogTab(QWidget):
         # --- Directory metadata ---
         self._metadata_label = setup_metadata_label(layout)
 
-        # --- Bottom buttons ---
-        # pylint: disable=duplicate-code
         button_row = setup_copy_save_button_row(
-            layout,
-            self._copy_all,
-            self._save_as,
-            copy_tooltip='Copy all displayed text to clipboard',
+            layout, self._copy_all, self._save_as,
             save_tooltip='Save the displayed file to a new location',
         )
-        # pylint: enable=duplicate-code
 
         button_row.addStretch()
 

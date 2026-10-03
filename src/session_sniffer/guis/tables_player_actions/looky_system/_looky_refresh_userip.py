@@ -1,6 +1,7 @@
 """Looky System → UserIP username refresh: batch-lookup IPs and append new usernames to database files."""
 
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from http import HTTPStatus
 from ipaddress import IPv4Address
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.guis._crashing_qthread import CrashingQThread
+from session_sniffer.guis.delegates import SearchHighlightDelegate
 from session_sniffer.guis.looky_text import LOOKY_TITLE
 from session_sniffer.guis.stylesheets import (
     LOOKY_ACTION_BUTTON_STYLESHEET,
@@ -44,7 +46,6 @@ from session_sniffer.guis.tables_player_actions._player_info_dialog_mixin import
 from session_sniffer.guis.tables_player_actions.looky_system._looky_helpers import build_looky_progress_widgets, check_looky_prerequisites
 from session_sniffer.guis.userip_manager_helpers import iter_userip_entries
 from session_sniffer.guis.utils import (
-    SearchHighlightDelegate,
     apply_search_icon,
     set_clipboard_text,
 )
@@ -626,8 +627,6 @@ def looky_refresh_userip_entries(
             return
 
         # Group accepted entries by database path and write
-        from collections import defaultdict  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
-
         by_db: dict[Path, list[_PendingEntry]] = defaultdict(list)
         for entry in accepted:
             by_db[entry.db_path].append(entry)
@@ -639,7 +638,7 @@ def looky_refresh_userip_entries(
             total_added += len(new_lines)
 
         db_count = len(by_db)
-        db_word = 'database' if db_count == 1 else 'databases'
+        db_word = f'database{pluralize(db_count)}'
         QMessageBox.information(
             parent,
             TITLE,

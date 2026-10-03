@@ -14,8 +14,8 @@ from pydantic import ValidationError
 
 from session_sniffer.background.events import gui_closed__event
 from session_sniffer.core import ScriptControl
+from session_sniffer.guis.dialogs import show_ipapi_unavailable_dialog
 from session_sniffer.guis.looky_text import LOOKY_LOG_API_KEY_INVALID, LOOKY_LOG_VERIFICATION_HTTP_FAILED_TEMPLATE
-from session_sniffer.guis.utils import show_ipapi_unavailable_dialog
 from session_sniffer.models import IpApiResponse
 from session_sniffer.networking.exceptions import AllEndpointsExhaustedError
 from session_sniffer.networking.http_session import session
