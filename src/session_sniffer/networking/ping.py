@@ -190,12 +190,16 @@ class IcmpEchoEngine:
         self._linux_socket: socket.socket | None = None
 
         if self._is_windows:
-            handle = _IcmpCreateFile()
-            if not handle or handle == _INVALID_HANDLE_VALUE:
+            try:
+                handle = _IcmpCreateFile()
+                if not handle or handle == _INVALID_HANDLE_VALUE:
+                    self._handle = None
+                    logger.error('Failed to create Win32 ICMP handle')
+                else:
+                    self._handle = handle
+            except OSError:
+                logger.exception('Failed to create Win32 ICMP handle')
                 self._handle = None
-                logger.error('Failed to create Win32 ICMP handle')
-            else:
-                self._handle = handle
         else:
             try:
                 self._linux_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_ICMP)
@@ -225,12 +229,20 @@ class IcmpEchoEngine:
     def close(self) -> None:
         """Close the native ICMP handle or socket."""
         if self._is_windows:
-            if self._handle is not None:
-                _IcmpCloseHandle(self._handle)
-                self._handle = None
+            if self._handle is not None and self._handle != _INVALID_HANDLE_VALUE:
+                try:
+                    _IcmpCloseHandle(self._handle)
+                except OSError as e:
+                    logger.debug('Failed to close Win32 ICMP handle: %s', e)
+                finally:
+                    self._handle = None
         elif self._linux_socket is not None:
-            self._linux_socket.close()
-            self._linux_socket = None
+            try:
+                self._linux_socket.close()
+            except OSError:
+                pass
+            finally:
+                self._linux_socket = None
 
     def _ping_linux(
         self,
@@ -378,16 +390,29 @@ class IcmpEchoEngine:
         reply_buffer = ctypes.create_string_buffer(reply_buffer_size)
         timeout_milliseconds = max(100, int(timeout_seconds * 1000))
 
-        return_value = _IcmpSendEcho(
-            self._handle,
-            destination_address,
-            payload_data,
-            len(payload_data),
-            None,
-            reply_buffer,
-            reply_buffer_size,
-            timeout_milliseconds,
-        )
+        try:
+            return_value = _IcmpSendEcho(
+                self._handle,
+                destination_address,
+                payload_data,
+                len(payload_data),
+                None,
+                reply_buffer,
+                reply_buffer_size,
+                timeout_milliseconds,
+            )
+        except OSError as e:
+            return PingProbeResult(
+                sequence=sequence,
+                target_host=target_ip,
+                target_ip=target_ip,
+                port=None,
+                is_successful=False,
+                round_trip_time_ms=None,
+                time_to_live=None,
+                status_message=f'ICMP send failed: {e}',
+                payload_bytes=payload_bytes,
+            )
 
         reply = _IcmpEchoReply.from_buffer_copy(reply_buffer)
         status_code = int(reply.Status)

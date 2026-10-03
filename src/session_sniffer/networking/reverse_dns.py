@@ -5,6 +5,7 @@ querying public DNS servers (1.1.1.1 and 8.8.8.8) with automatic fallback
 to the operating system resolver.
 """
 
+import contextlib
 import ipaddress
 import logging
 import secrets
@@ -97,14 +98,18 @@ def _parse_dns_name(response_data: bytes, offset: int) -> tuple[str, int]:
     return '.'.join(labels), (original_offset if has_jumped else offset)
 
 
-def _query_udp_dns(server_ip: str, reverse_pointer: str, timeout_seconds: float = 1.0) -> str | None:
+def _query_udp_dns(server_ip: str, reverse_pointer: str, timeout_seconds: float = 0.5) -> str | None:
     """Send a raw DNS PTR query over UDP to a specific DNS server."""
     address_family = socket.AF_INET6 if ':' in server_ip else socket.AF_INET
-    udp_socket = socket.socket(address_family, socket.SOCK_DGRAM)
-    udp_socket.settimeout(timeout_seconds)
-    transaction_id = secrets.randbelow(65536)
+    try:
+        udp_socket = socket.socket(address_family, socket.SOCK_DGRAM)
+    except OSError as e:
+        logger.debug('Failed to create UDP socket for DNS query to %s: %s', server_ip, e)
+        return None
 
     try:
+        udp_socket.settimeout(timeout_seconds)
+        transaction_id = secrets.randbelow(65536)
         query_packet = _build_dns_ptr_query(reverse_pointer, transaction_id)
         udp_socket.sendto(query_packet, (server_ip, 53))
         response_bytes, _ = udp_socket.recvfrom(512)
@@ -112,7 +117,8 @@ def _query_udp_dns(server_ip: str, reverse_pointer: str, timeout_seconds: float 
         logger.debug('UDP DNS query to %s for %s failed: %s', server_ip, reverse_pointer, e)
         return None
     finally:
-        udp_socket.close()
+        with contextlib.suppress(OSError):
+            udp_socket.close()
 
     if len(response_bytes) < _DNS_HEADER_LENGTH:
         return None
@@ -166,11 +172,12 @@ def reverse_dns_lookup(target_ip: str) -> str:
 
     if ip_object is not None and not ip_object.is_private and not ip_object.is_loopback and _resolver_state.is_public_dns_reachable():
         for public_server in PUBLIC_DNS_SERVERS:
-            resolved_hostname = _query_udp_dns(public_server, ip_object.reverse_pointer, timeout_seconds=1.0)
+            resolved_hostname = _query_udp_dns(public_server, ip_object.reverse_pointer, timeout_seconds=0.5)
             if resolved_hostname:
                 cleaned_hostname = resolved_hostname.rstrip('.')
                 if cleaned_hostname:
                     return cleaned_hostname
+        return target_ip
 
     try:
         system_hostname, _ = socket.getnameinfo((target_ip, 0), 0)
