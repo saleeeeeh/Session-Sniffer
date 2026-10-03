@@ -712,7 +712,7 @@ class EntriesContextMenuMixin(QDialog):
 
     def _go_to_entry(self, source_row: int) -> None:
         """Clear the search filter and scroll to the entry in the full database list."""
-        if not (0 <= source_row < self._model.rowCount()):
+        if source_row < 0 or source_row >= self._model.rowCount():
             return
 
         if self._search_input.text():

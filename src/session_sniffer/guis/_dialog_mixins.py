@@ -47,6 +47,40 @@ class DraggableDialogMixin(QDialog):
         super().mouseReleaseEvent(event)
 
 
+def prompt_unsaved_changes_close(
+    dialog: QWidget,
+    has_unsaved_changes: Callable[[], bool],
+    save_on_close: Callable[[], bool],
+    event: QCloseEvent,
+) -> bool:
+    """Prompt the user to save unsaved changes before closing.
+
+    Returns True if the dialog should proceed with closing (changes saved, discarded,
+    or no unsaved changes). Returns False if close was canceled or save failed.
+    """
+    if not has_unsaved_changes():
+        event.accept()
+        return True
+
+    result = QMessageBox.warning(
+        dialog,
+        TITLE,
+        'You have unsaved changes. Save before closing?',
+        QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+        QMessageBox.StandardButton.Save,
+    )
+    if result == QMessageBox.StandardButton.Save:
+        if not save_on_close():
+            event.ignore()
+            return False
+    elif result == QMessageBox.StandardButton.Cancel:
+        event.ignore()
+        return False
+
+    event.accept()
+    return True
+
+
 class UnsavedChangesMixin(QDialog):
     """Mixin providing a `closeEvent` that prompts to save unsaved changes.
 
@@ -64,24 +98,12 @@ class UnsavedChangesMixin(QDialog):
     @override
     def closeEvent(self, event: QCloseEvent) -> None:
         """Prompt to save if there are unsaved changes before closing."""
-        if not self._has_unsaved_changes_for_close():
-            event.accept()
-            return
-        result = QMessageBox.warning(
+        prompt_unsaved_changes_close(
             self,
-            TITLE,
-            'You have unsaved changes. Save before closing?',
-            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Save,
+            self._has_unsaved_changes_for_close,
+            self._save_on_close,
+            event,
         )
-        if result == QMessageBox.StandardButton.Save:
-            if not self._save_on_close():
-                event.ignore()
-                return
-        elif result == QMessageBox.StandardButton.Cancel:
-            event.ignore()
-            return
-        event.accept()
 
 
 def setup_tab_dialog_buttons(

@@ -262,7 +262,7 @@ def iter_userip_entries_with_metadata(content: str) -> Iterator[tuple[str, str, 
 
         is_looky = bool(comment_raw and comment_raw.strip().lower() == 'looky')
         for individual_username in split_usernames(username):
-            yield str(individual_username), str(ip), is_looky
+            yield individual_username, str(ip), is_looky
 
 
 def iter_userip_entries(content: str) -> Iterator[tuple[str, str]]:
