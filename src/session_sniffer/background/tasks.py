@@ -16,7 +16,7 @@ from threading import Event, Lock, Thread
 from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict, cast
 
 from session_sniffer import msgbox
-from session_sniffer.background.cores import wake_all_player_cores
+from session_sniffer.background.cores import enqueue_player_for_resolution
 from session_sniffer.background.events import gui_closed__event
 from session_sniffer.constants.local import DETECTION_LOGGING_PATH, PROTECTION_LOGGING_PATH, TTS_DIR_PATH, USERIP_DATABASES_DIR_PATH, USERIP_LOGGING_PATH
 from session_sniffer.constants.standard import LOCAL_TZ
@@ -930,7 +930,7 @@ def check_global_detections(player: Player) -> None:
 
 def submit_global_detections_check(player: Player) -> None:
     """Submit global detection checks to the background detection worker pool."""
-    wake_all_player_cores()
+    enqueue_player_for_resolution(player)
     has_non_event_combo_rules = any(not rule.has_event_condition for rule in ComboRulesManager.rules if rule.enabled)
     if not GUIDetectionSettings.has_any_global_detection_enabled() and not has_non_event_combo_rules:
         return
@@ -955,23 +955,25 @@ def player_rates_core() -> None:
         global_bps_rate = 0
         global_bpm_rate = 0
         global_pps_rate = 0
-        connected_count = 0
 
-        for player in PlayersRegistry.get_connected_players():
+        current_time = time.monotonic()
+        for index, player in enumerate(PlayersRegistry.get_connected_players()):
             if player.left_event.is_set():
                 continue
-            connected_count += 1
 
-            if (time.monotonic() - player.packets.pps.last_update_time) >= 1.0:
+            if index > 0 and not index % 500:
+                time.sleep(0)
+
+            if (current_time - player.packets.pps.last_update_time) >= 1.0:
                 player.packets.pps.calculate_and_update_rate()
 
-            if (time.monotonic() - player.packets.ppm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
+            if (current_time - player.packets.ppm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
                 player.packets.ppm.calculate_and_update_rate()
 
-            if (time.monotonic() - player.bandwidth.bps.last_update_time) >= 1.0:
+            if (current_time - player.bandwidth.bps.last_update_time) >= 1.0:
                 player.bandwidth.bps.calculate_and_update_rate()
 
-            if (time.monotonic() - player.bandwidth.bpm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
+            if (current_time - player.bandwidth.bpm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
                 player.bandwidth.bpm.calculate_and_update_rate()
 
             global_bandwidth += player.bandwidth.exchanged
@@ -995,4 +997,4 @@ def player_rates_core() -> None:
         recent_latencies = [(timestamp, latency) for timestamp, latency in list(CaptureStats.packets_latencies) if timestamp >= one_second_ago]
         CaptureStats.global_avg_latency_ms = sum(latency.total_seconds() * 1000 for _, latency in recent_latencies) / len(recent_latencies) if recent_latencies else 0.0
 
-        gui_closed__event.wait(max(0.0, 1.0 - (time.monotonic() - _start)))
+        gui_closed__event.wait(max(0.05, 1.0 - (time.monotonic() - _start)))

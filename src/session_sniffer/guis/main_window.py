@@ -6,7 +6,7 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
     QLabel,
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from session_sniffer.background import wake_all_player_cores
+from session_sniffer.background import clear_resolution_queues, wake_all_player_cores
 from session_sniffer.background.events import gui_closed__event
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
@@ -334,8 +334,6 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._thread_health_timer.start()
         self._last_thread_health_state: tuple[int, int, tuple[tuple[str, str], ...]] | None = None
 
-        self.installEventFilter(self)
-
         self._apply_always_on_top()
 
         self._update_header_capture_status()
@@ -523,7 +521,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
             gui_state.save()
 
-        logger.info('MainWindow closeEvent received')
+        logger.debug('MainWindow closeEvent received')
         gui_closed__event.set()
         GUIRenderingState.wake()
         wake_all_player_cores()
@@ -551,7 +549,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         GTASuspendManager.shutdown()
         logger.debug('MainWindow closeEvent: stopping all active CrashingQThreads')
         CrashingQThread.stop_all_active_threads()
-        logger.info('MainWindow closeEvent: all active threads stopped, terminating script')
+        logger.debug('MainWindow closeEvent: all active threads stopped, terminating script')
         if a0 is not None:
             a0.accept()
         terminate_script('EXIT')
@@ -573,6 +571,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         """Open the Ping Diagnostics tool window."""
         PingWindow.open_window()
 
+    @Slot(object)
     def _update_gui(self, payload: GUIUpdatePayload) -> None:
         if payload.snapshot_version < self._state.min_accepted_snapshot_version:
             return
@@ -759,6 +758,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         """Clear all player data in preparation for a new capture interface."""
         self._clear_connected_players()
         self._clear_disconnected_players()
+        clear_resolution_queues()
         SessionHost.clear_history()
         SessionHost.players_pending_for_disconnection.clear()
 

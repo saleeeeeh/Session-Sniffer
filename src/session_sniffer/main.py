@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from session_sniffer import msgbox
 from session_sniffer.background import (
+    enqueue_player_for_resolution,
     ensure_looky_core_running,
     handle_detection_notification,
     hostname_core,
@@ -318,6 +319,7 @@ def main() -> None:
             )
 
             handle_detection_notification(matched_player, 'player_joined_session')
+            enqueue_player_for_resolution(matched_player)
 
         elif not PlayersRegistry.is_player_connected(matched_player):
             matched_player.mark_as_rejoined(
@@ -329,6 +331,7 @@ def main() -> None:
             PlayersRegistry.move_player_to_connected(matched_player)
 
             handle_detection_notification(matched_player, 'player_rejoined_session')
+            enqueue_player_for_resolution(matched_player)
         else:
             matched_player.mark_as_seen(
                 port=target_port,
@@ -849,22 +852,22 @@ def main() -> None:
         if about_to_quit_executed:
             return
         about_to_quit_executed = True
-        logger.info('_on_app_about_to_quit triggered: setting gui_closed, waking rendering state and player cores')
+        logger.debug('_on_app_about_to_quit triggered: setting gui_closed, waking rendering state and player cores')
         gui_closed__event.set()
         GUIRenderingState.wake()
         wake_all_player_cores()
         if capture.is_running():
-            logger.info('Stopping packet capture during aboutToQuit')
+            logger.debug('Stopping packet capture during aboutToQuit')
             capture.stop()
         if Settings.webserver_enabled:
-            logger.info('Stopping webserver during aboutToQuit')
+            logger.debug('Stopping webserver during aboutToQuit')
             WebServer.stop_server()
-        logger.info('Stopping all active CrashingQThreads during aboutToQuit')
+        logger.debug('Stopping all active CrashingQThreads during aboutToQuit')
         CrashingQThread.stop_all_active_threads()
-        logger.info('_on_app_about_to_quit completed')
+        logger.debug('_on_app_about_to_quit completed')
 
     def _on_last_window_closed() -> None:
-        logger.info('Qt lastWindowClosed signal received (quitOnLastWindowClosed=%s)', app.quitOnLastWindowClosed())
+        logger.debug('Qt lastWindowClosed signal received (quitOnLastWindowClosed=%s)', app.quitOnLastWindowClosed())
 
     app.lastWindowClosed.connect(_on_last_window_closed)
     app.aboutToQuit.connect(_on_app_about_to_quit)

@@ -1,6 +1,8 @@
 """Background processing tasks and cores for player data enrichment."""
 
 from session_sniffer.background.cores import (
+    clear_resolution_queues,
+    enqueue_player_for_resolution,
     ensure_looky_core_running,
     hostname_core,
     iplookup_core,
@@ -31,7 +33,9 @@ __all__ = [
     'NotificationConfig',
     'check_global_detections',
     'clear_detection_voice_notifications',
+    'clear_resolution_queues',
     'clear_voice_notification_queue',
+    'enqueue_player_for_resolution',
     'ensure_looky_core_running',
     'ensure_voice_notification_worker_running',
     'gui_closed__event',

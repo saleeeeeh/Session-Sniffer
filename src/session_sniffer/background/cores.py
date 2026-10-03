@@ -2,10 +2,11 @@
 
 import logging
 import time
+from collections import deque
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from http import HTTPStatus
 from itertools import chain
-from threading import Event, Thread
+from threading import Event, RLock, Thread
 from threading import enumerate as enumerate_threads
 from typing import TYPE_CHECKING, cast
 
@@ -41,6 +42,102 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class ResolutionQueue:
+    """Thread-safe FIFO queue with fast set-based deduplication."""
+
+    def __init__(self, on_empty: Callable[[], None] | None = None) -> None:
+        """Initialize a ResolutionQueue instance."""
+        self._deque: deque[str] = deque()
+        self._queued_ip_addresses: set[str] = set()
+        self._lock: RLock = RLock()
+        self._has_items: Event = Event()
+        self.on_empty: Callable[[], None] | None = on_empty
+
+    def put(self, ip_address: str) -> bool:
+        """Enqueue an IP address if not already queued. Returns True if added."""
+        with self._lock:
+            if ip_address in self._queued_ip_addresses:
+                return False
+            self._queued_ip_addresses.add(ip_address)
+            self._deque.append(ip_address)
+            self._has_items.set()
+            return True
+
+    def put_many(self, ip_addresses: list[str]) -> int:
+        """Enqueue multiple IP addresses, skipping duplicates. Returns number of added IP addresses."""
+        added_count = 0
+        with self._lock:
+            for ip_address in ip_addresses:
+                if ip_address not in self._queued_ip_addresses:
+                    self._queued_ip_addresses.add(ip_address)
+                    self._deque.append(ip_address)
+                    added_count += 1
+            if added_count > 0:
+                self._has_items.set()
+        return added_count
+
+    def requeue_front(self, ip_addresses: list[str]) -> None:
+        """Re-enqueue IP addresses to the front of the queue maintaining relative order."""
+        with self._lock:
+            for ip_address in reversed(ip_addresses):
+                if ip_address not in self._queued_ip_addresses:
+                    self._queued_ip_addresses.add(ip_address)
+                    self._deque.appendleft(ip_address)
+            if self._deque:
+                self._has_items.set()
+
+    def get(self) -> str | None:
+        """Pop an IP address without blocking, or None if empty."""
+        with self._lock:
+            if not self._deque and self.on_empty is not None:
+                self.on_empty()
+            if not self._deque:
+                return None
+            ip_address = self._deque.popleft()
+            self._queued_ip_addresses.discard(ip_address)
+            if not self._deque:
+                self._has_items.clear()
+            return ip_address
+
+    def get_batch(self, max_items: int) -> list[str]:
+        """Pop up to `max_items` IP addresses without blocking."""
+        with self._lock:
+            if not self._deque and self.on_empty is not None:
+                self.on_empty()
+            count = min(max_items, len(self._deque))
+            if not count:
+                return []
+            items: list[str] = []
+            for _ in range(count):
+                ip_address = self._deque.popleft()
+                self._queued_ip_addresses.discard(ip_address)
+                items.append(ip_address)
+            if not self._deque:
+                self._has_items.clear()
+            return items
+
+    def wait(self, timeout: float) -> bool:
+        """Wait until items are available or timeout expires."""
+        return self._has_items.wait(timeout)
+
+    def clear(self) -> None:
+        """Clear all queued IP addresses."""
+        with self._lock:
+            self._deque.clear()
+            self._queued_ip_addresses.clear()
+            self._has_items.clear()
+
+    def __len__(self) -> int:
+        """Return the number of IP addresses in the queue."""
+        with self._lock:
+            return len(self._deque)
+
+    def __bool__(self) -> bool:
+        """Return True if the queue contains any IP addresses."""
+        with self._lock:
+            return bool(self._deque)
+
+
 # API limits taken from https://ip-api.com/docs/api:batch the 03/04/2024.
 _IPAPI_MAX_REQUESTS = 15
 _IPAPI_MAX_THROTTLE_TIME = 60
@@ -51,7 +148,7 @@ _IPAPI_FIELDS = (
     'status,continent,continentCode,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,query'
 )
 _IPAPI_PROBE_IP = '1.1.1.1'
-_PLAYER_CORE_MAX_WORKERS = 32
+_PLAYER_CORE_MAX_WORKERS = 8
 
 
 def _notify_ipapi_unavailable(reason: str) -> None:
@@ -69,6 +166,47 @@ _hostname_wakeup_event = Event()
 _pinger_wakeup_event = Event()
 _looky_wakeup_event = Event()
 
+_iplookup_queue = ResolutionQueue()
+_hostname_queue = ResolutionQueue()
+_pinger_queue = ResolutionQueue()
+_looky_queue = ResolutionQueue()
+
+
+def _is_looky_eligible(player: Player) -> bool:
+    """Check whether a player is eligible for Looky System resolution."""
+    if not Settings.is_gta5_feature_set():
+        return False
+    if is_third_party_server_ip(player.ip):
+        return False
+    return not (Settings.looky_exclusive_gta5_process and CaptureState.is_local_capture() and not player.is_gta5_process)
+
+
+def enqueue_player_for_resolution(player: Player) -> None:
+    """Enqueue a player for all relevant background resolutions."""
+    if not player.reverse_dns.is_initialized and _hostname_queue.put(player.ip):
+        _hostname_wakeup_event.set()
+
+    if not player.iplookup.ipapi.is_initialized and _iplookup_queue.put(player.ip):
+        _iplookup_wakeup_event.set()
+
+    if not player.ping.is_initialized and not player.left_event.is_set() and _pinger_queue.put(player.ip):
+        _pinger_wakeup_event.set()
+
+    if (
+        _is_looky_eligible(player)
+        and (not player.looky_system.is_initialized or player.looky_system.needs_refresh)
+        and _looky_queue.put(player.ip)
+    ):
+        _looky_wakeup_event.set()
+
+
+def clear_resolution_queues() -> None:
+    """Clear all pending items from resolution queues."""
+    _hostname_queue.clear()
+    _iplookup_queue.clear()
+    _pinger_queue.clear()
+    _looky_queue.clear()
+
 
 def _wait_iplookup_event(timeout: float, *, ignore_wake: bool = False) -> bool:
     """Wait for _iplookup_wakeup_event or gui_closed__event up to timeout seconds.
@@ -81,7 +219,7 @@ def _wait_iplookup_event(timeout: float, *, ignore_wake: bool = False) -> bool:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return False
-        if not ignore_wake and _iplookup_wakeup_event.wait(min(remaining, 0.5)):
+        if not ignore_wake and (_iplookup_wakeup_event.wait(min(remaining, 0.5)) or _iplookup_queue.wait(min(remaining, 0.5))):
             _iplookup_wakeup_event.clear()
             return True
         if ignore_wake and gui_closed__event.wait(min(remaining, 0.5)):
@@ -92,29 +230,53 @@ def _wait_iplookup_event(timeout: float, *, ignore_wake: bool = False) -> bool:
 def wake_iplookup_core() -> None:
     """Signal the IP-API background core loop to immediately check for pending player lookups."""
     _iplookup_wakeup_event.set()
+    for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
+        if not player.iplookup.ipapi.is_initialized and _iplookup_queue.put(player.ip):
+            _iplookup_wakeup_event.set()
 
 
 def wake_hostname_core() -> None:
     """Signal the reverse DNS background core to immediately check for pending hostnames."""
     _hostname_wakeup_event.set()
+    for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
+        if not player.reverse_dns.is_initialized and _hostname_queue.put(player.ip):
+            _hostname_wakeup_event.set()
 
 
 def wake_pinger_core() -> None:
     """Signal the pinger background core to immediately check for pending player pings."""
     _pinger_wakeup_event.set()
+    for player in PlayersRegistry.get_connected_players():
+        if not player.ping.is_initialized and not player.left_event.is_set() and _pinger_queue.put(player.ip):
+            _pinger_wakeup_event.set()
 
 
 def wake_looky_core() -> None:
     """Signal the Looky System background core to immediately check for pending player lookups."""
     _looky_wakeup_event.set()
+    if Settings.is_gta5_feature_set():
+        for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
+            if (
+                not is_third_party_server_ip(player.ip)
+                and (not player.looky_system.is_initialized or player.looky_system.needs_refresh)
+                and _looky_queue.put(player.ip)
+            ):
+                _looky_wakeup_event.set()
 
 
-def wake_all_player_cores() -> None:
+def wake_all_player_cores(player: Player | None = None) -> None:
     """Signal all background enrichment cores to immediately check for pending player work."""
+    if player is not None:
+        enqueue_player_for_resolution(player)
+        return
+
     _iplookup_wakeup_event.set()
     _hostname_wakeup_event.set()
     _pinger_wakeup_event.set()
     _looky_wakeup_event.set()
+
+    for p in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
+        enqueue_player_for_resolution(p)
 
 
 def iplookup_core() -> None:
@@ -128,35 +290,33 @@ def iplookup_core() -> None:
         if ScriptControl.has_crashed():
             return
 
-        ips_to_lookup: list[str] = []
-
-        for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
-            if player.iplookup.ipapi.is_initialized:
-                continue
-
-            ips_to_lookup.append(player.ip)
-
-            if len(ips_to_lookup) == _IPAPI_MAX_BATCH_IPS:
+        ip_addresses_to_lookup: list[str] = []
+        while len(ip_addresses_to_lookup) < _IPAPI_MAX_BATCH_IPS:
+            target_ip = _iplookup_queue.get()
+            if target_ip is None:
                 break
+            matched_player = PlayersRegistry.get_player_by_ip(target_ip)
+            if matched_player is not None and not matched_player.iplookup.ipapi.is_initialized:
+                ip_addresses_to_lookup.append(target_ip)
 
         is_probe = False
-        if not ips_to_lookup:
+        if not ip_addresses_to_lookup:
             if not unavailability_warning_shown:
                 _iplookup_wakeup_event.clear()
-                if not any(not player.iplookup.ipapi.is_initialized for player in PlayersRegistry.get_all_players()) and not gui_closed__event.is_set():
-                    _iplookup_wakeup_event.wait()
+                if not _iplookup_queue and not gui_closed__event.is_set():
+                    _iplookup_wakeup_event.wait(1.0)
                 continue
 
             # When ip-api.com was previously unavailable, probe using a known IP to test if connectivity is restored.
             is_probe = True
-            ips_to_lookup = [_IPAPI_PROBE_IP]
+            ip_addresses_to_lookup = [_IPAPI_PROBE_IP]
 
         try:
             response = session.post(
                 'http://ip-api.com/batch',
                 params={'fields': _IPAPI_FIELDS},
                 headers={'Content-Type': 'application/json'},
-                json=ips_to_lookup,
+                json=ip_addresses_to_lookup,
                 timeout=3,
             )
             response.raise_for_status()
@@ -165,6 +325,8 @@ def iplookup_core() -> None:
             # blocking the connection. Retry a few times in case it is a transient blip; after too many
             # consecutive failures surface a one-time warning, then probe every 60s so the lookup can
             # recover automatically if the network issue (e.g. a VPN) is resolved later.
+            if not is_probe:
+                _iplookup_queue.requeue_front(ip_addresses_to_lookup)
             if unavailability_warning_shown:
                 _wait_iplookup_event(60, ignore_wake=True)
                 continue
@@ -180,6 +342,8 @@ def iplookup_core() -> None:
             continue
         except requests.exceptions.HTTPError as e:
             if isinstance(e.response, requests.Response):
+                if not is_probe:
+                    _iplookup_queue.requeue_front(ip_addresses_to_lookup)
                 # ip-api.com's free tier is HTTP-only. Some networks (notably VPNs/proxies) force our plain-HTTP
                 # request onto HTTPS, so ip-api.com answers with a 301 redirect to its HTTPS URL. `requests`
                 # follows that redirect and, per the HTTP spec, downgrades our POST to a GET — but the /batch
@@ -276,62 +440,58 @@ def _run_player_future_core[T](
     worker: Callable[[str], T],
     should_submit: Callable[[Player], bool],
     apply_result: Callable[[Player, T], None],
-    wakeup_event: Event,
+    queue: ResolutionQueue,
     handle_exception: Callable[[str, Exception], bool] | None = None,
 ) -> None:
-    """Run a background player task using one future per pending IP."""
+    """Run a background player task using one future per pending IP from the resolution queue."""
     is_pinger = worker is ping_player
     thread_name_prefix = 'Pinger' if is_pinger else 'Hostname'
     with ThreadPoolExecutor(max_workers=_PLAYER_CORE_MAX_WORKERS, thread_name_prefix=thread_name_prefix) as executor:
-        futures: dict[Future[T], str] = {}  # Maps futures to their corresponding IPs
-        pending_ips: set[str] = set()  # Tracks IPs currently being processed
+        futures: dict[Future[T], str] = {}  # Maps futures to their corresponding IP addresses
+        in_flight_ip_addresses: set[str] = set()
 
         while not gui_closed__event.is_set():
             if ScriptControl.has_crashed():
                 return
 
-            players_to_check = (
-                PlayersRegistry.get_connected_players()
-                if is_pinger
-                else chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players())
-            )
-            for player in players_to_check:
+            while len(futures) < _PLAYER_CORE_MAX_WORKERS * 2:
                 if gui_closed__event.is_set():
                     return
 
-                if len(futures) >= _PLAYER_CORE_MAX_WORKERS * 2:
+                target_ip = queue.get()
+                if target_ip is None:
                     break
 
-                if player.ip in pending_ips or not should_submit(player):
+                if target_ip in in_flight_ip_addresses:
                     continue
 
-                if gui_closed__event.is_set():
-                    return
+                matched_player = PlayersRegistry.get_player_by_ip(target_ip)
+                if matched_player is None or not should_submit(matched_player):
+                    continue
 
-                future = executor.submit(worker, player.ip)
-                futures[future] = player.ip
-                pending_ips.add(player.ip)
+                future = executor.submit(worker, target_ip)
+                futures[future] = target_ip
+                in_flight_ip_addresses.add(target_ip)
 
             if not futures:
-                wakeup_event.wait(1.0)
-                wakeup_event.clear()
+                queue.wait(1.0)
                 continue
 
             done, _ = wait(futures.keys(), timeout=0.1, return_when=FIRST_COMPLETED)
 
             for future in done:
-                ip = futures.pop(future)
-                pending_ips.remove(ip)
+                target_ip = futures.pop(future)
+                in_flight_ip_addresses.discard(target_ip)
 
                 try:
                     result = future.result()
                 except Exception as e:
-                    if handle_exception is not None and handle_exception(ip, e):
+                    if handle_exception is not None and handle_exception(target_ip, e):
                         continue
 
                     raise
 
-                matched_player = PlayersRegistry.get_player_by_ip(ip)
+                matched_player = PlayersRegistry.get_player_by_ip(target_ip)
                 if matched_player is None:
                     continue
 
@@ -352,40 +512,52 @@ def hostname_core() -> None:
         worker=reverse_dns_lookup,
         should_submit=should_submit,
         apply_result=apply_result,
-        wakeup_event=_hostname_wakeup_event,
+        queue=_hostname_queue,
     )
 
 
 def pinger_core() -> None:
     """Fetch and parse ping data for players in the background."""
-    exhausted_ips: dict[str, float] = {}  # Maps IPs to their retry-after timestamp
+    exhausted_ip_addresses: dict[str, float] = {}  # Maps IP addresses to their retry-after timestamp
 
     def should_submit(player: Player) -> bool:
         if player.left_event.is_set() or player.ping.is_initialized:
             return False
 
-        retry_after = exhausted_ips.get(player.ip)
+        retry_after = exhausted_ip_addresses.get(player.ip)
         return retry_after is None or time.monotonic() >= retry_after
 
     def apply_result(player: Player, ping_result: PingResult) -> None:
-        exhausted_ips.pop(player.ip, None)
+        exhausted_ip_addresses.pop(player.ip, None)
 
         player.ping.update_fields(ping_result._asdict())
         player.ping.is_pinging = ping_result.packets_received is not None and ping_result.packets_received > 0
         player.ping.is_initialized = True
 
-    def handle_exception(ip: str, exception: Exception) -> bool:
+    def handle_exception(ip_address: str, exception: Exception) -> bool:
         if isinstance(exception, AllEndpointsExhaustedError):
-            exhausted_ips[ip] = time.monotonic() + 30.0
+            exhausted_ip_addresses[ip_address] = time.monotonic() + 30.0
             return True
 
         return False
 
+    def check_exhausted_ip_addresses() -> None:
+        if not exhausted_ip_addresses:
+            return
+        current_time = time.monotonic()
+        retry_ip_addresses = [ip_address for ip_address, retry_at in exhausted_ip_addresses.items() if current_time >= retry_at]
+        for ip_address in retry_ip_addresses:
+            del exhausted_ip_addresses[ip_address]
+            player = PlayersRegistry.get_player_by_ip(ip_address)
+            if player is not None and not player.left_event.is_set() and not player.ping.is_initialized and _pinger_queue.put(ip_address):
+                _pinger_wakeup_event.set()
+
+    _pinger_queue.on_empty = check_exhausted_ip_addresses
     _run_player_future_core(
         worker=ping_player,
         should_submit=should_submit,
         apply_result=apply_result,
-        wakeup_event=_pinger_wakeup_event,
+        queue=_pinger_queue,
         handle_exception=handle_exception,
     )
 
@@ -475,23 +647,44 @@ def looky_core() -> None:
             gui_closed__event.wait(1.0)
             continue
 
-        pending_ips = [
-            player.ip
-            for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players())
-            if not is_third_party_server_ip(player.ip)
-            and (
-                not Settings.looky_exclusive_gta5_process
-                or not CaptureState.is_local_capture()
-                or player.is_gta5_process
-            )
-            and (
-                not player.looky_system.is_initialized
-                or player.looky_system.needs_refresh
-                or (time.monotonic() - player.looky_system.last_fetched_at) >= _LOOKY_REFRESH_INTERVAL
-            )
-        ]
+        pending_ip_addresses: list[str] = []
+        while len(pending_ip_addresses) < _batch_size:
+            target_ip = _looky_queue.get()
+            if target_ip is None:
+                break
+            if is_third_party_server_ip(target_ip):
+                continue
+            matched_player = PlayersRegistry.get_player_by_ip(target_ip)
+            if matched_player is None:
+                continue
+            if (
+                Settings.looky_exclusive_gta5_process
+                and CaptureState.is_local_capture()
+                and not matched_player.is_gta5_process
+            ):
+                continue
+            if (
+                not matched_player.looky_system.is_initialized
+                or matched_player.looky_system.needs_refresh
+                or (time.monotonic() - matched_player.looky_system.last_fetched_at) >= _LOOKY_REFRESH_INTERVAL
+            ):
+                pending_ip_addresses.append(target_ip)
 
-        if not pending_ips:
+        if not pending_ip_addresses:
+            # Check if any connected players need periodic refresh
+            current_time = time.monotonic()
+            for player in PlayersRegistry.get_connected_players():
+                if (
+                    player.looky_system.is_initialized
+                    and _is_looky_eligible(player)
+                    and (player.looky_system.needs_refresh or (current_time - player.looky_system.last_fetched_at) >= _LOOKY_REFRESH_INTERVAL)
+                    and _looky_queue.put(player.ip)
+                ):
+                    pending_ip_addresses.append(player.ip)
+                    if len(pending_ip_addresses) >= _batch_size:
+                        break
+
+        if not pending_ip_addresses:
             _looky_wakeup_event.wait(1)
             _looky_wakeup_event.clear()
             continue
@@ -500,24 +693,26 @@ def looky_core() -> None:
         rate_limited = False
         cooldown_active = False
 
-        for batch_start in range(0, len(pending_ips), _batch_size):
+        for batch_start in range(0, len(pending_ip_addresses), _batch_size):
             if gui_closed__event.is_set():
                 return
             if batch_start > 0:
                 gui_closed__event.wait(0.5)
 
-            batch = pending_ips[batch_start : batch_start + _batch_size]
+            batch = pending_ip_addresses[batch_start : batch_start + _batch_size]
 
             try:
                 results = looky_lookup_ip_batch(batch, Settings.looky_api_key, Settings.looky_game_version.lower())
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                    _looky_queue.requeue_front(batch)
                     wait_seconds = extract_rate_limit_wait_seconds(e)
                     logger.warning('[Looky System] Rate limited — waiting %s seconds', wait_seconds)
                     gui_closed__event.wait(wait_seconds)
                     rate_limited = True
                     break
                 if e.response is not None and HTTPStatus(e.response.status_code).is_server_error:
+                    _looky_queue.requeue_front(batch)
                     server_error_consecutive_failures += 1
                     cooldown_duration = min(30 * (2 ** (server_error_consecutive_failures - 1)), 300)
                     logger.warning('[Looky System] Server error for batch %s: %s. Entering %ss cooldown.', batch, e, cooldown_duration)
@@ -533,6 +728,7 @@ def looky_core() -> None:
                             matched_player.looky_system.last_fetched_at = time.monotonic()
                             matched_player.looky_system.is_initialized = True
             except requests.RequestException as e:
+                _looky_queue.requeue_front(batch)
                 server_error_consecutive_failures += 1
                 cooldown_duration = min(30 * (2 ** (server_error_consecutive_failures - 1)), 300)
                 logger.warning('[Looky System] Request error for batch %s: %s. Entering %ss cooldown.', batch, e, cooldown_duration)
@@ -555,15 +751,17 @@ def looky_core() -> None:
                         players = results.get(ip, [])
                         unique_players: list[LookyPlayer] = []
                         seen_pairs: set[tuple[str, int]] = set()
-                        for player in players:
-                            pair = (player.name, player.rockstarid)
+                        for looky_player in players:
+                            pair = (looky_player.name, looky_player.rockstarid)
                             if pair not in seen_pairs:
                                 seen_pairs.add(pair)
-                                unique_players.append(player)
+                                unique_players.append(looky_player)
                         with matched_player.looky_system.lock:
-                            matched_player.looky_system.usernames = [player.name.strip() for player in unique_players if player.name and player.name.strip()]
-                            matched_player.looky_system.rockstarids = [player.rockstarid for player in unique_players]
-                            matched_player.looky_system.last_seens = [player.lastSeen for player in unique_players]
+                            matched_player.looky_system.usernames = [
+                                looky_player.name.strip() for looky_player in unique_players if looky_player.name and looky_player.name.strip()
+                            ]
+                            matched_player.looky_system.rockstarids = [looky_player.rockstarid for looky_player in unique_players]
+                            matched_player.looky_system.last_seens = [looky_player.lastSeen for looky_player in unique_players]
                             matched_player.looky_system.needs_refresh = False
                             matched_player.looky_system.last_fetched_at = time.monotonic()
                             matched_player.looky_system.is_initialized = True
