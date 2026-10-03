@@ -115,6 +115,23 @@ Do not:
 
 If a structural warning is not worth safely changing, explain why and leave it unchanged rather than hiding it.
 
+### Example: too-many-lines
+
+When reviewing metric findings such as `too-many-lines`, distinguish between code that warrants extraction and genuine exceptions that should remain unified:
+
+1. **Genuine exceptions (leave as-is)**:
+   - **Declarative data tables / IP range registries**: files containing large static lookup tables, IP CIDR blocks, or dataset constants (e.g. `src/session_sniffer/networking/third_party_servers_ranges.py`). Splitting these across multiple files impairs readability and searchability without any architectural benefit.
+   - **Centralized configuration schemas / models**: files defining monolithic Pydantic models or configuration structures (e.g. `src/session_sniffer/models/settings_ini_model.py`). Keeping the configuration schema unified preserves cohesive type validation and schema readability.
+   - **Settings defaults registries**: files maintaining comprehensive registries of application default settings (e.g. `src/session_sniffer/settings/defaults.py`).
+   - **Standalone developer / diagnostic scripts**: self-contained diagnostic or verification CLI scripts (e.g. `.dev/verify_ranges.py`) where modularizing adds unnecessary indirection.
+
+   For these genuine cases:
+   - Leave the file unified and retain or permit `# pylint: disable=too-many-lines`.
+   - Do not split them into artificial chunks or submodules solely to lower line counts.
+
+2. **Actionable refactoring**:
+   - Reserve structural refactoring (such as extracting mixins or helper modules) for code with distinct separable concerns (e.g. bloated GUI windows, widgets, or controllers).
+
 ### Example: duplicate-code
 
 If the diagnostic identifies duplicated blocks across files:

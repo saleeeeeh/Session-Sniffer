@@ -85,3 +85,13 @@ Before adding a dependency:
 Prefer clear, explicit, maintainable Python over clever abstractions or metaprogramming.
 
 Fix the underlying problem rather than suppressing a diagnostic or weakening type checking to make the code pass.
+
+## File Sizing and Structural Warnings
+
+* Do not artificially fragment cohesive files just to satisfy metric-based linter warnings like `too-many-lines`.
+* **Genuine exceptions (leave as-is)**: Keep files unified and retain existing `# pylint: disable=too-many-lines` when the high line count is inherent to the file's purpose:
+  * Declarative data / lookup tables (e.g. `src/session_sniffer/networking/third_party_servers_ranges.py`);
+  * Centralized configuration schemas / models (e.g. `src/session_sniffer/models/settings_ini_model.py`);
+  * Configuration defaults registries (e.g. `src/session_sniffer/settings/defaults.py`);
+  * Standalone developer / diagnostic scripts (e.g. `.dev/verify_ranges.py`).
+* Real refactoring (such as extracting mixins or helper modules) should be reserved for components with separable concerns (such as complex GUI classes or bloated controllers), not declarative datasets or unified schema models.
