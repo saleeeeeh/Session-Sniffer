@@ -24,6 +24,7 @@ from session_sniffer.guis.userip_manager_helpers import (
     SETTINGS_DEFAULTS,
     SETTINGS_KEYS_ORDER,
     iter_userip_entries,
+    iter_userip_entries_with_metadata,
     parse_settings_from_content,
     parse_settings_from_lines,
     read_preserved_sections,
@@ -901,8 +902,8 @@ class TreeOperationsMixin(QDialog):
             _ = keep_button  # suppress unused-variable warning
 
         added = 0
-        for username, ip in iter_userip_entries(content):
-            self._append_row(username, ip, index=self._next_index)
+        for username, ip, is_looky in iter_userip_entries_with_metadata(content):
+            self._append_row(username, ip, index=self._next_index, is_looky=is_looky)
             self._next_index += 1
             added += 1
 

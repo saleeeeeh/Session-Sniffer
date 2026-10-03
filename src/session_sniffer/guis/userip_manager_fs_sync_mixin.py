@@ -127,9 +127,9 @@ class FileSyncMixin(QDialog):
 
         for ini_path, entries in iter_userip_databases():
             total_files += 1
-            for username, ip in entries:
+            for username, ip, is_looky in entries:
                 total_entries += 1
-                self._append_row(username, ip, index=total_entries, database=(ini_path.stem, ini_path))
+                self._append_row(username, ip, index=total_entries, database=(ini_path.stem, ini_path), is_looky=is_looky)
 
         self._set_status(f'Global search: {total_entries} entries across {total_files} databases')
         self._proxy.setFilterFixedString(self._search_input.text())

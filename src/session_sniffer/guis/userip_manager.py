@@ -166,6 +166,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         self._next_index = 1
         self._disk_snapshot: str = ''
         self._saving = False
+        self._looky_icon = QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'eye.svg'))
 
         root_layout = QVBoxLayout(self)
 
@@ -607,6 +608,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
         index_item.setFlags(index_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         username_item = QStandardItem(username)
         if is_looky:
+            username_item.setIcon(self._looky_icon)
             username_item.setForeground(QBrush(QColor('#a855f7')))
             username_item.setToolTip('Added automatically by Looky System')
             username_item.setData(True, Qt.ItemDataRole.UserRole)  # noqa: FBT003
@@ -1376,7 +1378,7 @@ class UserIPDatabasesManager(EntriesContextMenuMixin, FileSyncMixin, SettingsPan
 
         for _ini_path, entries in iter_userip_databases():
             total_files += 1
-            for username, ip in entries:
+            for username, ip, _is_looky in entries:
                 total_entries += 1
                 unique_ips.add(ip)
                 unique_usernames.add(username)

@@ -163,3 +163,51 @@ def format_single_border_table(
     lines.append(f'└{"┴".join("─" * (width + 2) for width in column_widths)}┘')
 
     return '\n'.join(lines)
+
+
+def split_usernames(text: str) -> list[str]:
+    """Split a comma-separated username string, respecting commas inside parentheses or brackets.
+
+    Commas within enclosing parentheses `(...)` or brackets `[...]` (such as notes or tags)
+    are preserved rather than treated as separators between usernames.
+
+    Args:
+        text: Comma-separated usernames text.
+
+    Returns:
+        List of non-empty stripped usernames.
+    """
+    if not text:
+        return []
+
+    tokens: list[str] = []
+    current_token: list[str] = []
+    paren_depth = 0
+    bracket_depth = 0
+
+    for char in text:
+        if char == '(':
+            paren_depth += 1
+            current_token.append(char)
+        elif char == ')' and paren_depth > 0:
+            paren_depth -= 1
+            current_token.append(char)
+        elif char == '[':
+            bracket_depth += 1
+            current_token.append(char)
+        elif char == ']' and bracket_depth > 0:
+            bracket_depth -= 1
+            current_token.append(char)
+        elif char == ',' and paren_depth == 0 and bracket_depth == 0:
+            cleaned = ''.join(current_token).strip()
+            if cleaned:
+                tokens.append(cleaned)
+            current_token.clear()
+        else:
+            current_token.append(char)
+
+    cleaned = ''.join(current_token).strip()
+    if cleaned:
+        tokens.append(cleaned)
+
+    return tokens

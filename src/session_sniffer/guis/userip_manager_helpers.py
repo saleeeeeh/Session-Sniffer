@@ -30,6 +30,7 @@ from session_sniffer.guis.stylesheets import (
     IP_RANGE_PREVIEW_VALID_STYLESHEET,
     SUBNET_DESC_LABEL_STYLESHEET,
 )
+from session_sniffer.text_utils import split_usernames
 from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
@@ -260,7 +261,7 @@ def iter_userip_entries_with_metadata(content: str) -> Iterator[tuple[str, str, 
             continue
 
         is_looky = bool(comment_raw and comment_raw.strip().lower() == 'looky')
-        for individual_username in (name.strip() for name in username.split(',') if name.strip()):
+        for individual_username in split_usernames(username):
             yield str(individual_username), str(ip), is_looky
 
 
@@ -270,13 +271,13 @@ def iter_userip_entries(content: str) -> Iterator[tuple[str, str]]:
         yield username, ip
 
 
-def iter_userip_databases() -> Iterator[tuple[Path, list[tuple[str, str]]]]:
+def iter_userip_databases() -> Iterator[tuple[Path, list[tuple[str, str, bool]]]]:
     """Yield `(database_path, entries)` for every UserIP database file, sorted by path."""
     USERIP_DATABASES_DIR_PATH.mkdir(parents=True, exist_ok=True)
     for ini_path in sorted(USERIP_DATABASES_DIR_PATH.rglob('*.ini')):
         if not ini_path.is_file():
             continue
-        yield ini_path, list(iter_userip_entries(ini_path.read_text('utf-8')))
+        yield ini_path, list(iter_userip_entries_with_metadata(ini_path.read_text('utf-8')))
 
 
 def read_preserved_sections(path: Path) -> tuple[list[str], list[str]]:
@@ -337,7 +338,7 @@ def rewrite_db_without_entries(db_path: Path, to_remove: set[tuple[str, str]]) -
             new_lines.append(raw_line)
             continue
 
-        line_usernames = [name.strip() for name in username_val.split(',') if name.strip()]
+        line_usernames = split_usernames(username_val)
         names_to_remove = {name for name in line_usernames if (name, ip_val) in to_remove}
         if not names_to_remove:
             new_lines.append(raw_line)
@@ -382,7 +383,7 @@ def rewrite_db_rename_entries(db_path: Path, pairs: list[tuple[str, str]], new_u
 
         username_val = match.group('username').strip()
         ip_val = match.group('ip').strip()
-        line_usernames = [name.strip() for name in username_val.split(',') if name.strip()]
+        line_usernames = split_usernames(username_val)
         matched_names = {pair[0] for pair in remaining_pairs if pair[0] in line_usernames and pair[1] == ip_val}
         if not matched_names:
             new_lines.append(raw_line)

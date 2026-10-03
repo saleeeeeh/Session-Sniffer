@@ -11,6 +11,7 @@ from session_sniffer.models.userip_settings_model import UserIPSettingsModel
 from session_sniffer.networking.ip_range import is_valid_ip_range_entry
 from session_sniffer.player.userip import ProtectionSettings, UserIPSettings
 from session_sniffer.settings.settings import RE_SETTINGS_INI_PARSER_PATTERN
+from session_sniffer.text_utils import split_usernames
 from session_sniffer.utils import validate_file
 
 if TYPE_CHECKING:
@@ -41,6 +42,22 @@ _USERIP_SETTING_DEFAULTS: dict[str, str] = {
 }
 
 
+def _has_unclosed_parentheses(text: str) -> bool:
+    """Return True if the text contains unmatched opening parentheses or brackets."""
+    paren_depth = 0
+    bracket_depth = 0
+    for char in text:
+        if char == '(':
+            paren_depth += 1
+        elif char == ')' and paren_depth > 0:
+            paren_depth -= 1
+        elif char == '[':
+            bracket_depth += 1
+        elif char == ']' and bracket_depth > 0:
+            bracket_depth -= 1
+    return paren_depth > 0 or bracket_depth > 0
+
+
 def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[str, list[str]] | None]:
     """Parse a UserIP INI file and return its settings and IP-to-usernames mapping."""
 
@@ -57,13 +74,42 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
     invalid_ip_entries: list[tuple[str, str]] = []
     unknown_settings: list[str] = []
     duplicate_settings: list[str] = []
+    repaired_entries: list[tuple[str, str]] = []
     current_section = None
     matched_settings: list[str] = []
     ini_data = ini_path.read_text(encoding='utf-8', newline='')
     corrected_ini_data_lines: list[str] = []
+    pending_split_entry: tuple[str, str] | None = None
+
+    def _commit_userip_entry(entry_line: str, entry_username: str, entry_ip: str) -> None:
+        parsed_usernames = split_usernames(entry_username)
+        if not parsed_usernames:
+            corrected_ini_data_lines.append(entry_line)
+            return
+
+        if all((individual_username, entry_ip) in all_seen_pairs for individual_username in parsed_usernames):
+            # Exact duplicate entry (same usernames and same IP) — drop from corrected output.
+            duplicate_entries.append((entry_username, entry_ip))
+            return
+
+        corrected_ini_data_lines.append(entry_line)
+        for individual_username in parsed_usernames:
+            all_seen_pairs.add((individual_username, entry_ip))
+            if individual_username in userip:
+                userip[individual_username].append(entry_ip)
+            else:
+                userip[individual_username] = [entry_ip]
+
+    def _flush_pending_userip_entry() -> None:
+        nonlocal pending_split_entry
+        if pending_split_entry is not None:
+            prev_username, prev_ip = pending_split_entry
+            pending_split_entry = None
+            _commit_userip_entry(f'{prev_username}={prev_ip}', prev_username, prev_ip)
 
     for line in map(process_ini_line_output, ini_data.splitlines(keepends=True)):
         if line.startswith('[') and line.endswith(']'):
+            _flush_pending_userip_entry()
             # Add a blank line before each section header for readability (unless the previous kept line is already blank).
             if corrected_ini_data_lines and corrected_ini_data_lines[-1]:
                 corrected_ini_data_lines.append('')
@@ -114,49 +160,62 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
 
         elif current_section == 'UserIP':
             if not (match := RE_USERIP_INI_PARSER_PATTERN.search(line)):
+                _flush_pending_userip_entry()
                 corrected_ini_data_lines.append(line)
                 continue
             if (username := match.group('username')) is None:
+                _flush_pending_userip_entry()
                 corrected_ini_data_lines.append(line)
                 continue
             if not isinstance(username, str):
                 raise TypeError(format_type_error(username, str))
             if (ip := match.group('ip')) is None:
+                _flush_pending_userip_entry()
                 corrected_ini_data_lines.append(line)
                 continue
             if not isinstance(ip, str):
                 raise TypeError(format_type_error(ip, str))
 
             if not (username := username.strip()):
+                _flush_pending_userip_entry()
                 corrected_ini_data_lines.append(line)
                 continue
             if not (ip := ip.strip()):
+                _flush_pending_userip_entry()
                 corrected_ini_data_lines.append(line)
                 continue
 
             if not is_valid_ip_range_entry(ip):
+                _flush_pending_userip_entry()
                 invalid_ip_entries.append((username, ip))
                 continue
 
-            parsed_usernames = [name.strip() for name in username.split(',') if name.strip()]
-            if not parsed_usernames:
-                corrected_ini_data_lines.append(line)
+            if pending_split_entry is not None:
+                prev_username, prev_ip = pending_split_entry
+                if ip == prev_ip:
+                    merged_username = f'{prev_username}, {username}'
+                    if _has_unclosed_parentheses(merged_username):
+                        pending_split_entry = (merged_username, ip)
+                        continue
+                    repaired_entries.append((merged_username, ip))
+                    pending_split_entry = None
+                    _commit_userip_entry(f'{merged_username}={ip}', merged_username, ip)
+                    continue
+                _flush_pending_userip_entry()
+
+            if _has_unclosed_parentheses(username):
+                pending_split_entry = (username, ip)
                 continue
 
-            if all((individual_username, ip) in all_seen_pairs for individual_username in parsed_usernames):
-                # Exact duplicate entry (same usernames and same IP) — drop from corrected output.
-                duplicate_entries.append((username, ip))
-                continue
+            _commit_userip_entry(line, username, ip)
 
-            corrected_ini_data_lines.append(line)
-            for individual_username in parsed_usernames:
-                all_seen_pairs.add((individual_username, ip))
-                if individual_username in userip:
-                    userip[individual_username].append(ip)
-                else:
-                    userip[individual_username] = [ip]
+    _flush_pending_userip_entry()
 
     list_of_missing_settings = [setting for setting in USERIP_INI_SETTINGS if setting not in matched_settings]
+
+    if repaired_entries:
+        for _username, _ip in repaired_entries:
+            logger.info('Auto-repaired split username entry "%s=%s" in "%s".', _username, _ip, ini_path.name)
 
     if invalid_ip_entries:
         for _username, _ip in invalid_ip_entries:

@@ -36,7 +36,7 @@ from session_sniffer.guis.userip_manager_helpers import (
 )
 from session_sniffer.guis.utils import set_clipboard_text
 from session_sniffer.settings.settings import Settings
-from session_sniffer.text_utils import pluralize
+from session_sniffer.text_utils import pluralize, split_usernames
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -641,7 +641,7 @@ class EntriesContextMenuMixin(QDialog):
                 new_lines.append(raw_line)
                 continue
 
-            line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+            line_usernames = split_usernames(username_raw)
             if username not in line_usernames:
                 new_lines.append(raw_line)
                 continue
