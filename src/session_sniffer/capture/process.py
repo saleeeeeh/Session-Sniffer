@@ -8,9 +8,10 @@ import socket
 import sys
 import time
 from ctypes import wintypes
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from session_sniffer.ctypes_wintrust import has_valid_authenticode_signature
 from session_sniffer.utils import ProcessEntry32W
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,30 @@ class TargetProcessStatus:
     path: Path | None = None
     udp_ports: frozenset[int] = frozenset()
     is_running: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class GameProcessStatus:
+    """Base immutable snapshot of a running game process state.
+
+    Attributes:
+        path: Resolved path to the running game executable, or `None` if not running.
+        pid: PID of the running game process, or `None` if not running.
+        is_suspended: `True` if the running game process is currently suspended at the
+            OS level (its threads are stopped), regardless of what suspended it.
+        udp_ports: Set of local UDP socket ports currently bound by the game process.
+        is_running: `True` if a game process was detected.
+    """
+
+    path: Path | None
+    pid: int | None = None
+    is_suspended: bool = False
+    udp_ports: frozenset[int] = frozenset()
+    is_running: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Derive `is_running` from `path`."""
+        object.__setattr__(self, 'is_running', self.path is not None)
 
 
 def _get_creation_time_from_handle(handle: wintypes.HANDLE) -> float | None:
@@ -680,3 +705,71 @@ def get_running_applications(*, user_apps_only: bool = True) -> list[tuple[int, 
 
     processes.sort(key=lambda item: item[1].lower())
     return processes
+
+
+def find_running_game_process[T: GameProcessStatus](
+    target_process_names: frozenset[str],
+    game_tag: str,
+    status_class: type[T],
+    *,
+    cached_proc: ProcessInfo | None = None,
+    cached_status: T | None = None,
+) -> tuple[T, ProcessInfo | None]:
+    """Inspect and resolve a running game process by its executable names and Authenticode signature.
+
+    Args:
+        target_process_names: Set of lowercased target process executable names.
+        game_tag: Prefix name used in debug log messages (e.g. 'GTA5' or 'RDR2').
+        status_class: Concrete `GameProcessStatus` subclass or class to instantiate.
+        cached_proc: The `ProcessInfo` returned by the previous call. Pass `None` to force a full scan.
+        cached_status: The status returned by the previous call.
+
+    Returns:
+        A `(status, cached_info)` tuple.
+    """
+    cached_path = cached_status.path if cached_status is not None else None
+    # Fast path: re-query only the previously validated PID.
+    if cached_proc is not None and cached_path is not None and is_process_running(cached_proc):
+        return (
+            status_class(
+                path=cached_path,
+                pid=cached_proc.pid,
+                is_suspended=is_process_suspended(cached_proc.pid),
+                udp_ports=get_process_udp_ports(cached_proc.pid),
+            ),
+            cached_proc,
+        )
+
+    # Slow path: cheap scan by process name only.
+    for pid, process_name in iter_running_processes():
+        if not process_name or process_name.lower() not in target_process_names:
+            continue
+
+        process_path = get_process_image_path(pid)
+        if process_path is None:
+            continue
+
+        if not has_valid_authenticode_signature(process_path):
+            logger.debug('[%sMonitor] Authenticode signature invalid, ignoring impostor: "%s" (PID: %s)', game_tag, process_path, pid)
+            continue
+
+        resolved_path = process_path.resolve()
+        logger.debug('[%sMonitor] Authenticode signature verified: "%s" (PID: %s)', game_tag, resolved_path, pid)
+
+        creation_time = get_process_creation_time(pid)
+        cached_info = ProcessInfo(pid=pid, creation_time=creation_time) if creation_time is not None else None
+
+        return (
+            status_class(
+                path=resolved_path,
+                pid=pid,
+                is_suspended=is_process_suspended(pid),
+                udp_ports=get_process_udp_ports(pid),
+            ),
+            cached_info,
+        )
+
+    return (
+        status_class(path=None),
+        None,
+    )
