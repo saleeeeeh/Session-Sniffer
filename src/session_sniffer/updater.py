@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import requests
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from session_sniffer import msgbox
 from session_sniffer.constants.local import CURRENT_VERSION
@@ -27,6 +27,7 @@ from session_sniffer.error_messages import format_failed_check_for_updates_messa
 from session_sniffer.guis.update_download_dialog import UpdateCandidate, UpdateDownloadDialog
 from session_sniffer.models import GithubVersionsResponse, VersionInfo
 from session_sniffer.networking.http_session import session
+from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_triple_quoted_text
 from session_sniffer.utils import format_project_version, is_pyinstaller_compiled
 
@@ -46,7 +47,11 @@ class UpdateCheckOutcome(Enum):
     ABORT = auto()
 
 
-def check_for_updates(*, updater_channel: str | None) -> tuple[UpdateCheckOutcome, Callable[[], None] | None]:
+def check_for_updates(
+    *,
+    updater_channel: str | None,
+    ignore_skipped: bool = False,
+) -> tuple[UpdateCheckOutcome, Callable[[], None] | None]:
     """Fetch versions, handle failures, and prompt for update if needed.
 
     Returns a tuple of (outcome, pending_download) where `pending_download` is a
@@ -54,7 +59,11 @@ def check_for_updates(*, updater_channel: str | None) -> tuple[UpdateCheckOutcom
     """
     outcome, versions = _fetch_versions_with_retries()
     if outcome is UpdateCheckOutcome.PROCEED and versions is not None:
-        return _handle_update_decision(updater_channel=updater_channel, versions=versions)
+        return _handle_update_decision(
+            updater_channel=updater_channel,
+            versions=versions,
+            ignore_skipped=ignore_skipped,
+        )
     if outcome is UpdateCheckOutcome.ABORT:
         return (outcome, None)
     return (UpdateCheckOutcome.IGNORE, None)
@@ -271,6 +280,13 @@ def _download_and_apply(
     )
     dialog = UpdateDownloadDialog(candidate, dest)
     dialog.exec()
+    if dialog.skipped:
+        _remove_file_if_possible(dest)
+        Settings.updater_skipped_version = candidate_info.version
+        Settings.rewrite_settings_file()
+        logger.info('User skipped update version %s', candidate_info.version)
+        return
+
     if not dialog.success:
         _remove_file_if_possible(dest)
         if dialog.error_message:
@@ -306,6 +322,10 @@ def _download_and_apply(
         _remove_file_if_possible(dest)
         return
 
+    if Settings.updater_skipped_version is not None:
+        Settings.updater_skipped_version = None
+        Settings.rewrite_settings_file()
+
     _apply_update(dest)
 
 
@@ -313,6 +333,7 @@ def _handle_update_decision(
     *,
     updater_channel: str | None,
     versions: GithubVersionsResponse,
+    ignore_skipped: bool = False,
 ) -> tuple[UpdateCheckOutcome, Callable[[], None] | None]:
     """Compare versions and schedule update download if a newer version is available."""
     is_prerelease_channel = updater_channel == 'Pre-release'
@@ -325,7 +346,28 @@ def _handle_update_decision(
 
     candidate = Version(candidate_info.version)
     if candidate <= CURRENT_VERSION:
+        if Settings.updater_skipped_version is not None:
+            try:
+                if Version(Settings.updater_skipped_version) <= CURRENT_VERSION:
+                    Settings.updater_skipped_version = None
+                    Settings.rewrite_settings_file()
+            except InvalidVersion:
+                Settings.updater_skipped_version = None
+                Settings.rewrite_settings_file()
         return (UpdateCheckOutcome.PROCEED, None)
+
+    if not ignore_skipped and Settings.updater_skipped_version is not None:
+        try:
+            skipped_version = Version(Settings.updater_skipped_version)
+            if candidate <= skipped_version:
+                logger.info(
+                    'Update available (%s) but version is skipped by user configuration (%s); skipping prompt.',
+                    format_project_version(candidate),
+                    Settings.updater_skipped_version,
+                )
+                return (UpdateCheckOutcome.PROCEED, None)
+        except InvalidVersion:
+            logger.warning('Invalid version format in updater_skipped_version: %r', Settings.updater_skipped_version)
 
     if sys.platform.startswith('linux') and not candidate_info.linux_download_url:
         logger.info('Update available (%s) but no Linux binary was published; skipping update.', format_project_version(candidate))

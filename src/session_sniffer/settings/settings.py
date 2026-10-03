@@ -115,6 +115,7 @@ class Settings:
     webserver_username: str | None = SETTING_DEFAULTS['webserver_username']
     webserver_password: str | None = SETTING_DEFAULTS['webserver_password']
     updater_channel: str | None = SETTING_DEFAULTS['updater_channel']
+    updater_skipped_version: str | None = SETTING_DEFAULTS['updater_skipped_version']
     userip_backup_frequency: str = SETTING_DEFAULTS['userip_backup_frequency']
     userip_backup_retention_limit: int = SETTING_DEFAULTS['userip_backup_retention_limit']
     userip_sync_known_alts: bool = SETTING_DEFAULTS['userip_sync_known_alts']
@@ -210,6 +211,7 @@ class Settings:
         'WEBSERVER_USERNAME',
         'WEBSERVER_PASSWORD',
         'UPDATER_CHANNEL',
+        'UPDATER_SKIPPED_VERSION',
         'USERIP_BACKUP_FREQUENCY',
         'USERIP_BACKUP_RETENTION_LIMIT',
         'USERIP_SYNC_KNOWN_ALTS',

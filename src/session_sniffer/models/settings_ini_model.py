@@ -14,6 +14,7 @@ import ast
 from dataclasses import dataclass
 from typing import Any, ClassVar, Self, cast
 
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator, model_validator
 from PySide6.QtGui import QColor
 
@@ -148,6 +149,7 @@ class SettingsIniModel(BaseModel):
     WEBSERVER_USERNAME: str | None
     WEBSERVER_PASSWORD: str | None
     UPDATER_CHANNEL: str | None
+    UPDATER_SKIPPED_VERSION: str | None
     USERIP_BACKUP_FREQUENCY: str
     USERIP_BACKUP_RETENTION_LIMIT: int
     USERIP_SYNC_KNOWN_ALTS: bool
@@ -1212,6 +1214,32 @@ class SettingsIniModel(BaseModel):
                     cls._set_flag(info, 'should_rewrite', value=True)
                     return cast('str | None', cls._get_default_for_field(info))
                 if not case_match:
+                    cls._record_rewrite(info, normalized)
+                return normalized
+            if need_rewrite:
+                cls._record_rewrite(info, 'None')
+            return none_value
+        cls._set_flag(info, 'should_rewrite', value=True)
+        return cast('str | None', cls._get_default_for_field(info))
+
+    @field_validator('UPDATER_SKIPPED_VERSION', mode='before')
+    @classmethod
+    def _parse_updater_skipped_version(cls, value: object, info: ValidationInfo) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                none_value, need_rewrite = custom_str_to_nonetype(value)
+            except InvalidNoneTypeValueError:
+                stripped = value.strip()
+                try:
+                    parsed_version = Version(stripped)
+                except InvalidVersion:
+                    cls._set_flag(info, 'should_rewrite', value=True)
+                    return cast('str | None', cls._get_default_for_field(info))
+
+                normalized = str(parsed_version)
+                if normalized != value:
                     cls._record_rewrite(info, normalized)
                 return normalized
             if need_rewrite:

@@ -143,7 +143,10 @@ class FilesMixin(QMainWindow):
 
     def _check_for_updates(self) -> None:
         """Manually trigger an update check against GitHub."""
-        outcome, pending_download = check_for_updates(updater_channel=Settings.updater_channel)
+        outcome, pending_download = check_for_updates(
+            updater_channel=Settings.updater_channel,
+            ignore_skipped=True,
+        )
         if pending_download is not None:
             pending_download()
         elif outcome is UpdateCheckOutcome.PROCEED:

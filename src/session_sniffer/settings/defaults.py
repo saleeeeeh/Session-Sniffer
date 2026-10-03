@@ -150,6 +150,13 @@ SETTING_METADATA: dict[str, SettingMeta] = {
         tooltip='Release channel to check for updates.',
         allowed_values=('Stable', 'Pre-release'),
     ),
+    'updater_skipped_version': SettingMeta(
+        category='General',
+        group='Updater',
+        display_label='Skipped Version',
+        setting_type=SettingType.STRING,
+        tooltip='Specific version to skip when checking for updates automatically on startup. Leave empty to not skip any version.',
+    ),
     'userip_backup_frequency': SettingMeta(
         category='General',
         group='UserIP Databases',
@@ -1037,6 +1044,7 @@ class SettingDefaults(TypedDict):
     webserver_username: str | None
     webserver_password: str | None
     updater_channel: str | None
+    updater_skipped_version: str | None
     userip_backup_frequency: str
     userip_backup_retention_limit: int
     userip_sync_known_alts: bool
@@ -1180,6 +1188,7 @@ SETTING_DEFAULTS: SettingDefaults = {
     'webserver_username': None,
     'webserver_password': None,
     'updater_channel': 'Stable',
+    'updater_skipped_version': None,
     'userip_backup_frequency': 'Daily',
     'userip_backup_retention_limit': 10,
     'userip_sync_known_alts': True,

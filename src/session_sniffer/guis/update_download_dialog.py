@@ -156,6 +156,7 @@ class UpdateDownloadDialog(DraggableDialogMixin, QDialog):
         self._new_version_card_label: QLabel | None = None
         self._title_label: QLabel | None = None
         self._skip_button: QPushButton | None = None
+        self._later_button: QPushButton | None = None
         self._update_button: QPushButton | None = None
         self._cancel_button: QPushButton | None = None
         self._worker: _DownloadWorker | None = None
@@ -508,11 +509,19 @@ class UpdateDownloadDialog(DraggableDialogMixin, QDialog):
         footer.setSpacing(10)
         footer.addStretch(1)
 
-        self._skip_button = QPushButton('Skip')
+        self._skip_button = QPushButton('Skip This Version')
         self._skip_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._skip_button.setStyleSheet(UPDATE_DOWNLOAD_SKIP_BUTTON_STYLESHEET)
+        self._skip_button.setToolTip('Skip this update version and do not prompt again until a newer version is released')
         self._skip_button.clicked.connect(self._on_skip)
         footer.addWidget(self._skip_button)
+
+        self._later_button = QPushButton('Remind Me Later')
+        self._later_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._later_button.setStyleSheet(UPDATE_DOWNLOAD_SKIP_BUTTON_STYLESHEET)
+        self._later_button.setToolTip('Dismiss this prompt for now and remind me on next startup')
+        self._later_button.clicked.connect(self._on_remind_later)
+        footer.addWidget(self._later_button)
 
         update_button_text = 'Update Now' if is_pyinstaller_compiled() else 'View Release'
         self._update_button = QPushButton(update_button_text)
@@ -585,6 +594,8 @@ class UpdateDownloadDialog(DraggableDialogMixin, QDialog):
 
         if self._skip_button is not None:
             self._skip_button.hide()
+        if self._later_button is not None:
+            self._later_button.hide()
         if self._update_button is not None:
             self._update_button.hide()
         if self._cancel_button is not None:
@@ -606,6 +617,11 @@ class UpdateDownloadDialog(DraggableDialogMixin, QDialog):
     def _on_skip(self) -> None:
         """Handle the user skipping the update."""
         self._skipped = True
+        self.reject()
+
+    def _on_remind_later(self) -> None:
+        """Handle the user postponing the update."""
+        self._skipped = False
         self.reject()
 
     def _on_progress(self, done: int, total: int) -> None:
