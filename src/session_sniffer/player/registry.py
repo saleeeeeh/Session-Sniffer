@@ -1,6 +1,7 @@
 """Player registry for connected and disconnected players."""
 
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from heapq import nsmallest
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING, ClassVar
 from session_sniffer.constants.standard import LOCAL_TZ
 from session_sniffer.exceptions import PlayerAlreadyExistsError, PlayerNotFoundInRegistryError, UnexpectedPlayerCountError
 from session_sniffer.networking.third_party_servers import is_third_party_server_ip
+from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_elapsed_time
 
 if TYPE_CHECKING:
@@ -50,7 +52,17 @@ class PlayersRegistry:
 
     _registry_lock: ClassVar[RLock] = RLock()
     _connected_players_registry: ClassVar[dict[str, Player]] = {}
-    _disconnected_players_registry: ClassVar[dict[str, Player]] = {}
+    _disconnected_players_registry: ClassVar[OrderedDict[str, Player]] = OrderedDict()
+
+    @classmethod
+    def _evict_excess_disconnected_players(cls) -> None:
+        """Evict oldest disconnected players when registry exceeds the configured limit."""
+        limit = Settings.gui_disconnected_players_limit
+        if limit <= 0:
+            return
+        while len(cls._disconnected_players_registry) > limit:
+            _, evicted_player = cls._disconnected_players_registry.popitem(last=False)
+            evicted_player.left_event.set()
 
     @classmethod
     def _sort_connected_players(cls, players: list[Player]) -> list[Player]:
@@ -118,6 +130,7 @@ class PlayersRegistry:
                 raise PlayerNotFoundInRegistryError(player.ip)
 
             cls._disconnected_players_registry[player.ip] = cls._connected_players_registry.pop(player.ip)
+            cls._evict_excess_disconnected_players()
 
     @classmethod
     def get_player_by_ip(cls, ip: str, /) -> Player | None:
@@ -162,6 +175,7 @@ class PlayersRegistry:
         is irrelevant, to avoid an unnecessary O(n log n) sort.
         """
         with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
             return list(cls._disconnected_players_registry.values())
 
     @classmethod
@@ -172,12 +186,14 @@ class PlayersRegistry:
         to avoid the O(n log n) sort overhead.
         """
         with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
             return list(cls._connected_players_registry.values()) + list(cls._disconnected_players_registry.values())
 
     @classmethod
     def get_players_map(cls) -> dict[str, Player]:
         """Return an unsorted snapshot mapping of all connected and disconnected players by IP in a single lock acquisition."""
         with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
             players_map = dict(cls._disconnected_players_registry)
             players_map.update(cls._connected_players_registry)
             return players_map
@@ -186,6 +202,7 @@ class PlayersRegistry:
     def get_total_count(cls) -> int:
         """Return the total number of tracked players (connected + disconnected) in O(1)."""
         with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
             return len(cls._connected_players_registry) + len(cls._disconnected_players_registry)
 
     @classmethod
@@ -201,6 +218,8 @@ class PlayersRegistry:
         disconnected players by last seen (descending).
         """
         with cls._registry_lock:
+            if include_disconnected:
+                cls._evict_excess_disconnected_players()
             connected_snapshot = list(cls._connected_players_registry.values()) if include_connected else []
             disconnected_snapshot = list(cls._disconnected_players_registry.values()) if include_disconnected else []
         players: list[Player] = []
@@ -214,6 +233,7 @@ class PlayersRegistry:
     def get_default_sorted_connected_and_disconnected_players(cls) -> tuple[list[Player], list[Player]]:
         """Return connected and disconnected players, each sorted by their default criteria."""
         with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
             connected_snapshot = list(cls._connected_players_registry.values())
             disconnected_snapshot = list(cls._disconnected_players_registry.values())
         return (

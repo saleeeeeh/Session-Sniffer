@@ -444,6 +444,13 @@ class SettingsDialog(SettingsDialogLookyMixin, SettingsDialogDiscordMixin, Unsav
         if disconnected_timer_widget is not None:
             disconnected_timer_widget.setEnabled(checked)
 
+        disconnected_limit_label = self._labels.get('gui_disconnected_players_limit')
+        disconnected_limit_widget = self._widgets.get('gui_disconnected_players_limit')
+        if disconnected_limit_label is not None:
+            disconnected_limit_label.setEnabled(checked)
+        if disconnected_limit_widget is not None:
+            disconnected_limit_widget.setEnabled(checked)
+
         connected_sort_col_label = self._labels.get('gui_connected_table_sort_column')
         if connected_sort_col_label is not None:
             connected_sort_col_label.setText('Connected Sort Column:' if checked else 'Sort Column:')

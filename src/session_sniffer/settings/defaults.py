@@ -558,6 +558,16 @@ SETTING_METADATA: dict[str, SettingMeta] = {
         min_value=3,
         step=1,
     ),
+    'gui_disconnected_players_limit': SettingMeta(
+        category='Session',
+        group='Disconnected Players',
+        display_label='Disconnected Limit',
+        setting_type=SettingType.INTEGER,
+        tooltip='Maximum number of disconnected players retained in memory and table. Set to 0 for unlimited. (Max: 20000)',
+        min_value=0,
+        max_value=20000,
+        step=50,
+    ),
     'pinger_local': SettingMeta(
         category='Session',
         group='Player Pinging',
@@ -1020,6 +1030,7 @@ class SettingDefaults(TypedDict):
     gui_disconnected_table_sort_column: str
     gui_disconnected_table_sort_order: str
     gui_disconnected_players_timer: int
+    gui_disconnected_players_limit: int
     gui_ignore_screen_resolution_warning: bool
     voice_notifications_enabled: bool
     pinger_local: bool
@@ -1148,6 +1159,7 @@ SETTING_DEFAULTS: SettingDefaults = {
     'gui_disconnected_table_sort_column': 'Last Seen',
     'gui_disconnected_table_sort_order': 'Ascending',
     'gui_disconnected_players_timer': 10,
+    'gui_disconnected_players_limit': 500,
     'gui_ignore_screen_resolution_warning': False,
     'voice_notifications_enabled': True,
     'pinger_local': True,

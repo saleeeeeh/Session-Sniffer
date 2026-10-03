@@ -50,6 +50,7 @@ class SettingsValidationConfig:
     all_third_party_servers: tuple[str, ...]
     max_gui_table_rows_per_page: int
     min_gui_disconnected_players_timer: int
+    max_gui_disconnected_players_limit: int
 
 
 @dataclass(slots=True)
@@ -64,6 +65,7 @@ class _ValidatorContext:
     all_third_party_servers: tuple[str, ...]
     max_gui_table_rows_per_page: int
     min_gui_disconnected_players_timer: int
+    max_gui_disconnected_players_limit: int
 
 
 class SettingsIniModel(BaseModel):
@@ -122,6 +124,7 @@ class SettingsIniModel(BaseModel):
     GUI_DISCONNECTED_TABLE_SORT_COLUMN: str
     GUI_DISCONNECTED_TABLE_SORT_ORDER: str
     GUI_DISCONNECTED_PLAYERS_TIMER: int
+    GUI_DISCONNECTED_PLAYERS_LIMIT: int
     GUI_IGNORE_SCREEN_RESOLUTION_WARNING: bool
     VOICE_NOTIFICATIONS_ENABLED: bool
 
@@ -628,6 +631,33 @@ class SettingsIniModel(BaseModel):
             return cast('int', cls._get_default_for_field(info) or 10)
         cls._set_flag(info, 'should_rewrite', value=True)
         return cast('int', cls._get_default_for_field(info) or 10)
+
+    @field_validator('GUI_DISCONNECTED_PLAYERS_LIMIT', mode='before')
+    @classmethod
+    def _parse_disconnected_limit(cls, value: object, info: ValidationInfo) -> int:
+        max_limit = 20000
+        context = cls._get_context(info)
+        if context is not None:
+            max_limit = context.max_gui_disconnected_players_limit
+
+        if isinstance(value, (int, float)):
+            int_value = int(value)
+            if 0 <= int_value <= max_limit:
+                return int_value
+            cls._set_flag(info, 'should_rewrite', value=True)
+            return cast('int', cls._get_default_for_field(info) or 500)
+        if isinstance(value, str):
+            try:
+                parsed = int(float(value))
+            except ValueError:
+                cls._set_flag(info, 'should_rewrite', value=True)
+                return cast('int', cls._get_default_for_field(info) or 500)
+            if 0 <= parsed <= max_limit:
+                return parsed
+            cls._set_flag(info, 'should_rewrite', value=True)
+            return cast('int', cls._get_default_for_field(info) or 500)
+        cls._set_flag(info, 'should_rewrite', value=True)
+        return cast('int', cls._get_default_for_field(info) or 500)
 
     @field_validator('DISCORD_PRESENCE_TITLE', mode='before')
     @classmethod
@@ -1376,6 +1406,7 @@ class SettingsIniModel(BaseModel):
             all_third_party_servers=config.all_third_party_servers,
             max_gui_table_rows_per_page=config.max_gui_table_rows_per_page,
             min_gui_disconnected_players_timer=config.min_gui_disconnected_players_timer,
+            max_gui_disconnected_players_limit=config.max_gui_disconnected_players_limit,
         )
         parsed = cls.model_validate(full_input, context=ctx)
 

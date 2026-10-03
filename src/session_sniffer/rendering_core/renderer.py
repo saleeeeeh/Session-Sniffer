@@ -493,6 +493,8 @@ def rendering_core(
                 GTASuspendManager.wake()
             elif Settings.is_rdr2_feature_set():
                 RDR2SuspendManager.wake()
+            if 0 < Settings.gui_disconnected_players_limit < len(session_disconnected):
+                session_disconnected = PlayersRegistry.get_default_sorted_players(include_connected=False, include_disconnected=True)
 
         _active_threads = threading.active_count()
         _effective_threshold = _THREAD_COUNT_WARN_THRESHOLD + get_active_port_scan_threads()

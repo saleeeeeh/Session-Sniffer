@@ -91,6 +91,7 @@ class Settings:
     gui_disconnected_table_sort_column: str = SETTING_DEFAULTS['gui_disconnected_table_sort_column']
     gui_disconnected_table_sort_order: str = SETTING_DEFAULTS['gui_disconnected_table_sort_order']
     gui_disconnected_players_timer: int = SETTING_DEFAULTS['gui_disconnected_players_timer']
+    gui_disconnected_players_limit: int = SETTING_DEFAULTS['gui_disconnected_players_limit']
     gui_ignore_screen_resolution_warning: bool = SETTING_DEFAULTS['gui_ignore_screen_resolution_warning']
     voice_notifications_enabled: bool = SETTING_DEFAULTS['voice_notifications_enabled']
     pinger_local: bool = SETTING_DEFAULTS['pinger_local']
@@ -142,6 +143,7 @@ class Settings:
     player_identifier_session_drift_zscore: float = SETTING_DEFAULTS['player_identifier_session_drift_zscore']
 
     MIN_GUI_DISCONNECTED_PLAYERS_TIMER_SECONDS: ClassVar[int] = 3
+    MAX_GUI_DISCONNECTED_PLAYERS_LIMIT: ClassVar[int] = 20000
     MAX_GUI_TABLE_ROWS_PER_PAGE: ClassVar[int] = 5000
     blocked_ip_ranges: ClassVar[list[IPRange]] = []
 
@@ -188,6 +190,7 @@ class Settings:
         'GUI_DISCONNECTED_TABLE_SORT_COLUMN',
         'GUI_DISCONNECTED_TABLE_SORT_ORDER',
         'GUI_DISCONNECTED_PLAYERS_TIMER',
+        'GUI_DISCONNECTED_PLAYERS_LIMIT',
         'GUI_IGNORE_SCREEN_RESOLUTION_WARNING',
         'VOICE_NOTIFICATIONS_ENABLED',
         'DISCORD_PRESENCE',
@@ -413,6 +416,7 @@ class Settings:
                     all_third_party_servers=ALL_THIRD_PARTY_SERVER_NAMES,
                     max_gui_table_rows_per_page=cls.MAX_GUI_TABLE_ROWS_PER_PAGE,
                     min_gui_disconnected_players_timer=cls.MIN_GUI_DISCONNECTED_PLAYERS_TIMER_SECONDS,
+                    max_gui_disconnected_players_limit=cls.MAX_GUI_DISCONNECTED_PLAYERS_LIMIT,
                 ),
             )
 
