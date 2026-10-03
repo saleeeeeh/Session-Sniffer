@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QIcon
 from PySide6.QtWidgets import (
     QDialog,
@@ -323,7 +323,7 @@ class _PromptRequest:
 class _PromptDispatcher(QObject):
     """Thread-safe dispatcher that displays DependencyPromptDialog on the main Qt thread."""
 
-    request_dialog = Signal(_PromptRequest)
+    request_dialog: Signal = Signal(object)
 
     def __init__(self) -> None:
         """Initialize the prompt dispatcher with a blocking queued connection."""
@@ -331,6 +331,7 @@ class _PromptDispatcher(QObject):
         self._result: bool = False
         self.request_dialog.connect(self._handle_request, Qt.ConnectionType.BlockingQueuedConnection)
 
+    @Slot(object)
     def _handle_request(self, request: _PromptRequest) -> None:
         """Instantiate and execute the dialog on the main GUI thread."""
         dialog = DependencyPromptDialog(

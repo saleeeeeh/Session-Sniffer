@@ -57,7 +57,7 @@ def terminate_script(
     """Terminate the application and optionally display crash information."""
     caller_thread = threading.current_thread()
     caller_native_id = getattr(caller_thread, 'native_id', 'unknown')
-    logger.info(
+    logger.debug(
         'terminate_script invoked: method=%s, caller_thread=%s (native_id=%s, ident=%s)',
         terminate_method,
         caller_thread.name,
@@ -67,7 +67,7 @@ def terminate_script(
     caller_stack = ''.join(traceback.format_stack()[:-1])
     logger.debug('terminate_script caller stack:\n%s', caller_stack.rstrip())
     active_thread_names = [f'{t.name} (native_id={getattr(t, "native_id", "unknown")})' for t in threading.enumerate()]
-    logger.info('Active threads at terminate_script (%d): %s', len(active_thread_names), active_thread_names)
+    logger.debug('Active threads at terminate_script (%d): %s', len(active_thread_names), active_thread_names)
 
     GTASuspendManager.shutdown()
 

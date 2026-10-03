@@ -91,7 +91,7 @@ class CrashingQThread(QThread):
     def stop_all_active_threads(cls, timeout_ms: int = 3000) -> None:
         """Interrupt, quit, and wait for all active threads to terminate before destruction."""
         active_threads = [thread for thread in cls._active_threads if thread.isRunning()]
-        logger.info(
+        logger.debug(
             'CrashingQThread stop_all_active_threads: stopping %d active threads: %s',
             len(active_threads),
             [(t.thread_name, t.cpp_ptr) for t in active_threads],
@@ -119,7 +119,7 @@ class CrashingQThread(QThread):
                 len(cls._active_threads),
                 [(t.thread_name, t.cpp_ptr) for t in cls._active_threads],
             )
-        logger.info('CrashingQThread stop_all_active_threads completed')
+        logger.debug('CrashingQThread stop_all_active_threads completed')
 
     def _discard_if_stopped(self) -> None:
         """Discard the strong reference if the thread has fully terminated, or reschedule."""

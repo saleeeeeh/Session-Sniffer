@@ -62,7 +62,7 @@ def _paginate(
 class GUIWorkerThread(CrashingQThread):
     """Emit GUI update payloads compiled by the rendering core."""
 
-    update_signal = Signal(GUIUpdatePayload)
+    update_signal: Signal = Signal(object)
 
     @override
     def requestInterruption(self) -> None:
