@@ -504,16 +504,12 @@ def rendering_core(
             del session_connected[i]
 
         for player in chain(session_connected, session_disconnected):
-            if (
-                player.left_event.is_set()
-                and not _userip_db_rebuilt
-                and player.iplookup.geolite2.is_initialized
-                and (player.country_flag is not None or player.iplookup.ipapi.is_initialized)
-                and (
-                    not (Settings.looky_enabled and player.looky_system.is_initialized and player.looky_system.usernames)
-                    or all(name in player.usernames for name in player.looky_system.usernames)
-                )
-            ):
+            has_geo = player.country_flag is not None or player.iplookup.ipapi.is_initialized
+            looky_complete = (
+                not (Settings.looky_enabled and player.looky_system.is_initialized and player.looky_system.usernames)
+                or all(name in player.usernames for name in player.looky_system.usernames)
+            )
+            if player.left_event.is_set() and not _userip_db_rebuilt and player.iplookup.geolite2.is_initialized and has_geo and looky_complete:
                 continue
 
             if _userip_db_rebuilt and (player.userip is not None or player.userip_detection is not None) and not UserIPDatabases.is_known_ip(player.ip):

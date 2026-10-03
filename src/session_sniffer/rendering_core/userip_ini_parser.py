@@ -11,7 +11,7 @@ from session_sniffer.models.userip_settings_model import UserIPSettingsModel
 from session_sniffer.networking.ip_range import is_valid_ip_range_entry
 from session_sniffer.player.userip import ProtectionSettings, UserIPSettings
 from session_sniffer.settings.settings import RE_SETTINGS_INI_PARSER_PATTERN
-from session_sniffer.text_utils import split_usernames
+from session_sniffer.text_utils import has_unclosed_parentheses, split_usernames
 from session_sniffer.utils import validate_file
 
 if TYPE_CHECKING:
@@ -40,22 +40,6 @@ _USERIP_SETTING_DEFAULTS: dict[str, str] = {
     'PROTECTION': 'False',
     'PROTECTION_SUSPEND_PROCESS_MODE': 'Auto',
 }
-
-
-def _has_unclosed_parentheses(text: str) -> bool:
-    """Return True if the text contains unmatched opening parentheses or brackets."""
-    paren_depth = 0
-    bracket_depth = 0
-    for char in text:
-        if char == '(':
-            paren_depth += 1
-        elif char == ')' and paren_depth > 0:
-            paren_depth -= 1
-        elif char == '[':
-            bracket_depth += 1
-        elif char == ']' and bracket_depth > 0:
-            bracket_depth -= 1
-    return paren_depth > 0 or bracket_depth > 0
 
 
 def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[str, list[str]] | None]:
@@ -194,7 +178,7 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
                 prev_username, prev_ip = pending_split_entry
                 if ip == prev_ip:
                     merged_username = f'{prev_username}, {username}'
-                    if _has_unclosed_parentheses(merged_username):
+                    if has_unclosed_parentheses(merged_username):
                         pending_split_entry = (merged_username, ip)
                         continue
                     repaired_entries.append((merged_username, ip))
@@ -203,7 +187,7 @@ def parse_userip_ini_file(ini_path: Path) -> tuple[UserIPSettings | None, dict[s
                     continue
                 _flush_pending_userip_entry()
 
-            if _has_unclosed_parentheses(username):
+            if has_unclosed_parentheses(username):
                 pending_split_entry = (username, ip)
                 continue
 

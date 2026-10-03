@@ -6,9 +6,6 @@ from datetime import UTC, datetime, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING, override
 
-if TYPE_CHECKING:
-    from session_sniffer.models.player import Player
-
 from PySide6.QtCore import (
     QAbstractTableModel,
     QModelIndex,
@@ -34,8 +31,15 @@ from session_sniffer.error_messages import format_type_error
 from session_sniffer.guis.exceptions import TableDataConsistencyError, UnsupportedSortColumnError
 from session_sniffer.guis.high_rate_monitor import HighRateTracker
 from session_sniffer.guis.player_identifier import PlayerIdentifierTracker
+from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry, SessionHost
+from session_sniffer.player.userip import UserIPDatabases
+from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+from session_sniffer.text_utils import strip_username_notes
+
+if TYPE_CHECKING:
+    from session_sniffer.models.player import Player
 
 MAX_POSSIBLE_IP_ICONS = 3
 
@@ -383,12 +387,43 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         self._looky_icon = QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'eye.svg'))
 
     @staticmethod
+    def _is_player_looky_compatible(player: Player) -> bool:
+        """Return True if *player* is compatible with the Looky System and has looky features enabled."""
+        if not Settings.looky_enabled or not Settings.is_gta5_feature_set():
+            return False
+        if player.looky_system.is_initialized and (player.looky_system.usernames or player.looky_system.rockstarids):
+            return True
+        if is_third_party_server_ip(player.ip):
+            return False
+        return not (Settings.looky_exclusive_gta5_process and CaptureState.is_local_capture() and not player.is_gta5_process)
+
+    @staticmethod
     def _get_unregistered_looky_usernames(player: Player) -> set[str]:
         """Return the set of Looky usernames for *player* that are not present in their local UserIP database."""
         if not player.looky_system.is_initialized or not player.looky_system.usernames:
             return set()
-        userip_names: set[str] = {name.casefold() for name in player.userip.usernames} if player.userip and player.userip.usernames else set()
-        return {name for name in player.looky_system.usernames if name.strip() and name.casefold() not in userip_names}
+        userip_names: set[str] = set()
+        if player.userip and player.userip.usernames:
+            for name in player.userip.usernames:
+                stripped = name.strip()
+                if stripped:
+                    userip_names.add(stripped.casefold())
+                    base = strip_username_notes(stripped)
+                    if base:
+                        userip_names.add(base.casefold())
+        unregistered: set[str] = set()
+        for name in player.looky_system.usernames:
+            cleaned = name.strip()
+            if not cleaned:
+                continue
+            cleaned_cf = cleaned.casefold()
+            base_cf = strip_username_notes(cleaned).casefold()
+            if cleaned_cf in userip_names or (base_cf and base_cf in userip_names):
+                continue
+            if UserIPDatabases.is_known_username(cleaned):
+                continue
+            unregistered.add(cleaned)
+        return unregistered
 
     # --------------------------------------------------------------------------
     # Public properties
@@ -497,11 +532,10 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
                         self._ip_icons_cache[cache_key] = _create_composite_icon(cache_key)
                     output = self._ip_icons_cache[cache_key]
             elif self.username_column_index >= 0 and self.username_column_index == column_index:
-                if Settings.looky_enabled:
-                    ip = self.get_ip_from_data_safely(self._data[row_index])
-                    matched_player = PlayersRegistry.get_player_by_ip(ip)
-                    if matched_player is not None and bool(self._get_unregistered_looky_usernames(matched_player)):
-                        output = self._looky_icon
+                ip = self.get_ip_from_data_safely(self._data[row_index])
+                matched_player = PlayersRegistry.get_player_by_ip(ip)
+                if matched_player is not None and self._is_player_looky_compatible(matched_player):
+                    output = self._looky_icon
         elif role == Qt.ItemDataRole.UserRole:
             if self.username_column_index >= 0 and self.username_column_index == column_index and Settings.looky_enabled:
                 ip = self.get_ip_from_data_safely(self._data[row_index])

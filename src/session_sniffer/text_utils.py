@@ -3,6 +3,7 @@
 Keep this module dependency-free and safe to import from anywhere.
 """
 
+import re
 import textwrap
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
@@ -198,7 +199,7 @@ def split_usernames(text: str) -> list[str]:
         elif char == ']' and bracket_depth > 0:
             bracket_depth -= 1
             current_token.append(char)
-        elif char == ',' and paren_depth == 0 and bracket_depth == 0:
+        elif char == ',' and not paren_depth and not bracket_depth:
             cleaned = ''.join(current_token).strip()
             if cleaned:
                 tokens.append(cleaned)
@@ -211,3 +212,38 @@ def split_usernames(text: str) -> list[str]:
         tokens.append(cleaned)
 
     return tokens
+
+
+_RE_USERNAME_NOTES = re.compile(r'\([^)]*\)|\[[^\]]*\]')
+
+
+def strip_username_notes(username: str) -> str:
+    """Return the username with notes in parentheses or brackets removed.
+
+    Args:
+        username: The username string potentially containing notes or tags.
+
+    Returns:
+        The cleaned username with notes removed and whitespace stripped.
+    """
+    if not username:
+        return ''
+
+    cleaned = _RE_USERNAME_NOTES.sub('', username).strip()
+    return cleaned or username.strip()
+
+
+def has_unclosed_parentheses(text: str) -> bool:
+    """Return True if the text contains unmatched opening parentheses or brackets."""
+    paren_depth = 0
+    bracket_depth = 0
+    for char in text:
+        if char == '(':
+            paren_depth += 1
+        elif char == ')' and paren_depth > 0:
+            paren_depth -= 1
+        elif char == '[':
+            bracket_depth += 1
+        elif char == ']' and bracket_depth > 0:
+            bracket_depth -= 1
+    return bool(paren_depth or bracket_depth)
