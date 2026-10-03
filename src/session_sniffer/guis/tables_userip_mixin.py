@@ -83,7 +83,7 @@ def resolve_usernames_for_player(player: Player) -> list[str]:
         player.looky_system.usernames if player.looky_system.is_initialized else [],
         player.usernames,
     )
-    names = [stripped for name in player_names if (stripped := name.strip())]
+    names: list[str] = [name.strip() for name in player_names if name.strip()]
     if Settings.userip_sync_known_alts:
         return UserIPDatabases.expand_with_known_alts(names)
     return names
