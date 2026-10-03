@@ -332,6 +332,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._thread_health_timer.setInterval(30_000)
         self._thread_health_timer.timeout.connect(self._log_thread_health)
         self._thread_health_timer.start()
+        self._last_thread_health_state: tuple[int, int, tuple[tuple[str, str], ...]] | None = None
 
         self.installEventFilter(self)
 
@@ -480,12 +481,18 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         status_bar.setEnabled(True)
 
     def _log_thread_health(self) -> None:
-        """Periodically log thread health and active workers."""
+        """Periodically log thread health and active workers when thread state changes."""
         active_qthreads = CrashingQThread.get_active_threads()
-        running_qthreads = [(t.thread_name, t.cpp_ptr) for t in active_qthreads if t.isRunning()]
+        running_qthreads = sorted([(thread.thread_name, thread.cpp_ptr) for thread in active_qthreads if thread.isRunning()])
+        active_python_threads = threading.active_count()
+        current_state = (active_python_threads, len(active_qthreads), tuple(running_qthreads))
+        if current_state == self._last_thread_health_state:
+            return
+
+        self._last_thread_health_state = current_state
         logger.debug(
             'Thread health check: %d active Python threads, %d tracked QThreads (%s running)',
-            threading.active_count(),
+            active_python_threads,
             len(active_qthreads),
             running_qthreads,
         )
@@ -570,13 +577,6 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         if payload.snapshot_version < self._state.min_accepted_snapshot_version:
             return
 
-        logger.debug(
-            '_update_gui started: snapshot_version=%d, connected=%d, disconnected=%d',
-            payload.snapshot_version,
-            payload.connected_count,
-            payload.disconnected_count,
-        )
-
         self._sync_capture_toggle_action()
         self._header.set_capture_running(is_running=self.capture.is_running())
         self._status_bar.set_texts(
@@ -634,8 +634,6 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
         if self._capture_statistics_window is not None:
             self._capture_statistics_window.refresh()
-
-        logger.debug('_update_gui completed: snapshot_version=%d', payload.snapshot_version)
 
     def _apply_always_on_top(self) -> None:
         """Apply the always-on-top setting to the main window."""

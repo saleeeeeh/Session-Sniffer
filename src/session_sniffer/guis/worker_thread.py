@@ -85,14 +85,14 @@ class GUIWorkerThread(CrashingQThread):
         last_pagination_version: int = -1
         last_sort_version: int = -1
 
-        logger.info('GUIWorkerThread _run loop entered')
+        logger.debug('GUIWorkerThread _run loop entered')
         while not gui_closed__event.is_set() and not self.isInterruptionRequested():
             snapshot, last_seen_version = GUIRenderingState.wait_rendering_snapshot(
                 timeout=0.1,
                 last_seen_version=last_seen_version,
             )
             if self.isInterruptionRequested() or gui_closed__event.is_set():
-                logger.info('GUIWorkerThread _run loop terminating (gui_closed=%s, interruption=%s)', gui_closed__event.is_set(), self.isInterruptionRequested())
+                logger.debug('GUIWorkerThread _run loop terminating (gui_closed=%s, interruption=%s)', gui_closed__event.is_set(), self.isInterruptionRequested())
                 return
 
             search_text, search_column_name, search_version = SearchState.get()
@@ -169,7 +169,6 @@ class GUIWorkerThread(CrashingQThread):
                 disconnected_page,
             )
 
-            logger.debug('GUIWorkerThread emitting payload: version=%d, connected=%d, disconnected=%d', last_seen_version, connected_count, disconnected_count)
             self.update_signal.emit(
                 GUIUpdatePayload(
                     snapshot_version=last_seen_version,

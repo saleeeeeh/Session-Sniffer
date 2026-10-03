@@ -863,9 +863,9 @@ def main() -> None:
     app.lastWindowClosed.connect(_on_last_window_closed)
     app.aboutToQuit.connect(_on_app_about_to_quit)
 
-    logger.info('Entering Qt application event loop (app.exec())')
+    logger.debug('Entering Qt application event loop (app.exec())')
     exit_code = app.exec()
-    logger.info('Qt application event loop exited with code: %d', exit_code)
+    logger.debug('Qt application event loop exited with code: %d', exit_code)
     _on_app_about_to_quit()
     sys.exit(exit_code)
 

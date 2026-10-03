@@ -479,6 +479,9 @@ def setup_logging(
         # --- Root logger must be permissive enough to reach all handlers ---
         root.setLevel(min(console_level, logging.DEBUG))
 
+        # --- Mute noisy third-party debug logging ---
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
         # --- Redirect Python warnings to logging ---
         logging.captureWarnings(capture=True)
 
