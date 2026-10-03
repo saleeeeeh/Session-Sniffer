@@ -48,6 +48,7 @@ from session_sniffer.guis.utils import (
 from session_sniffer.guis.worker_thread import GUIWorkerThread
 from session_sniffer.models import GUIState
 from session_sniffer.player.registry import PlayersRegistry, SessionHost
+from session_sniffer.player.userip import UserIPDatabases
 from session_sniffer.rdr2.suspend_manager import RDR2SuspendManager
 from session_sniffer.rendering_core.status_bar_renderer import build_gui_status_text
 from session_sniffer.rendering_core.types import (
@@ -661,6 +662,14 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         self._connected.table_view.viewport().update()
         self._disconnected.table_view.viewport().update()
 
+    def _apply_userip_settings(self) -> None:
+        """Apply UserIP settings changes such as known alts synchronization."""
+        changed = self._settings_dialog_window.changed_settings if self._settings_dialog_window is not None else None
+        if changed is None or 'USERIP_SYNC_KNOWN_ALTS' in changed:
+            UserIPDatabases.build()
+            self._connected.table_view.viewport().update()
+            self._disconnected.table_view.viewport().update()
+
     def _open_settings_dialog(self) -> None:
         """Open the Settings window, or focus the existing one."""
 
@@ -672,6 +681,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
                 self._update_splitter_visibility,
                 self._apply_table_settings,
                 self._sync_player_resolver_settings,
+                self._apply_userip_settings,
             ):
                 window.accepted.connect(callback)
             return window

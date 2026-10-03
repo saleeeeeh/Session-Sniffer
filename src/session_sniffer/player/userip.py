@@ -15,6 +15,7 @@ from session_sniffer.error_messages import format_userip_ip_conflict_message
 from session_sniffer.guis.utils import create_nonmodal_warning, find_main_window
 from session_sniffer.networking.ip_range import IPRange, parse_ip_range
 from session_sniffer.player.registry import PlayersRegistry
+from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_triple_quoted_text
 from session_sniffer.utils import dedup_preserve_order
 
@@ -120,6 +121,7 @@ class UserIPDatabases:
     ips_set: ClassVar[set[str]] = set()
     _ip_to_userip: ClassVar[dict[str, UserIP]] = {}
     _range_entries: ClassVar[list[_RangeEntry]] = []
+    _known_alts_clusters: ClassVar[dict[str, list[str]]] = {}
     notified_ip_conflicts: ClassVar[set[str]] = set()
     _open_conflict_dialog: ClassVar[QMessageBox | None] = None
     build_version: ClassVar[int] = 0
@@ -349,6 +351,60 @@ class UserIPDatabases:
             ips_set.discard(conflict_ip)
             ip_to_userip.pop(conflict_ip, None)
 
+        # Build known alts clusters from all entries with multiple usernames
+        adj: dict[str, set[str]] = {}
+        canonical_names: dict[str, str] = {}
+
+        def _register_entry_usernames(names: list[str]) -> None:
+            clean_names = [name.strip() for name in names if name.strip()]
+            unique_cfs: list[str] = []
+            for name in clean_names:
+                cf = name.casefold()
+                if cf not in canonical_names:
+                    canonical_names[cf] = name
+                if cf not in unique_cfs:
+                    unique_cfs.append(cf)
+            if len(unique_cfs) > 1:
+                first_cf = unique_cfs[0]
+                for other_cf in unique_cfs[1:]:
+                    adj.setdefault(first_cf, set()).add(other_cf)
+                    adj.setdefault(other_cf, set()).add(first_cf)
+
+        for userip_obj in ip_to_userip.values():
+            _register_entry_usernames(userip_obj.usernames)
+        for range_obj in range_entries:
+            _register_entry_usernames(range_obj.usernames)
+
+        visited: set[str] = set()
+        known_alts_clusters: dict[str, list[str]] = {}
+        for root in adj:
+            if root not in visited:
+                component: list[str] = []
+                queue = [root]
+                visited.add(root)
+                while queue:
+                    curr = queue.pop()
+                    component.append(curr)
+                    for neighbor in adj.get(curr, ()):
+                        if neighbor not in visited:
+                            visited.add(neighbor)
+                            queue.append(neighbor)
+                if len(component) > 1:
+                    canonical_cluster = [canonical_names[cf] for cf in component]
+                    for cf in component:
+                        known_alts_clusters[cf] = canonical_cluster
+
+        if Settings.userip_sync_known_alts:
+            for ip, userip_obj in list(ip_to_userip.items()):
+                expanded = cls._expand_usernames_with_cluster_dict(userip_obj.usernames, known_alts_clusters)
+                if expanded != userip_obj.usernames:
+                    ip_to_userip[ip] = userip_obj._replace(usernames=expanded)
+
+            for index, range_obj in enumerate(range_entries):
+                expanded = cls._expand_usernames_with_cluster_dict(range_obj.usernames, known_alts_clusters)
+                if expanded != range_obj.usernames:
+                    range_entries[index] = range_obj._replace(usernames=expanded)
+
         # Assign or refresh UserIP for all players in a single pass.
         for player in PlayersRegistry.get_all_players():
             player.userip = cls._resolve_from_built_structures(player.ip, ip_to_userip, range_entries)
@@ -367,6 +423,7 @@ class UserIPDatabases:
             # Record all currently active conflicts
             cls.notified_ip_conflicts = set(unresolved_conflicts)
 
+            cls._known_alts_clusters = known_alts_clusters
             cls.ips_set = ips_set
             cls._ip_to_userip = ip_to_userip
             cls._range_entries = range_entries
@@ -410,3 +467,36 @@ class UserIPDatabases:
         """Return all enabled UserIP database file paths."""
         with cls._update_userip_database_lock:
             return [db_entry.db_path for db_entry in cls.userip_databases]
+
+    @staticmethod
+    def _expand_usernames_with_cluster_dict(
+        usernames: Sequence[str],
+        clusters: dict[str, list[str]],
+    ) -> list[str]:
+        """Expand usernames using a cluster mapping, preserving original order and casing."""
+        expanded: list[str] = []
+        seen: set[str] = set()
+        for name in usernames:
+            stripped = name.strip()
+            if not stripped:
+                continue
+            cf = stripped.casefold()
+            if cf not in seen:
+                seen.add(cf)
+                expanded.append(stripped)
+
+        for name in list(expanded):
+            for alt in clusters.get(name.casefold(), ()):
+                alt_cf = alt.casefold()
+                if alt_cf not in seen:
+                    seen.add(alt_cf)
+                    expanded.append(alt)
+
+        return expanded
+
+    @classmethod
+    def expand_with_known_alts(cls, usernames: Sequence[str]) -> list[str]:
+        """Expand a sequence of usernames with any known alt accounts from the database clusters."""
+        with cls._update_userip_database_lock:
+            clusters = cls._known_alts_clusters
+        return cls._expand_usernames_with_cluster_dict(usernames, clusters)

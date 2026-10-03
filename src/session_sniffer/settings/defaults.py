@@ -169,6 +169,13 @@ SETTING_METADATA: dict[str, SettingMeta] = {
         step=1,
         tooltip='Maximum number of UserIP database backup archives to retain in Roaming AppData (0 = Keep All).',
     ),
+    'userip_sync_known_alts': SettingMeta(
+        category='General',
+        group='UserIP Databases',
+        display_label='Synchronize Known Alt Accounts',
+        setting_type=SettingType.BOOLEAN,
+        tooltip='When adding or resolving usernames for an IP, automatically include known alt accounts linked to those usernames across UserIP databases.',
+    ),
     'capture_interface_name': SettingMeta(
         category='Capture',
         group='Interface',
@@ -1032,6 +1039,7 @@ class SettingDefaults(TypedDict):
     updater_channel: str | None
     userip_backup_frequency: str
     userip_backup_retention_limit: int
+    userip_sync_known_alts: bool
     looky_enabled: bool
     looky_exclusive_gta5_process: bool
     looky_game_version: str
@@ -1174,6 +1182,7 @@ SETTING_DEFAULTS: SettingDefaults = {
     'updater_channel': 'Stable',
     'userip_backup_frequency': 'Daily',
     'userip_backup_retention_limit': 10,
+    'userip_sync_known_alts': True,
     'looky_enabled': True,
     'looky_exclusive_gta5_process': True,
     'looky_game_version': 'Both',

@@ -13,12 +13,13 @@ from session_sniffer.guis.userip_manager_helpers import IPRangeBuilderDialog
 from session_sniffer.networking.ip_range import check_ip_against_ranges, parse_ip_range_entry
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.player.userip import UserIPDatabases
+from session_sniffer.settings import Settings
 from session_sniffer.text_templates import (
     DEFAULT_USERIP_FILES_SETTINGS_INI,
     USERIP_DEFAULT_DB_FOOTER_TEMPLATE,
     USERIP_DEFAULT_DB_HEADER_TEMPLATE,
 )
-from session_sniffer.text_utils import format_triple_quoted_text, pluralize
+from session_sniffer.text_utils import format_triple_quoted_text, pluralize, split_usernames
 from session_sniffer.utils import dedup_preserve_order, write_lines_to_file
 
 if TYPE_CHECKING:
@@ -82,7 +83,10 @@ def resolve_usernames_for_player(player: Player) -> list[str]:
         player.looky_system.usernames if player.looky_system.is_initialized else [],
         player.usernames,
     )
-    return [stripped for name in player_names if (stripped := name.strip())]
+    names = [stripped for name in player_names if (stripped := name.strip())]
+    if Settings.userip_sync_known_alts:
+        return UserIPDatabases.expand_with_known_alts(names)
+    return names
 
 
 def resolve_usernames_for_ips(selected_ips: list[str]) -> list[str]:
@@ -116,6 +120,8 @@ def _prompt_usernames_to_add(
         if candidate_usernames is not None
         else resolve_usernames_for_ips(selected_ips)
     )
+    if Settings.userip_sync_known_alts:
+        candidates = UserIPDatabases.expand_with_known_alts(candidates)
 
     db_display = str(selected_database.relative_to(USERIP_DATABASES_DIR_PATH).with_suffix(''))
 
@@ -133,6 +139,8 @@ def _prompt_usernames_to_add(
             selected = dialog.selected_usernames()
             if not selected:
                 return None
+            if Settings.userip_sync_known_alts:
+                selected = UserIPDatabases.expand_with_known_alts(selected)
             return selected
 
         # User clicked 'Custom…' in the selection dialog
@@ -160,10 +168,13 @@ def _prompt_usernames_to_add(
     if not success:
         return None
 
-    entered_usernames = [name.strip() for name in dedup_preserve_order(entered_username.split(',')) if name.strip()]
+    entered_usernames = dedup_preserve_order(split_usernames(entered_username))
     if not entered_usernames:
         QMessageBox.warning(parent, TITLE, 'ERROR:\nNo username was provided.')
         return None
+
+    if Settings.userip_sync_known_alts:
+        entered_usernames = UserIPDatabases.expand_with_known_alts(entered_usernames)
 
     return entered_usernames
 
@@ -186,6 +197,9 @@ def userip_add(
     )
     if not chosen_usernames:
         return
+
+    if Settings.userip_sync_known_alts:
+        chosen_usernames = UserIPDatabases.expand_with_known_alts(chosen_usernames)
 
     new_lines = [f'{username}={ip_address}\n' for username in chosen_usernames for ip_address in selected_ips]
     write_lines_to_file(selected_database, 'a', new_lines)
@@ -231,6 +245,9 @@ def userip_add_as_range(
     )
     if not chosen_usernames:
         return
+
+    if Settings.userip_sync_known_alts:
+        chosen_usernames = UserIPDatabases.expand_with_known_alts(chosen_usernames)
 
     new_lines = [f'{username}={range_input}\n' for username in chosen_usernames]
     write_lines_to_file(selected_database, 'a', new_lines)
@@ -414,11 +431,14 @@ def userip_add_username(parent: QWidget, ip_address: str, player: Player) -> Non
     if not success:
         return
 
-    entered_usernames = [name.strip() for name in dedup_preserve_order(username_input.split(',')) if name.strip()]
+    entered_usernames = dedup_preserve_order(split_usernames(username_input))
 
     if not entered_usernames:
         QMessageBox.warning(parent, TITLE, 'ERROR:\nNo username was provided.')
         return
+
+    if Settings.userip_sync_known_alts:
+        entered_usernames = UserIPDatabases.expand_with_known_alts(entered_usernames)
 
     target_options: list[str] = []
     if ip_address in UserIPDatabases.ips_set:
@@ -474,7 +494,7 @@ def _renamed_line(
     if username_raw is None or ip_raw is None:
         return None
     username, ip = username_raw.strip(), ip_raw.strip()
-    line_usernames = [name.strip() for name in username.split(',') if name.strip()]
+    line_usernames = split_usernames(username)
     matched_names = {pair[0] for pair in pairs if pair[0] in line_usernames and _entry_ip_matches_any(ip, [pair[1]])}
     if not matched_names:
         return None
@@ -634,7 +654,7 @@ def userip_rename(parent: QWidget, ip_address: str, player: Player) -> None:
             new_lines.append(raw_line)
             continue
 
-        line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+        line_usernames = split_usernames(username_raw)
         if old_username not in line_usernames:
             new_lines.append(raw_line)
             continue
@@ -867,7 +887,7 @@ def _rewrite_database_removing_usernames(
             new_lines.append(raw_line)
             continue
 
-        line_usernames = [name.strip() for name in username_raw.split(',') if name.strip()]
+        line_usernames = split_usernames(username_raw)
         remaining_usernames = [name for name in line_usernames if name not in usernames_to_remove]
         removed_from_line = len(line_usernames) - len(remaining_usernames)
         if removed_from_line <= 0:
