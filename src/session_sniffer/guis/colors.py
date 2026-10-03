@@ -78,5 +78,9 @@ class TableColors(enum.StrEnum):
     DISCONNECTED_TEXT = 'red'
     DISCONNECTED_USERIP_TEXT = 'white'
 
+    # Looky username colors
+    LOOKY_TEXT = '#c084fc'
+    DISCONNECTED_LOOKY_TEXT = '#a855f7'
+
     # Detected server row colors
     SERVER_BACKGROUND = DEFAULT_DETECTED_SERVER_COLOR

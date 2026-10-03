@@ -58,7 +58,9 @@ from session_sniffer.constants.tables import (
     FLEXIBLE_COLUMN_WEIGHTS,
     FLEXIBLE_STRETCH_COLUMNS,
 )
+from session_sniffer.guis.colors import TableColors
 from session_sniffer.settings.settings import Settings
+from session_sniffer.text_utils import split_usernames
 
 from .app import app
 from .exceptions import PrimaryScreenNotFoundError, UnsupportedScreenResolutionError
@@ -627,7 +629,7 @@ class ElidedTextTooltipDelegate(QStyledItemDelegate):
 
 
 class SearchHighlightDelegate(ElidedTextTooltipDelegate):
-    """Item delegate that highlights search query matches with a colored background."""
+    """Item delegate that highlights search query matches and Looky-resolved usernames."""
 
     def __init__(
         self,
@@ -642,17 +644,21 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
 
     @override
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex) -> None:
-        """Paint cell with highlighted search substrings when a search query is active."""
+        """Paint cell with highlighted search substrings or Looky usernames."""
+        search_column_matches = True
         if self._get_search_column is not None:
             target_column = self._get_search_column()
             if target_column >= 0 and index.column() != target_column:
-                super().paint(painter, option, index)
-                return
+                search_column_matches = False
 
         search_query = self._get_search_text().strip()
         text = index.data(Qt.ItemDataRole.DisplayRole)
+        user_role_data = index.data(Qt.ItemDataRole.UserRole)
+        unregistered_looky_names: set[str] | None = cast('set[str]', user_role_data) if isinstance(user_role_data, set) and user_role_data else None
 
-        if not search_query or not isinstance(text, str) or search_query.lower() not in text.lower():
+        has_search_match = bool(search_column_matches and search_query and isinstance(text, str) and search_query.lower() in text.lower())
+
+        if not isinstance(text, str) or (not has_search_match and not unregistered_looky_names):
             super().paint(painter, option, index)
             return
 
@@ -728,31 +734,7 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
             if font_metrics.horizontalAdvance(text) > text_rectangle.width():
                 display_text = font_metrics.elidedText(text, Qt.TextElideMode.ElideRight, text_rectangle.width())
 
-            lower_display_text = display_text.lower()
-            lower_query = search_query.lower()
             formats: list[QTextLayout.FormatRange] = []
-            search_position = 0
-
-            highlight_format = QTextCharFormat()
-            highlight_format.setBackground(QColor('#e3b341'))
-            highlight_format.setForeground(QColor('#000000'))
-
-            while True:
-                match_index = lower_display_text.find(lower_query, search_position)
-                if match_index == -1:
-                    break
-                format_range = QTextLayout.FormatRange()
-                format_range.start = match_index
-                format_range.length = len(lower_query)
-                format_range.format = highlight_format
-                formats.append(format_range)
-                search_position = match_index + len(lower_query)
-
-            text_option = QTextOption()
-            text_option.setWrapMode(QTextOption.WrapMode.NoWrap)
-
-            layout = QTextLayout(display_text, font)
-            layout.setTextOption(text_option)
 
             base_format = QTextLayout.FormatRange()
             base_format.start = 0
@@ -760,7 +742,58 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
             base_char_format = QTextCharFormat()
             base_char_format.setForeground(text_color)
             base_format.format = base_char_format
-            layout.setFormats([base_format, *formats])
+            formats.append(base_format)
+
+            if unregistered_looky_names:
+                unregistered_looky_casefolded = {name.casefold() for name in unregistered_looky_names}
+                looky_format = QTextCharFormat()
+                foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
+                is_disconnected = isinstance(foreground_brush, QBrush) and foreground_brush.color() == QColor(TableColors.DISCONNECTED_TEXT)
+                looky_color = QColor(TableColors.DISCONNECTED_LOOKY_TEXT) if is_disconnected else QColor(TableColors.LOOKY_TEXT)
+                looky_format.setForeground(looky_color)
+
+                tokens = split_usernames(text)
+                display_segments = split_usernames(display_text)
+                current_offset = 0
+
+                for i, segment in enumerate(display_segments):
+                    segment_pos = display_text.find(segment, current_offset)
+                    if segment_pos == -1:
+                        segment_pos = current_offset
+                    if i < len(tokens) and tokens[i].casefold() in unregistered_looky_casefolded:
+                        format_range = QTextLayout.FormatRange()
+                        format_range.start = segment_pos
+                        format_range.length = len(segment)
+                        format_range.format = looky_format
+                        formats.append(format_range)
+                    current_offset = segment_pos + len(segment) + 2
+
+            if has_search_match:
+                lower_display_text = display_text.lower()
+                lower_query = search_query.lower()
+                search_position = 0
+
+                highlight_format = QTextCharFormat()
+                highlight_format.setBackground(QColor('#e3b341'))
+                highlight_format.setForeground(QColor('#000000'))
+
+                while True:
+                    match_index = lower_display_text.find(lower_query, search_position)
+                    if match_index == -1:
+                        break
+                    format_range = QTextLayout.FormatRange()
+                    format_range.start = match_index
+                    format_range.length = len(lower_query)
+                    format_range.format = highlight_format
+                    formats.append(format_range)
+                    search_position = match_index + len(lower_query)
+
+            text_option = QTextOption()
+            text_option.setWrapMode(QTextOption.WrapMode.NoWrap)
+
+            layout = QTextLayout(display_text, font)
+            layout.setTextOption(text_option)
+            layout.setFormats(formats)
 
             layout.beginLayout()
             line = layout.createLine()

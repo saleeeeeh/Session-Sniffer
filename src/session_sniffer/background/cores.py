@@ -29,6 +29,7 @@ from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.player.userip import gui_dispatcher
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+from session_sniffer.utils import dedup_preserve_order
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -560,12 +561,17 @@ def looky_core() -> None:
                                 seen_pairs.add(pair)
                                 unique_players.append(player)
                         with matched_player.looky_system.lock:
-                            matched_player.looky_system.usernames = [player.name for player in unique_players]
+                            matched_player.looky_system.usernames = [player.name.strip() for player in unique_players if player.name and player.name.strip()]
                             matched_player.looky_system.rockstarids = [player.rockstarid for player in unique_players]
                             matched_player.looky_system.last_seens = [player.lastSeen for player in unique_players]
                             matched_player.looky_system.needs_refresh = False
                             matched_player.looky_system.last_fetched_at = time.monotonic()
                             matched_player.looky_system.is_initialized = True
+                        if matched_player.looky_system.usernames:
+                            matched_player.usernames = dedup_preserve_order(
+                                matched_player.usernames,
+                                matched_player.looky_system.usernames,
+                            )
                 resolved_any = True
                 server_error_consecutive_failures = 0
 

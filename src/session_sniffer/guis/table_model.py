@@ -6,6 +6,9 @@ from datetime import UTC, datetime, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING, override
 
+if TYPE_CHECKING:
+    from session_sniffer.models.player import Player
+
 from PySide6.QtCore import (
     QAbstractTableModel,
     QModelIndex,
@@ -377,6 +380,15 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         )
         self._ip_to_row_index: dict[str, int] = {}  # O(1) row lookup by IP
         self._ip_icons_cache: dict[tuple[str, ...], QIcon] = {}
+        self._looky_icon = QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'eye.svg'))
+
+    @staticmethod
+    def _get_unregistered_looky_usernames(player: Player) -> set[str]:
+        """Return the set of Looky usernames for *player* that are not present in their local UserIP database."""
+        if not player.looky_system.is_initialized or not player.looky_system.usernames:
+            return set()
+        userip_names: set[str] = {name.casefold() for name in player.userip.usernames} if player.userip and player.userip.usernames else set()
+        return {name for name in player.looky_system.usernames if name.strip() and name.casefold() not in userip_names}
 
     # --------------------------------------------------------------------------
     # Public properties
@@ -449,7 +461,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         return len(self._headers)
 
     @override
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QBrush | QIcon | None:
+    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QBrush | QIcon | set[str] | None:
         """Override data method to customize data retrieval and alignment."""
         if not index.isValid():
             return None
@@ -461,7 +473,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         if row_index < 0 or row_index >= len(self._data) or column_index < 0 or column_index >= len(self._data[row_index]):
             return None  # Return None for invalid index
 
-        output: str | QBrush | QIcon | None = None
+        output: str | QBrush | QIcon | set[str] | None = None
 
         if role == Qt.ItemDataRole.DecorationRole:
             if self._column_indices.country is not None and self._column_indices.country == column_index:
@@ -484,6 +496,19 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
                     if cache_key not in self._ip_icons_cache:
                         self._ip_icons_cache[cache_key] = _create_composite_icon(cache_key)
                     output = self._ip_icons_cache[cache_key]
+            elif self.username_column_index >= 0 and self.username_column_index == column_index:
+                if Settings.looky_enabled:
+                    ip = self.get_ip_from_data_safely(self._data[row_index])
+                    matched_player = PlayersRegistry.get_player_by_ip(ip)
+                    if matched_player is not None and bool(self._get_unregistered_looky_usernames(matched_player)):
+                        output = self._looky_icon
+        elif role == Qt.ItemDataRole.UserRole:
+            if self.username_column_index >= 0 and self.username_column_index == column_index and Settings.looky_enabled:
+                ip = self.get_ip_from_data_safely(self._data[row_index])
+                matched_player = PlayersRegistry.get_player_by_ip(ip)
+                if matched_player is not None:
+                    return self._get_unregistered_looky_usernames(matched_player)
+            return None
         elif role == Qt.ItemDataRole.DisplayRole:
             # Return the cell's text
             output = self._data[row_index][column_index]

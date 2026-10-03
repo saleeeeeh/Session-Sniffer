@@ -27,11 +27,14 @@ _CONNECTED_USERIP_TEXT_COLOR = QColor(TableColors.CONNECTED_USERIP_TEXT)
 _DISCONNECTED_TEXT_COLOR = QColor(TableColors.DISCONNECTED_TEXT)
 _DISCONNECTED_USERIP_TEXT_COLOR = QColor(TableColors.DISCONNECTED_USERIP_TEXT)
 _SERVER_BACKGROUND_COLOR = QColor(TableColors.SERVER_BACKGROUND)
+_LOOKY_TEXT_COLOR = QColor(TableColors.LOOKY_TEXT)
+_DISCONNECTED_LOOKY_TEXT_COLOR = QColor(TableColors.DISCONNECTED_LOOKY_TEXT)
 
 
 def format_player_usernames(player: Player) -> str:
     """Format player usernames as a comma-separated string."""
-    return ', '.join(player.usernames) if player.usernames else ''
+    usernames = player.usernames or (player.looky_system.usernames if Settings.looky_enabled and player.looky_system.is_initialized else [])
+    return ', '.join(usernames) if usernames else ''
 
 
 def format_player_ip(player_ip: str) -> str:
@@ -187,6 +190,17 @@ def build_session_table_snapshot(
         else:
             row_fg_color = _CONNECTED_TEXT_COLOR
             row_colors = _base_connected_row_colors.copy()
+
+        if (
+            'Usernames' in context.connected_column_mapping
+            and Settings.looky_enabled
+            and player.looky_system.is_initialized
+            and player.looky_system.usernames
+            and not (player.userip and player.userip.usernames)
+        ):
+            row_colors[context.connected_column_mapping['Usernames']] = row_colors[context.connected_column_mapping['Usernames']]._replace(
+                foreground=_LOOKY_TEXT_COLOR,
+            )
 
         connected_row_texts: list[str] = []
         connected_row_texts.append(format_player_usernames(player))
@@ -350,6 +364,16 @@ def build_session_table_snapshot(
         else:
             row_fg_color = _DISCONNECTED_TEXT_COLOR
             row_colors = _base_disconnected_row_colors.copy()
+
+        if (
+            Settings.looky_enabled
+            and player.looky_system.is_initialized
+            and player.looky_system.usernames
+            and not (player.userip and player.userip.usernames)
+        ):
+            row_colors[0] = row_colors[0]._replace(
+                foreground=_DISCONNECTED_LOOKY_TEXT_COLOR,
+            )
 
         disconnected_row_texts: list[str] = []
         disconnected_row_texts.append(format_player_usernames(player))

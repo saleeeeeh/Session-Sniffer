@@ -509,6 +509,10 @@ def rendering_core(
                 and not _userip_db_rebuilt
                 and player.iplookup.geolite2.is_initialized
                 and (player.country_flag is not None or player.iplookup.ipapi.is_initialized)
+                and (
+                    not (Settings.looky_enabled and player.looky_system.is_initialized and player.looky_system.usernames)
+                    or all(name in player.usernames for name in player.looky_system.usernames)
+                )
             ):
                 continue
 
