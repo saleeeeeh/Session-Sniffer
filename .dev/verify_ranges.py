@@ -1221,7 +1221,12 @@ def check_range(  # noqa: PLR0913  # pylint: disable=too-many-arguments
 
     # Print the master panel
     if not only_detections or not is_valid or expansion_found:
-        title = f'[bold white]{owner}[/bold white]  •  [bold magenta]{network.with_prefixlen}[/bold magenta]  •  [dim]{network.network_address} → {network.broadcast_address}[/dim]  •  [bold white]{network.num_addresses:,} IPs[/bold white]'  # pylint: disable=line-too-long  # noqa: E501
+        title = (
+            f'[bold white]{owner}[/bold white]  •  '
+            f'[bold magenta]{network.with_prefixlen}[/bold magenta]  •  '
+            f'[dim]{network.network_address} → {network.broadcast_address}[/dim]  •  '
+            f'[bold white]{network.num_addresses:,} IPs[/bold white]'
+        )
         if file_path and line_number:
             relative_path = os.path.relpath(file_path).replace('\\', '/')
             title += f'  •  [blue]{relative_path}:{line_number}[/blue]'
