@@ -9,7 +9,6 @@ import atexit
 import logging
 import threading
 import time
-from functools import partial
 from typing import ClassVar, override
 
 import shiboken6
@@ -88,7 +87,7 @@ class CrashingQThread(QThread):
         return result
 
     @classmethod
-    def stop_all_active_threads(cls, timeout_ms: int = 1500) -> None:
+    def stop_all_active_threads(cls, timeout_ms: int = 3000) -> None:
         """Interrupt, quit, and wait for all active threads to terminate before destruction."""
         active_threads = [thread for thread in cls._active_threads if thread.isRunning()]
         logger.info(
@@ -112,8 +111,33 @@ class CrashingQThread(QThread):
                 )
         if active_threads:
             time.sleep(0.05)
-        cls._active_threads.clear()
+        cls._active_threads = {thread for thread in cls._active_threads if thread.isRunning()}
+        if cls._active_threads:
+            logger.warning(
+                'CrashingQThread stop_all_active_threads: %d thread(s) still running after wait, retaining references to prevent crash: %s',
+                len(cls._active_threads),
+                [(t.thread_name, t.cpp_ptr) for t in cls._active_threads],
+            )
         logger.info('CrashingQThread stop_all_active_threads completed')
+
+    def _discard_if_stopped(self) -> None:
+        """Discard the strong reference if the thread has fully terminated, or reschedule."""
+        if self.isRunning():
+            logger.debug(
+                'CrashingQThread _discard_if_stopped: thread %s (cpp_ptr: %s) still running, rescheduling discard',
+                self._thread_name,
+                self._cpp_ptr,
+            )
+            if QCoreApplication.instance() is not None:
+                QTimer.singleShot(500, self._discard_if_stopped)
+            return
+
+        logger.debug(
+            'CrashingQThread _discard_if_stopped: thread %s (cpp_ptr: %s) has terminated, discarding reference',
+            self._thread_name,
+            self._cpp_ptr,
+        )
+        CrashingQThread._active_threads.discard(self)
 
     def _on_thread_finished(self) -> None:
         """Join the native OS thread and defer discarding the strong reference."""
@@ -123,15 +147,10 @@ class CrashingQThread(QThread):
             logger.debug('CrashingQThread _on_thread_finished: native thread joined (wait_ok: %s) for %s (cpp_ptr: %s)', wait_ok, self._thread_name, self._cpp_ptr)
         finally:
             if QCoreApplication.instance() is not None:
-                logger.debug('CrashingQThread _on_thread_finished: scheduling singleShot discard for %s (cpp_ptr: %s)', self._thread_name, self._cpp_ptr)
-                QTimer.singleShot(1000, partial(CrashingQThread._active_threads.discard, self))
+                logger.debug('CrashingQThread _on_thread_finished: scheduling discard check for %s (cpp_ptr: %s)', self._thread_name, self._cpp_ptr)
+                QTimer.singleShot(1000, self._discard_if_stopped)
             else:
-                logger.debug(
-                    'CrashingQThread _on_thread_finished: QCoreApplication instance is None, discarding %s (cpp_ptr: %s) immediately',
-                    self._thread_name,
-                    self._cpp_ptr,
-                )
-                CrashingQThread._active_threads.discard(self)
+                self._discard_if_stopped()
 
     @override
     def run(self) -> None:

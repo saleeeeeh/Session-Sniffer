@@ -65,6 +65,18 @@ class GUIWorkerThread(CrashingQThread):
     update_signal = Signal(GUIUpdatePayload)
 
     @override
+    def requestInterruption(self) -> None:
+        """Request thread interruption and wake the rendering snapshot condition."""
+        super().requestInterruption()
+        GUIRenderingState.wake()
+
+    @override
+    def cancel(self, timeout_ms: int = 2000) -> bool:
+        """Cancel worker thread, waking the rendering snapshot condition immediately."""
+        GUIRenderingState.wake()
+        return super().cancel(timeout_ms)
+
+    @override
     def _run(self) -> None:
         """Continuously emit GUI payloads while the app is running."""
         last_seen_version = 0
