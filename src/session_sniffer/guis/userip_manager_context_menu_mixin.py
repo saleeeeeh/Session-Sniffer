@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPoint, Qt, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon, QStandardItemModel
-from PySide6.QtWidgets import QCheckBox, QDialog, QFileSystemModel, QMenu, QPushButton, QTreeView
+from PySide6.QtWidgets import QAbstractItemView, QCheckBox, QDialog, QFileSystemModel, QLineEdit, QMenu, QPushButton, QTreeView
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH, USERIP_DATABASES_DIR_PATH
 from session_sniffer.guis.looky_text import (
@@ -63,6 +63,7 @@ class EntriesContextMenuMixin(QDialog):
     _open_db_button: QPushButton
     _tree: QTreeView
     _fs_model: QFileSystemModel
+    _search_input: QLineEdit
     _open_in_explorer: Callable[[Path], None]
 
     def _add_entry(self) -> None: ...
@@ -199,6 +200,14 @@ class EntriesContextMenuMixin(QDialog):
         menu.addAction(clear_selection_action)
 
         menu.addSeparator()
+
+        if selected_count <= 1:
+            go_to_entry_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'arrow_forward.svg')), 'Go to Entry', self)
+            go_to_entry_action.setToolTip('Clear the search filter and navigate to this entry in the full database list.')
+            go_to_entry_action.setEnabled(bool(self._search_input.text().strip()))
+            go_to_entry_action.triggered.connect(lambda: self._go_to_entry(row))
+            menu.addAction(go_to_entry_action)
+            menu.addSeparator()
 
         # Single IP check & Multi-selected IPs detection
         is_single_ip = False
@@ -449,6 +458,7 @@ class EntriesContextMenuMixin(QDialog):
             db_path = Path(db_path_str)
 
             go_to_db_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'arrow_forward.svg')), 'Go to Database', self)
+            go_to_db_action.setToolTip('Open this database and navigate to this entry.')
             go_to_db_action.triggered.connect(lambda: self._navigate_to_database(db_path, username=username, ip_or_range=ip_or_range))
             menu.addAction(go_to_db_action)
 
@@ -700,8 +710,29 @@ class EntriesContextMenuMixin(QDialog):
         set_clipboard_text('\n'.join(lines))
     # pylint: enable=duplicate-code
 
+    def _go_to_entry(self, source_row: int) -> None:
+        """Clear the search filter and scroll to the entry in the full database list."""
+        if not (0 <= source_row < self._model.rowCount()):
+            return
+
+        if self._search_input.text():
+            self._search_input.clear()
+
+        source_index = self._model.index(source_row, USERNAME_COLUMN)
+        proxy_index = self._proxy.mapFromSource(source_index)
+        if not proxy_index.isValid():
+            return
+
+        selection = self._entries_table.selectionModel()
+        if selection:
+            selection.select(proxy_index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
+        self._entries_table.setCurrentIndex(proxy_index)
+        self._entries_table.scrollTo(proxy_index, QAbstractItemView.ScrollHint.PositionAtCenter)
+
     def _navigate_to_database(self, db_path: Path, *, username: str = '', ip_or_range: str = '') -> None:
         """Exit global search mode, open the given database, and select the matching entry when available."""
+        if self._search_input.text():
+            self._search_input.clear()
         self._global_search_checkbox.setChecked(False)
         self._current_path = db_path
         self._load_database(db_path)
@@ -741,7 +772,7 @@ class EntriesContextMenuMixin(QDialog):
             if selection:
                 selection.select(proxy_index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
             self._entries_table.setCurrentIndex(proxy_index)
-            self._entries_table.scrollTo(proxy_index)
+            self._entries_table.scrollTo(proxy_index, QAbstractItemView.ScrollHint.PositionAtCenter)
             return
 
     def on_entry_double_clicked(self, index: QModelIndex) -> None:
