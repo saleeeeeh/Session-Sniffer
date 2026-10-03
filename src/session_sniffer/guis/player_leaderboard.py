@@ -1,25 +1,18 @@
 """Most Seen Players leaderboard window."""
 
-# pylint: disable=too-many-lines
-
-from datetime import datetime
-from typing import TYPE_CHECKING, ClassVar, override
+from typing import TYPE_CHECKING, override
 
 from PySide6.QtCore import (
-    QAbstractTableModel,
     QFileSystemWatcher,
     QItemSelectionModel,
     QModelIndex,
-    QPersistentModelIndex,
     QPoint,
-    QSortFilterProxyModel,
     Qt,
     QTimer,
 )
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
-    QColor,
     QFocusEvent,
     QIcon,
     QKeyEvent,
@@ -49,12 +42,25 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH, SESSIONS_LOGGING_DIR_PATH
-from session_sniffer.constants.standard import LOCAL_TZ
 from session_sniffer.constants.tables import (
     LEADERBOARD_SEEN_STATS_TABLE_MIN_COLUMN_WIDTHS,
     PLAYER_LEADERBOARD_TABLE_MIN_COLUMN_WIDTHS,
 )
 from session_sniffer.guis._player_leaderboard_loading_widget import LeaderboardLoadingWidget
+from session_sniffer.guis._player_leaderboard_model import (
+    COLUMN_SESSIONS,
+    HEADERS,
+    MODE_DAYS,
+    MODE_SESSIONS,
+    MODES,
+    SCOPE_ALL_TIME,
+    SCOPES,
+    SEARCH_COLUMN_ALL,
+    SEARCH_COLUMN_TO_INDEX,
+    SEARCH_COLUMNS,
+    LeaderboardSortProxy,
+    LeaderboardTableModel,
+)
 from session_sniffer.guis._player_leaderboard_workers import (
     LeaderboardBaselineWorker,
     LeaderboardOverlayWorker,
@@ -63,33 +69,26 @@ from session_sniffer.guis._player_leaderboard_workers import (
     SessionScanResult,
     server_ips_for,
 )
+from session_sniffer.guis.delegates import ElidedTextTooltipDelegate, SearchHighlightDelegate
 from session_sniffer.guis.stylesheets import SVG_ICON_CONTEXT_MENU_STYLESHEET
-from session_sniffer.guis.table_column_resizing import setup_table_header_context_menu
+from session_sniffer.guis.table_column_resizing import setup_static_table_column_resizing, setup_table_header_context_menu
 from session_sniffer.guis.table_context_menu import add_copy_usernames_and_ips_actions
 from session_sniffer.guis.tables_player_actions import (
-    create_multi_tcp_ping_menu,
-    create_multi_udp_ping_menu,
-    ping_ip,
+    create_ping_menu,
     scan_ports_ip,
     show_detailed_ip_lookup,
-    tcp_port_ping,
-    udp_port_ping,
-    web_ping,
 )
 from session_sniffer.guis.utils import (
-    ElidedTextTooltipDelegate,
-    SearchHighlightDelegate,
     ToggleAlwaysOnTopMixin,
     apply_search_icon,
+    copy_table_all_rows,
     copy_table_cells,
     format_player_display,
     get_screen_size,
-    load_country_flag_icon,
     popup_menu_at_table,
     resize_window_for_screen,
     scale_by_ui,
     set_clipboard_text,
-    setup_static_table_column_resizing,
     setup_table_view_headers,
 )
 from session_sniffer.player.registry import PlayersRegistry
@@ -102,544 +101,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-_SCOPE_TODAY = 'Today'
-_SCOPE_THIS_WEEK = 'This Week'
-_SCOPE_THIS_MONTH = 'This Month'
-_SCOPE_THIS_YEAR = 'This Year'
-_SCOPE_ALL_TIME = 'All Time'
-
-_SCOPES = (_SCOPE_TODAY, _SCOPE_THIS_WEEK, _SCOPE_THIS_MONTH, _SCOPE_THIS_YEAR, _SCOPE_ALL_TIME)
-
-_MODE_DAYS = 'Unique Days'
-_MODE_SESSIONS = 'Sessions'
-_MODES = (_MODE_DAYS, _MODE_SESSIONS)
-
-_HEADERS = (
-    'Rank',
-    'Status',
-    'Usernames',
-    'IP Address',
-    'Sessions',
-    'First Seen',
-    'Last Seen',
-    'Country',
-    'ISP',
-    'Mobile',
-    'VPN',
-    'Hosting',
-)
-
-# Header tooltips, parallel to `_HEADERS`. The Days/Sessions column (index 4) is described dynamically in `headerData`.
-_HEADER_TOOLTIPS = (
-    'Leaderboard position (row number) for the current sort order, time period and count mode.',
-    'Current session connection status (Connected, Disconnected, or not in the active session).',
-    'In-game usernames seen for this player across all recorded sessions, ordered from most recent to oldest seen (left to right).',
-    "The player's IP address.",
-    'How often this player was seen within the selected time period.',
-    'The earliest time this player was ever recorded across all session logs.',
-    'The most recent time this player was recorded across all session logs.',
-    'Country the IP address geolocates to.',
-    'Internet Service Provider that owns the IP address.',
-    'Whether the IP is a mobile/cellular connection.',
-    'Whether the IP is flagged as a VPN or proxy.',
-    'Whether the IP belongs to a hosting/datacenter provider.',
-)
-
-_SEARCH_COLUMN_ALL = 'All Columns'
-_SEARCH_COLUMN_USERNAMES = 'Usernames'
-_SEARCH_COLUMN_IP = 'IP Address'
-_SEARCH_COLUMN_COUNTRY = 'Country'
-_SEARCH_COLUMN_ISP = 'ISP'
-
-_SEARCH_COLUMNS = (
-    _SEARCH_COLUMN_ALL,
-    _SEARCH_COLUMN_USERNAMES,
-    _SEARCH_COLUMN_IP,
-    _SEARCH_COLUMN_COUNTRY,
-    _SEARCH_COLUMN_ISP,
-)
-_COLUMN_RANK = 0
-_COLUMN_STATUS = 1
-_COLUMN_USERNAMES = 2
-_COLUMN_IP = 3
-_COLUMN_SESSIONS = 4
-_COLUMN_FIRST_SEEN = 5
-_COLUMN_LAST_SEEN = 6
-_COLUMN_COUNTRY = 7
-_COLUMN_ISP = 8
-_COLUMN_MOBILE = 9
-_COLUMN_VPN = 10
-_COLUMN_HOSTING = 11
-
-_SEARCH_COLUMN_TO_INDEX: dict[str, int] = {
-    _SEARCH_COLUMN_ALL: -1,
-    _SEARCH_COLUMN_USERNAMES: _COLUMN_USERNAMES,
-    _SEARCH_COLUMN_IP: _COLUMN_IP,
-    _SEARCH_COLUMN_COUNTRY: _COLUMN_COUNTRY,
-    _SEARCH_COLUMN_ISP: _COLUMN_ISP,
-}
-
 # How often the displayed leaderboard is re-derived from the live session snapshot while visible.
 _LIVE_REFRESH_INTERVAL_MS = 1000
 
 # Minimum spacing between background scans of the sessions directory. Filesystem-change events are
 # throttled to this rate so constant live-session writes can't spin the disk walk.
 _SESSIONS_SCAN_COOLDOWN_MS = 3000
-
-
-def _get_flag_icon(country_code: str) -> QIcon | None:
-    """Return a cached QIcon for the given ISO country code, or None if unavailable."""
-    return load_country_flag_icon(country_code) if country_code else None
-
-
-def _format_bool(value: bool | None) -> str:  # noqa: FBT001
-    """Format an optional boolean for display."""
-    if value is None:
-        return 'N/A'
-    return 'Yes' if value else 'No'
-
-
-def _format_datetime(dt: datetime | None) -> str:
-    """Format a datetime for display, returning empty string for None."""
-    if dt is None:
-        return ''
-    return dt.strftime('%m/%d/%Y %H:%M')
-
-
-_SECONDS_PER_MINUTE: int = 60
-_SECONDS_PER_DAY: int = 86400
-_SECONDS_PER_TWO_DAYS: int = 172800
-
-_TIME_UNITS: tuple[tuple[int, str, int], ...] = (
-    (31536000, 'year', 31536000),
-    (2592000, 'month', 2592000),
-    (604800, 'week', 604800),
-    (_SECONDS_PER_DAY, 'day', _SECONDS_PER_DAY),
-    (3600, 'hour', 3600),
-    (_SECONDS_PER_MINUTE, 'min', _SECONDS_PER_MINUTE),
-)
-
-
-def _format_relative_datetime(dt: datetime | None) -> str:
-    """Format a datetime as a natural relative time string (e.g., '2 days ago', '3 months ago')."""
-    if dt is None:
-        return ''
-    now = datetime.now(tz=dt.tzinfo if dt.tzinfo is not None else LOCAL_TZ)
-    if dt.tzinfo is None:
-        now = now.replace(tzinfo=None)
-    seconds = int((now - dt).total_seconds())
-    if seconds < _SECONDS_PER_MINUTE:
-        return 'Just now'
-    if _SECONDS_PER_DAY <= seconds < _SECONDS_PER_TWO_DAYS:
-        return 'Yesterday'
-    for threshold, unit, unit_seconds in _TIME_UNITS:
-        if seconds >= threshold:
-            unit_count = seconds // unit_seconds
-            return f'{unit_count} {unit}{pluralize(unit_count)} ago'
-    return 'Just now'
-
-
-class _LeaderboardTableModel(QAbstractTableModel):
-    _SCOPE_ATTR_DAYS: ClassVar[dict[str, str]] = {
-        _SCOPE_TODAY: 'days_today',
-        _SCOPE_THIS_WEEK: 'days_week',
-        _SCOPE_THIS_MONTH: 'days_month',
-        _SCOPE_THIS_YEAR: 'days_year',
-        _SCOPE_ALL_TIME: 'days_total',
-    }
-
-    _SCOPE_ATTR_SESSIONS: ClassVar[dict[str, str]] = {
-        _SCOPE_TODAY: 'sessions_today',
-        _SCOPE_THIS_WEEK: 'sessions_week',
-        _SCOPE_THIS_MONTH: 'sessions_month',
-        _SCOPE_THIS_YEAR: 'sessions_year',
-        _SCOPE_ALL_TIME: 'sessions_total',
-    }
-
-    _CENTER_COLUMNS: ClassVar[frozenset[int]] = frozenset(
-        {
-            _COLUMN_RANK,
-            _COLUMN_STATUS,
-            _COLUMN_SESSIONS,
-            _COLUMN_MOBILE,
-            _COLUMN_VPN,
-            _COLUMN_HOSTING,
-        }
-    )
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._entries: list[LeaderboardEntry] = []
-        self._index_by_ip: dict[str, int] = {}
-        self._connected_ips: frozenset[str] = frozenset()
-        self._disconnected_ips: frozenset[str] = frozenset()
-        self._scope: str = _SCOPE_ALL_TIME
-        self._mode: str = _MODE_DAYS
-        self._scope_attr: str = 'days_total'
-        self._relative_dates: bool = True
-        self._username_cache: dict[str, str] = {}
-        # Bound method dispatch — avoids per-cell getattr() overhead
-        self._display_dispatch: dict[int, Callable[[int, LeaderboardEntry], object]] = {
-            _COLUMN_RANK: self._display_rank,
-            _COLUMN_STATUS: self._display_status,
-            _COLUMN_USERNAMES: self._display_usernames,
-            _COLUMN_IP: self._display_ip,
-            _COLUMN_SESSIONS: self._display_sessions,
-            _COLUMN_FIRST_SEEN: self._display_first_seen,
-            _COLUMN_LAST_SEEN: self._display_last_seen,
-            _COLUMN_COUNTRY: self._display_country,
-            _COLUMN_ISP: self._display_isp,
-            _COLUMN_MOBILE: self._display_mobile,
-            _COLUMN_VPN: self._display_vpn,
-            _COLUMN_HOSTING: self._display_hosting,
-        }
-
-    @override
-    def rowCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:  # pylint: disable=unused-argument
-        """Return the number of leaderboard entries."""
-        return len(self._entries)
-
-    @override
-    def columnCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:  # pylint: disable=unused-argument
-        """Return the number of columns."""
-        return len(_HEADERS)
-
-    @override
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        """Return cell data for the given index and role."""
-        if not index.isValid():
-            return None
-
-        entry = self._entries[index.row()]
-        column = index.column()
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            method = self._display_dispatch.get(column)
-            return method(index.row(), entry) if method is not None else None
-
-        return self._non_display_data(entry, column, role)
-
-    def _non_display_data(self, entry: LeaderboardEntry, column: int, role: int) -> object:
-        if role == Qt.ItemDataRole.TextAlignmentRole:
-            return Qt.AlignmentFlag.AlignCenter if column in self._CENTER_COLUMNS else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        if role == Qt.ItemDataRole.ForegroundRole and column == _COLUMN_STATUS:
-            return self._status_foreground_color(entry.ip)
-        if role == Qt.ItemDataRole.UserRole and column == _COLUMN_SESSIONS:
-            return self.get_session_count(entry)
-        if role == Qt.ItemDataRole.ToolTipRole:
-            return self._tooltip_data(column, entry)
-        if role == Qt.ItemDataRole.DecorationRole and column == _COLUMN_COUNTRY:
-            return _get_flag_icon(entry.country_code)
-        return None
-
-    def _status_foreground_color(self, ip_address: str) -> QColor:
-        if ip_address in self._connected_ips:
-            return QColor('#22c55e')
-        if ip_address in self._disconnected_ips:
-            return QColor('#ef4444')
-        return QColor('#6b7280')
-
-    def _tooltip_data(self, column: int, entry: LeaderboardEntry) -> object:
-        if column in (_COLUMN_FIRST_SEEN, _COLUMN_LAST_SEEN):
-            dt_val = entry.first_seen if column == _COLUMN_FIRST_SEEN else entry.last_seen
-            if dt_val is None:
-                return None
-            return f'Exact time: {_format_datetime(dt_val)}' if self._relative_dates else _format_relative_datetime(dt_val)
-        if column == _COLUMN_SESSIONS:
-            count = self.get_session_count(entry)
-            return (
-                f'{count} unique calendar day(s) this player was seen within the selected time period'
-                if self._mode == _MODE_DAYS
-                else f'{count} sniffer session(s) in which this player was seen within the selected time period'
-            )
-        return None
-
-    @override
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        """Return column header labels and tooltips."""
-        if orientation != Qt.Orientation.Horizontal:
-            return None
-        if role == Qt.ItemDataRole.DisplayRole:
-            if section == _COLUMN_SESSIONS:
-                return 'Days' if self._mode == _MODE_DAYS else 'Sessions'
-            return _HEADERS[section]
-        if role == Qt.ItemDataRole.ToolTipRole:
-            if section == _COLUMN_SESSIONS:
-                return (
-                    'Number of unique calendar days this player was seen within the selected time period.'
-                    if self._mode == _MODE_DAYS
-                    else 'Number of sniffer sessions in which this player was seen within the selected time period.'
-                )
-            return _HEADER_TOOLTIPS[section]
-        return None
-
-    # Display helpers --------------------------------------------------------
-
-    @staticmethod
-    def _display_rank(row: int, _entry: LeaderboardEntry) -> int:
-        return row + 1
-
-    def _display_status(self, _row: int, entry: LeaderboardEntry) -> str:
-        if entry.ip in self._connected_ips:
-            return 'Connected'
-        if entry.ip in self._disconnected_ips:
-            return 'Disconnected'
-        return '—'
-
-    @staticmethod
-    def _display_ip(_row: int, entry: LeaderboardEntry) -> str:
-        return entry.ip
-
-    @staticmethod
-    def _display_usernames(_row: int, entry: LeaderboardEntry) -> str:
-        return ', '.join(entry.usernames) if entry.usernames else ''
-
-    def _display_sessions(self, _row: int, entry: LeaderboardEntry) -> int:
-        return self.get_session_count(entry)
-
-    def _display_first_seen(self, _row: int, entry: LeaderboardEntry) -> str:
-        return _format_relative_datetime(entry.first_seen) if self._relative_dates else _format_datetime(entry.first_seen)
-
-    def _display_last_seen(self, _row: int, entry: LeaderboardEntry) -> str:
-        return _format_relative_datetime(entry.last_seen) if self._relative_dates else _format_datetime(entry.last_seen)
-
-    @staticmethod
-    def _display_country(_row: int, entry: LeaderboardEntry) -> str:
-        return entry.country or 'N/A'
-
-    @staticmethod
-    def _display_isp(_row: int, entry: LeaderboardEntry) -> str:
-        return entry.isp or 'N/A'
-
-    @staticmethod
-    def _display_mobile(_row: int, entry: LeaderboardEntry) -> str:
-        return _format_bool(entry.mobile)
-
-    @staticmethod
-    def _display_vpn(_row: int, entry: LeaderboardEntry) -> str:
-        return _format_bool(entry.vpn)
-
-    @staticmethod
-    def _display_hosting(_row: int, entry: LeaderboardEntry) -> str:
-        return _format_bool(entry.hosting)
-
-    def get_session_count(self, entry: LeaderboardEntry) -> int:
-        """Return the days or session count for the current mode and time scope."""
-        return int(getattr(entry, self._scope_attr))
-
-    @property
-    def entries(self) -> list[LeaderboardEntry]:
-        """Return the current entries list (read-only access for the sort proxy)."""
-        return self._entries
-
-    def load_data(self, entries: list[LeaderboardEntry]) -> None:
-        """Replace the model data with new leaderboard entries."""
-        self.beginResetModel()
-        self._entries = entries
-        self._index_by_ip = {entry.ip: i for i, entry in enumerate(entries)}
-        self.endResetModel()
-
-    def apply_live_update(self, entries: list[LeaderboardEntry]) -> None:
-        """Refresh in place from a live overlay: update only changed rows and append newly-seen players.
-
-        Row positions are kept stable so the sort proxy re-sorts and the user's selection and scroll
-        position survive. Only rows whose values actually changed emit `dataChanged`, so identical
-        ticks (the common case within a run) cost nothing and never trigger a full re-sort.
-        """
-        updated_by_ip = {entry.ip: entry for entry in entries}
-
-        changed_rows: list[int] = []
-        for ip, row in self._index_by_ip.items():
-            updated = updated_by_ip.get(ip)
-            if updated is not None and updated != self._entries[row]:
-                self._entries[row] = updated
-                changed_rows.append(row)
-
-        new_entries = [entry for entry in entries if entry.ip not in self._index_by_ip]
-        if new_entries:
-            first_new_row = len(self._entries)
-            self.beginInsertRows(QModelIndex(), first_new_row, first_new_row + len(new_entries) - 1)
-            for entry in new_entries:
-                self._index_by_ip[entry.ip] = len(self._entries)
-                self._entries.append(entry)
-            self.endInsertRows()
-
-        for row in changed_rows:
-            top_left = self.index(row, 0)
-            bottom_right = self.index(row, self.columnCount() - 1)
-            self.dataChanged.emit(top_left, bottom_right)
-
-    def set_scope(self, scope: str) -> None:
-        """Change the active time scope and refresh the model."""
-        self._scope = scope
-        self._refresh_scope_attr()
-        self.beginResetModel()
-        self.endResetModel()
-
-    def set_mode(self, mode: str) -> None:
-        """Switch between Unique Days and Sessions counting modes."""
-        self._mode = mode
-        self._refresh_scope_attr()
-        self.beginResetModel()
-        self.endResetModel()
-        self.headerDataChanged.emit(Qt.Orientation.Horizontal, _COLUMN_SESSIONS, _COLUMN_SESSIONS)
-
-    def set_relative_dates(self, relative: bool) -> None:  # noqa: FBT001
-        """Toggle relative date formatting for First Seen and Last Seen columns."""
-        if self._relative_dates == relative:
-            return
-        self._relative_dates = relative
-        self.beginResetModel()
-        self.endResetModel()
-
-    def set_current_session_ips(self, connected_ips: frozenset[str], disconnected_ips: frozenset[str]) -> None:
-        """Update active session connection status for players in the model."""
-        if connected_ips == self._connected_ips and disconnected_ips == self._disconnected_ips:
-            return
-        self._connected_ips = connected_ips
-        self._disconnected_ips = disconnected_ips
-        if self._entries:
-            top_left = self.index(0, _COLUMN_STATUS)
-            bottom_right = self.index(len(self._entries) - 1, _COLUMN_STATUS)
-            self.dataChanged.emit(top_left, bottom_right)
-
-    def _refresh_scope_attr(self) -> None:
-        scope_map = self._SCOPE_ATTR_DAYS if self._mode == _MODE_DAYS else self._SCOPE_ATTR_SESSIONS
-        default = 'days_total' if self._mode == _MODE_DAYS else 'sessions_total'
-        self._scope_attr = scope_map.get(self._scope, default)
-
-
-class _LeaderboardSortProxy(QSortFilterProxyModel):
-    """Proxy that filters out zero-session entries and supports custom sorting."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._search_text: str = ''
-        self._search_column: str = _SEARCH_COLUMN_ALL
-        self._hide_servers: bool = False
-        self._server_ips: frozenset[str] = frozenset()
-        self._hide_vpns: bool = False
-        self._hide_hosting: bool = False
-        self._current_session_only: bool = False
-        self._connected_ips: frozenset[str] = frozenset()
-        self._disconnected_ips: frozenset[str] = frozenset()
-
-    @property
-    def current_session_ips(self) -> frozenset[str]:
-        """Return the combined set of connected and disconnected IPs in the active session."""
-        return self._connected_ips | self._disconnected_ips
-
-    @override
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        """Render the Rank column as the current visible position; delegate everything else to the source model."""
-        if role == Qt.ItemDataRole.DisplayRole and index.column() == _COLUMN_RANK:
-            return index.row() + 1
-        return super().data(index, role)
-
-    def set_search_text(self, text: str) -> None:
-        """Update the search filter text and re-evaluate visible rows."""
-        self._search_text = text.strip().lower()
-        self.invalidateFilter()
-
-    def set_search_column(self, column: str) -> None:
-        """Update which column is searched and re-evaluate visible rows."""
-        self._search_column = column
-        self.invalidateFilter()
-
-    def set_hide_servers(self, hide: bool) -> None:  # noqa: FBT001
-        """Toggle hiding of known third-party game/relay server IPs."""
-        self._hide_servers = hide
-        self.invalidateFilter()
-
-    def set_server_ips(self, server_ips: frozenset[str]) -> None:
-        """Update the set of known server IPs; re-filter only if it changed while hiding is active."""
-        if server_ips == self._server_ips:
-            return
-        self._server_ips = server_ips
-        if self._hide_servers:
-            self.invalidateFilter()
-
-    def set_hide_vpns(self, hide: bool) -> None:  # noqa: FBT001
-        """Toggle hiding of IPs flagged as VPNs/proxies."""
-        self._hide_vpns = hide
-        self.invalidateFilter()
-
-    def set_hide_hosting(self, hide: bool) -> None:  # noqa: FBT001
-        """Toggle hiding of IPs flagged as hosting/datacenter providers."""
-        self._hide_hosting = hide
-        self.invalidateFilter()
-
-    def set_current_session_only(self, enabled: bool) -> None:  # noqa: FBT001
-        """Toggle filtering to only players in the active session."""
-        self._current_session_only = enabled
-        self.invalidateFilter()
-
-    def set_current_session_ips(self, connected_ips: frozenset[str], disconnected_ips: frozenset[str]) -> None:
-        """Update active session IPs and invalidate filter if filtering is active."""
-        if connected_ips == self._connected_ips and disconnected_ips == self._disconnected_ips:
-            return
-        self._connected_ips = connected_ips
-        self._disconnected_ips = disconnected_ips
-        if self._current_session_only:
-            self.invalidateFilter()
-
-    def _entry_matches_search(self, entry: LeaderboardEntry, text: str) -> bool:
-        """Return True if *entry* contains *text* within the active search column."""
-        if self._search_column == _SEARCH_COLUMN_ALL:
-            return text in entry.ip.lower() or any(text in username.lower() for username in entry.usernames) or text in entry.country.lower() or text in entry.isp.lower()
-        if self._search_column == _SEARCH_COLUMN_USERNAMES:
-            return any(text in username.lower() for username in entry.usernames)
-        _targets: dict[str, str] = {
-            _SEARCH_COLUMN_IP: entry.ip,
-            _SEARCH_COLUMN_COUNTRY: entry.country,
-            _SEARCH_COLUMN_ISP: entry.isp,
-        }
-        return text in _targets.get(self._search_column, '').lower()
-
-    def _is_hidden(self, entry: LeaderboardEntry) -> bool:
-        """Return True if any active filter (servers/VPNs/hosting) excludes *entry*."""
-        if self._hide_servers and entry.ip in self._server_ips:
-            return True
-        if self._hide_vpns and entry.vpn is True:
-            return True
-        return self._hide_hosting and entry.hosting is True
-
-    @override
-    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex | QPersistentModelIndex) -> bool:
-        """Reject rows with hidden servers/VPNs/hosting, outside active session, zero count, or search mismatch."""
-        _ = source_parent
-        model = self.sourceModel()
-        if not isinstance(model, _LeaderboardTableModel):
-            return True
-        entry = model.entries[source_row]
-        if self._current_session_only and entry.ip not in self.current_session_ips:
-            return False
-        if not model.get_session_count(entry):
-            return False
-        if self._is_hidden(entry):
-            return False
-        if self._search_text:
-            return self._entry_matches_search(entry, self._search_text)
-        return True
-
-    @override
-    def lessThan(self, left: QModelIndex | QPersistentModelIndex, right: QModelIndex | QPersistentModelIndex) -> bool:
-        """Sort integers numerically and status by priority instead of lexicographically."""
-        model = self.sourceModel()
-        if not model:
-            return super().lessThan(left, right)
-        left_data = model.data(left, Qt.ItemDataRole.DisplayRole)
-        right_data = model.data(right, Qt.ItemDataRole.DisplayRole)
-
-        if left.column() == _COLUMN_STATUS:
-            status_order: dict[str, int] = {'Connected': 0, 'Disconnected': 1, '—': 2}
-            left_rank = status_order.get(str(left_data), 3)
-            right_rank = status_order.get(str(right_data), 3)
-            return left_rank < right_rank
-
-        if isinstance(left_data, int) and isinstance(right_data, int):
-            return left_data < right_data
-        return super().lessThan(left, right)
 
 
 _STATS_PERIODS: tuple[tuple[str, str, str], ...] = (
@@ -794,8 +261,8 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         controls_layout.addWidget(scope_label)
 
         self._scope_combo = QComboBox()
-        self._scope_combo.addItems(_SCOPES)
-        self._scope_combo.setCurrentText(_SCOPE_ALL_TIME)
+        self._scope_combo.addItems(SCOPES)
+        self._scope_combo.setCurrentText(SCOPE_ALL_TIME)
         self._scope_combo.setToolTip('Restrict the count to encounters within the selected time window')
         self._scope_combo.currentTextChanged.connect(self._on_scope_changed)
         controls_layout.addWidget(self._scope_combo)
@@ -806,16 +273,16 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         controls_layout.addWidget(mode_label)
 
         self._mode_combo = QComboBox()
-        self._mode_combo.addItems(_MODES)
-        self._mode_combo.setCurrentText(_MODE_DAYS)
+        self._mode_combo.addItems(MODES)
+        self._mode_combo.setCurrentText(MODE_DAYS)
         self._mode_combo.setToolTip('Choose how encounters are counted — by unique calendar days or by individual sniffer sessions')
         self._mode_combo.setItemData(
-            _MODES.index(_MODE_DAYS),
+            MODES.index(MODE_DAYS),
             'Count each calendar day at most once — seeing a player 5 times in one day still counts as 1',
             Qt.ItemDataRole.ToolTipRole,
         )
         self._mode_combo.setItemData(
-            _MODES.index(_MODE_SESSIONS),
+            MODES.index(MODE_SESSIONS),
             'Count every individual sniffer session — seeing a player in 5 sessions counts as 5',
             Qt.ItemDataRole.ToolTipRole,
         )
@@ -836,8 +303,8 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         controls_layout.addWidget(self._search_box)
 
         self._search_column_combo = QComboBox()
-        self._search_column_combo.addItems(_SEARCH_COLUMNS)
-        self._search_column_combo.setCurrentText(_SEARCH_COLUMN_ALL)
+        self._search_column_combo.addItems(SEARCH_COLUMNS)
+        self._search_column_combo.setCurrentText(SEARCH_COLUMN_ALL)
         self._search_column_combo.setToolTip('Restrict the search to a specific column')
         self._search_column_combo.currentTextChanged.connect(self._on_search_column_changed)
         controls_layout.addWidget(self._search_column_combo)
@@ -906,8 +373,8 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         layout.addLayout(filters_layout)
 
         # Table
-        self._model = _LeaderboardTableModel()
-        self._proxy = _LeaderboardSortProxy()
+        self._model = LeaderboardTableModel()
+        self._proxy = LeaderboardSortProxy()
         self._proxy.setSourceModel(self._model)
 
         self._table = _LeaderboardTableView()
@@ -928,7 +395,7 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
             )
         )
         header.setStretchLastSection(False)
-        for column in range(len(_HEADERS)):
+        for column in range(len(HEADERS)):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
 
         setup_table_header_context_menu(self._table, on_reset=self._table.setup_static_column_resizing)
@@ -943,7 +410,7 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
 
         # Sort by the Days/Sessions column descending by default. Sorting through the view (not the proxy
         # directly) sets the header's sort indicator, so the order survives model resets on data reload.
-        self._table.sortByColumn(_COLUMN_SESSIONS, Qt.SortOrder.DescendingOrder)
+        self._table.sortByColumn(COLUMN_SESSIONS, Qt.SortOrder.DescendingOrder)
 
         # Data is loaded on a background thread by `load_and_show` before the window is revealed
         self._all_entries: list[LeaderboardEntry] = []
@@ -1164,7 +631,7 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         self._update_count_label()
 
     def _get_active_search_column(self) -> int:
-        return _SEARCH_COLUMN_TO_INDEX.get(self._search_column_combo.currentText(), -1)
+        return SEARCH_COLUMN_TO_INDEX.get(self._search_column_combo.currentText(), -1)
 
     def _on_search_changed(self, text: str) -> None:
         self._proxy.set_search_text(text)
@@ -1310,38 +777,12 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
         if len(selected_entries) == 1:
             entry = selected_entries[0]
 
-            # pylint: disable=duplicate-code
             lookup_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'info.svg')), 'IP Lookup Details…', self)
             lookup_action.setToolTip('Show detailed IP lookup information for this player.')
             lookup_action.triggered.connect(lambda _checked=False, ip_address=entry.ip: show_detailed_ip_lookup(self, ip_address))
             menu.addAction(lookup_action)
 
-            ping_menu = QMenu('Ping', menu)
-            ping_menu.setIcon(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')))
-            ping_menu.setStyleSheet(SVG_ICON_CONTEXT_MENU_STYLESHEET)
-            ping_menu.setToolTipsVisible(True)
-
-            normal_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Normal (ICMP)', self)
-            normal_action.setToolTip('Checks if selected IP address responds to pings.')
-            normal_action.triggered.connect(lambda _checked=False, ip_address=entry.ip: ping_ip(ip_address))
-            ping_menu.addAction(normal_action)
-
-            tcp_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'TCP Port Ping', self)
-            tcp_ping_action.setToolTip('Checks if selected IP address responds to TCP pings on a given port.')
-            tcp_ping_action.triggered.connect(lambda _checked=False, ip_address=entry.ip: tcp_port_ping(self, ip_address))
-            ping_menu.addAction(tcp_ping_action)
-
-            udp_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'UDP Port Ping', self)
-            udp_ping_action.setToolTip('Checks if selected IP address responds to UDP pings on a given port.')
-            udp_ping_action.triggered.connect(lambda _checked=False, ip_address=entry.ip: udp_port_ping(self, ip_address))
-            ping_menu.addAction(udp_ping_action)
-
-            web_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Web (Check-Host)', self)
-            web_ping_action.setToolTip('Checks if selected IP address responds via Check-Host.net distributed nodes.')
-            web_ping_action.triggered.connect(lambda _checked=False, ip_address=entry.ip: web_ping(ip_address))
-            ping_menu.addAction(web_ping_action)
-
-            menu.addMenu(ping_menu)
+            create_ping_menu(self, menu, [entry.ip])
 
             menu.addSeparator()
 
@@ -1351,40 +792,13 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
             menu.addAction(seen_stats_action)
         else:
             all_ips = [entry.ip for entry in selected_entries]
-
-            ip_list = list(all_ips)
-            ping_menu = QMenu('Ping', menu)
-            ping_menu.setIcon(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')))
-            ping_menu.setStyleSheet(SVG_ICON_CONTEXT_MENU_STYLESHEET)
-            ping_menu.setToolTipsVisible(True)
-
-            normal_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Normal (ICMP)', self)
-            normal_action.setToolTip('Checks if selected IP addresses respond to pings.')
-
-            def _ping_all_leaderboard() -> None:
-                ping_ip(ip_list)
-
-            normal_action.triggered.connect(_ping_all_leaderboard)
-            ping_menu.addAction(normal_action)
-
-            create_multi_tcp_ping_menu(self, ip_list, ping_menu)
-            create_multi_udp_ping_menu(self, ip_list, ping_menu)
-
-            web_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Web (Check-Host)', self)
-            web_ping_action.setToolTip('Checks if selected IP addresses respond via Check-Host.net distributed nodes.')
-
-            def _web_ping_all_leaderboard() -> None:
-                web_ping(ip_list)
-
-            web_ping_action.triggered.connect(_web_ping_all_leaderboard)
-            ping_menu.addAction(web_ping_action)
-            menu.addMenu(ping_menu)
+            create_ping_menu(self, menu, all_ips)
 
             scan_ports_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'port_scanner.svg')), 'Scan Ports…', self)
             scan_ports_action.setToolTip('Scan TCP and UDP ports on the selected host(s).')
 
             def _scan_all_leaderboard() -> None:
-                scan_ports_ip(ip_list)
+                scan_ports_ip(all_ips)
 
             scan_ports_action.triggered.connect(_scan_all_leaderboard)
             menu.addAction(scan_ports_action)
@@ -1393,21 +807,7 @@ class PlayerLeaderboardWindow(ToggleAlwaysOnTopMixin):
 
     def _copy_all_rows(self) -> None:
         """Copy all visible rows in the leaderboard to clipboard as tab-separated text."""
-        lines: list[str] = []
-        column_count = self._proxy.columnCount()
-        row_count = self._proxy.rowCount()
-        for row_index in range(row_count):
-            cells: list[str] = []
-            for column_index in range(column_count):
-                index = self._proxy.index(row_index, column_index)
-                cell_data = self._proxy.data(index, Qt.ItemDataRole.DisplayRole)
-                cells.append(str(cell_data) if cell_data is not None else '')
-            lines.append('\t'.join(cells))
-
-        if not lines:
-            return
-
-        set_clipboard_text('\n'.join(lines))
+        copy_table_all_rows(self._table)
 
     def _show_seen_stats_for_entry(self, entry: LeaderboardEntry) -> None:
         _build_seen_stats_dialog(entry, self).exec()
