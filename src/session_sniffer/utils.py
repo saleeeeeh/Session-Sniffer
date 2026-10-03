@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal
 
 from session_sniffer.constants.standalone import TITLE
 from session_sniffer.constants.standard import CMD_EXE
+from session_sniffer.ctypes_windows import WindowsGuid, release_com_interface
 from session_sniffer.error_messages import format_type_error
 from session_sniffer.utils_exceptions import (
     InvalidBooleanValueError,
@@ -442,30 +443,9 @@ def validate_and_strip_balanced_outer_parens(expr: str) -> str:
     return expr
 
 
-# pylint: disable=duplicate-code
-class _Guid(ctypes.Structure):
-    """ctypes definition for GUID structure."""
-
-    _fields_ = [
-        ('Data1', wintypes.DWORD),
-        ('Data2', wintypes.WORD),
-        ('Data3', wintypes.WORD),
-        ('Data4', ctypes.c_ubyte * 8),
-    ]
-# pylint: enable=duplicate-code
-
-
-_CLSID_SHELL_LINK = _Guid(0x00021401, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
-_IID_ISHELL_LINK_W = _Guid(0x000214F9, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
-_IID_IPERSIST_FILE = _Guid(0x0000010B, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
-
-
-def _release_com_interface(pointer: wintypes.LPVOID) -> None:
-    """Releases a COM interface pointer via its IUnknown vtable."""
-    if pointer:
-        vtable = ctypes.cast(pointer, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
-        release_function = ctypes.WINFUNCTYPE(wintypes.ULONG, wintypes.LPVOID)(vtable[2])
-        release_function(pointer)
+_CLSID_SHELL_LINK = WindowsGuid(0x00021401, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
+_IID_ISHELL_LINK_W = WindowsGuid(0x000214F9, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
+_IID_IPERSIST_FILE = WindowsGuid(0x0000010B, 0x0000, 0x0000, (ctypes.c_ubyte * 8)(0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46))
 
 
 def resolve_lnk(shortcut_path: Path) -> Path:
@@ -492,7 +472,7 @@ def resolve_lnk(shortcut_path: Path) -> Path:
 
     try:
         link_vtable = ctypes.cast(shell_link_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
-        query_interface = ctypes.WINFUNCTYPE(wintypes.HRESULT, wintypes.LPVOID, ctypes.POINTER(_Guid), ctypes.POINTER(wintypes.LPVOID))(link_vtable[0])
+        query_interface = ctypes.WINFUNCTYPE(wintypes.HRESULT, wintypes.LPVOID, ctypes.POINTER(WindowsGuid), ctypes.POINTER(wintypes.LPVOID))(link_vtable[0])
         get_path = ctypes.WINFUNCTYPE(wintypes.HRESULT, wintypes.LPVOID, wintypes.LPWSTR, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD)(link_vtable[3])
 
         persist_file_ptr = wintypes.LPVOID()
@@ -506,9 +486,9 @@ def resolve_lnk(shortcut_path: Path) -> Path:
                     if not get_path(shell_link_ptr, path_buffer, 1024, None, 0) and path_buffer.value:
                         return Path(path_buffer.value)
             finally:
-                _release_com_interface(persist_file_ptr)
+                release_com_interface(persist_file_ptr)
     finally:
-        _release_com_interface(shell_link_ptr)
+        release_com_interface(shell_link_ptr)
         if need_uninit:
             ole32.CoUninitialize()
 

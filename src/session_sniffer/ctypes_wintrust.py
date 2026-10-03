@@ -5,17 +5,10 @@ import ctypes.wintypes
 import sys
 from typing import TYPE_CHECKING
 
+from session_sniffer.ctypes_windows import WindowsGuid as _Guid
+
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-class _Guid(ctypes.Structure):
-    _fields_ = [
-        ('Data1', ctypes.c_ulong),
-        ('Data2', ctypes.c_ushort),
-        ('Data3', ctypes.c_ushort),
-        ('Data4', ctypes.c_ubyte * 8),
-    ]
 
 
 class _WintrustFileInfo(ctypes.Structure):
