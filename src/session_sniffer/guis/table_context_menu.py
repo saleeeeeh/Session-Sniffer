@@ -11,19 +11,21 @@ from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.tables import DEFAULT_MIN_COLUMN_WIDTH
 from session_sniffer.guis.stylesheets import SVG_ICON_CONTEXT_MENU_STYLESHEET
 from session_sniffer.guis.table_column_resizing import TableColumnResizeController, setup_table_header_context_menu
-from session_sniffer.guis.tables_player_actions import (
+from session_sniffer.guis.tables_player_actions._actions import (
     create_multi_tcp_ping_menu,
     create_multi_udp_ping_menu,
     ping_ip,
     scan_ports_ip,
-    show_detailed_ip_lookup,
     tcp_port_ping,
     udp_port_ping,
     web_ping,
 )
+from session_sniffer.guis.tables_player_actions._ip_lookup_dialog import (
+    show_detailed_ip_lookup,
+)
 from session_sniffer.guis.utils import (
     ToggleAlwaysOnTopMixin,
-    copy_table_widget_selection,
+    copy_table_selection,
     popup_menu_at_table_widget,
     scale_by_ui,
     set_clipboard_text,
@@ -102,7 +104,7 @@ class TableContextMenuManager:
         self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self.show_context_menu)
         setup_table_header_context_menu(self._table, on_reset=self._on_reset_column_sizes)
-        QShortcut(QKeySequence('Ctrl+C'), self._table).activated.connect(lambda: copy_table_widget_selection(self._table))
+        QShortcut(QKeySequence('Ctrl+C'), self._table).activated.connect(lambda: copy_table_selection(self._table))
         QShortcut(QKeySequence('Ctrl+A'), self._table).activated.connect(self._table.selectAll)
 
     def is_menu_open(self) -> bool:
@@ -129,7 +131,7 @@ class TableContextMenuManager:
         copy_row_action.setShortcut('Ctrl+C')
         copy_row_action.setToolTip('Copy the selected row(s) to the clipboard as tab-separated text.')
         copy_row_action.setEnabled(selected_row_count > 0)
-        copy_row_action.triggered.connect(lambda: copy_table_widget_selection(self._table))
+        copy_row_action.triggered.connect(lambda: copy_table_selection(self._table))
         menu.addAction(copy_row_action)
 
         copy_all_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'copy.svg')), 'Copy All', menu)
@@ -138,7 +140,7 @@ class TableContextMenuManager:
 
         def _copy_all() -> None:
             self._table.selectAll()
-            copy_table_widget_selection(self._table)
+            copy_table_selection(self._table)
 
         copy_all_action.triggered.connect(_copy_all)
         menu.addAction(copy_all_action)
@@ -272,6 +274,11 @@ class StatTableWindowMixin(ToggleAlwaysOnTopMixin):
     def _setup_column_resizing(self) -> None:
         """Apply smart column resizing to the statistics table."""
         self._column_resizer.setup_column_resizing()
+
+    def _apply_initial_column_resizing(self) -> None:
+        """Apply initial column sizing if custom widths have not been set by user."""
+        if self._custom_column_widths is None:
+            self._setup_column_resizing()
 
     def _reset_column_sizes(self) -> None:
         """Reset column widths back to their initial default layout."""

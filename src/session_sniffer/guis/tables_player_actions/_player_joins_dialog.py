@@ -194,8 +194,7 @@ class PlayerJoinsWindow(StatTableWindowMixin):
             self._table.setRowCount(num_joins)
             for row, join in enumerate(joins):
                 self._populate_row(row, join)
-            if self._custom_column_widths is None:
-                self._setup_column_resizing()
+            self._apply_initial_column_resizing()
             self._table.setSortingEnabled(True)
         else:
             self._table.blockSignals(True)  # noqa: FBT003

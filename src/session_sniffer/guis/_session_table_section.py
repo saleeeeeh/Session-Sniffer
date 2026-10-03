@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
+from session_sniffer.constants.tables import COLUMN_FORMAT_SETTING_TO_COLUMNS
+from session_sniffer.guis.delegates import SearchHighlightDelegate
 from session_sniffer.guis.stylesheets import (
     CONNECTED_EXPAND_BUTTON_STYLESHEET,
     DISCONNECTED_EXPAND_BUTTON_STYLESHEET,
@@ -31,8 +33,8 @@ from session_sniffer.guis.stylesheets import (
     section_bar_qss,
 )
 from session_sniffer.guis.table_model import SessionTableModel
-from session_sniffer.guis.tables import COLUMN_FORMAT_SETTING_TO_COLUMNS, SessionTableView
-from session_sniffer.guis.utils import SearchHighlightDelegate, make_padded_icon, render_svg_pixmap_from_resource, scale_by_ui
+from session_sniffer.guis.tables import SessionTableView
+from session_sniffer.guis.utils import make_padded_icon, render_svg_pixmap_from_resource, scale_by_ui
 from session_sniffer.rendering_core.types import PaginationState, SearchState
 from session_sniffer.settings import Settings
 

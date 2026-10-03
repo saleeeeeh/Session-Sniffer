@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
+from session_sniffer.guis.delegates import SearchHighlightDelegate
 from session_sniffer.guis.file_watch import DebouncedFileWatcher
 from session_sniffer.guis.logs_manager._helpers import (
     DATE_COLUMN_NAME,
@@ -53,16 +54,11 @@ from session_sniffer.guis.logs_manager._helpers import (
 from session_sniffer.guis.stylesheets import DIALOG_BUTTON_STYLESHEET, DIALOG_DANGER_BUTTON_STYLESHEET, SVG_ICON_CONTEXT_MENU_STYLESHEET
 from session_sniffer.guis.table_column_resizing import add_column_sizing_actions
 from session_sniffer.guis.tables_player_actions import (
-    create_multi_tcp_ping_menu,
-    create_multi_udp_ping_menu,
-    ping_ip,
+    create_ping_menu,
     scan_ports_ip,
     show_detailed_ip_lookup,
-    tcp_port_ping,
-    udp_port_ping,
-    web_ping,
 )
-from session_sniffer.guis.utils import SearchHighlightDelegate, animate_button_feedback, set_clipboard_text
+from session_sniffer.guis.utils import animate_button_feedback, set_clipboard_text
 from session_sniffer.text_utils import pluralize
 
 if TYPE_CHECKING:
@@ -534,66 +530,11 @@ class CsvLogTab(QWidget):
             lookup_action.triggered.connect(lambda _checked=False, ip_address=selected_ips[0]: show_detailed_ip_lookup(self, ip_address))
             menu.addAction(lookup_action)
 
-            # pylint: disable=duplicate-code
-            ping_menu = QMenu('Ping', menu)
-            ping_menu.setIcon(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')))
-            ping_menu.setStyleSheet(SVG_ICON_CONTEXT_MENU_STYLESHEET)
-            ping_menu.setToolTipsVisible(True)
-
-            normal_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Normal (ICMP)', self)
-            normal_action.setToolTip('Checks if selected IP address responds to pings.')
-            normal_action.triggered.connect(lambda _checked=False, ip_address=selected_ips[0]: ping_ip(ip_address))
-            ping_menu.addAction(normal_action)
-
-            tcp_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'TCP Port Ping', self)
-            tcp_ping_action.setToolTip('Checks if selected IP address responds to TCP pings on a given port.')
-            tcp_ping_action.triggered.connect(lambda _checked=False, ip_address=selected_ips[0]: tcp_port_ping(self, ip_address))
-            ping_menu.addAction(tcp_ping_action)
-
-            udp_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'UDP Port Ping', self)
-            udp_ping_action.setToolTip('Checks if selected IP address responds to UDP pings on a given port.')
-            udp_ping_action.triggered.connect(lambda _checked=False, ip_address=selected_ips[0]: udp_port_ping(self, ip_address))
-            ping_menu.addAction(udp_ping_action)
-
-            web_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Web (Check-Host)', self)
-            web_ping_action.setToolTip('Checks if selected IP address responds via Check-Host.net distributed nodes.')
-            web_ping_action.triggered.connect(lambda _checked=False, ip_address=selected_ips[0]: web_ping(ip_address))
-            ping_menu.addAction(web_ping_action)
-
-            menu.addMenu(ping_menu)
-            # pylint: enable=duplicate-code
-
+            create_ping_menu(self, menu, selected_ips)
         elif len(selected_ips) > 1:
             menu.addSeparator()
             _target_ips = list(selected_ips)
-
-            # pylint: disable=duplicate-code
-            ping_menu = QMenu('Ping', menu)
-            ping_menu.setIcon(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')))
-            ping_menu.setStyleSheet(SVG_ICON_CONTEXT_MENU_STYLESHEET)
-            ping_menu.setToolTipsVisible(True)
-
-            normal_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Normal (ICMP)', self)
-            normal_action.setToolTip('Checks if selected IP addresses respond to pings.')
-
-            def _ping_all_csv() -> None:
-                ping_ip(_target_ips)
-
-            normal_action.triggered.connect(_ping_all_csv)
-            ping_menu.addAction(normal_action)
-
-            create_multi_tcp_ping_menu(self, _target_ips, ping_menu)
-            create_multi_udp_ping_menu(self, _target_ips, ping_menu)
-
-            web_ping_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'ping.svg')), 'Web (Check-Host)', self)
-            web_ping_action.setToolTip('Checks if selected IP addresses respond via Check-Host.net distributed nodes.')
-
-            def _web_ping_all_csv() -> None:
-                web_ping(_target_ips)
-
-            web_ping_action.triggered.connect(_web_ping_all_csv)
-            ping_menu.addAction(web_ping_action)
-            menu.addMenu(ping_menu)
+            create_ping_menu(self, menu, _target_ips)
 
             scan_ports_action = QAction(QIcon(str(RESOURCES_DIR_PATH / 'icons' / 'port_scanner.svg')), 'Scan Ports…', menu)
             scan_ports_action.setToolTip('Scan TCP and UDP ports on the selected host(s).')

@@ -1,6 +1,7 @@
 """Session timeline window — sortable table view of per-player presence."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -17,6 +18,10 @@ from session_sniffer.guis.utils import (
 )
 from session_sniffer.player.registry import PlayersRegistry
 
+if TYPE_CHECKING:
+    from session_sniffer.models.player import Player
+
+
 _COLUMN_PLAYER = 0
 _COLUMN_STATUS = 1
 _COLUMN_FIRST_SEEN = 2
@@ -30,6 +35,19 @@ _HEADERS = ['Player', 'Status', 'First Seen', 'Last Rejoin', 'Last Seen', 'Sessi
 
 _COLOR_CONNECTED = QColor(80, 200, 80)
 _COLOR_DISCONNECTED = QColor(220, 80, 60)
+
+
+def _calculate_player_session_times(player: Player, now: datetime) -> tuple[float, float]:
+    """Calculate the player session time and total session time in seconds."""
+    try:
+        session_seconds = player.datetime.get_session_time().total_seconds()
+    except PlayerDateTimeCorruptionError:
+        session_seconds = (now - player.datetime.last_rejoin).total_seconds()
+    try:
+        total_seconds = player.datetime.get_total_session_time().total_seconds()
+    except PlayerDateTimeCorruptionError:
+        total_seconds = session_seconds
+    return session_seconds, total_seconds
 
 
 class SessionTimelineWindow(StatTableWindowMixin):
@@ -85,14 +103,7 @@ class SessionTimelineWindow(StatTableWindowMixin):
                 is_connected = PlayersRegistry.is_player_connected(player)
                 color = _COLOR_CONNECTED if is_connected else _COLOR_DISCONNECTED
 
-                try:
-                    session_seconds = player.datetime.get_session_time().total_seconds()
-                except PlayerDateTimeCorruptionError:
-                    session_seconds = (now - player.datetime.last_rejoin).total_seconds()
-                try:
-                    total_seconds = player.datetime.get_total_session_time().total_seconds()
-                except PlayerDateTimeCorruptionError:
-                    total_seconds = session_seconds
+                session_seconds, total_seconds = _calculate_player_session_times(player, now)
 
                 player_item = QTableWidgetItem(format_player_display(player.ip, player.usernames))
                 player_item.setData(Qt.ItemDataRole.UserRole, player.ip)
@@ -121,8 +132,7 @@ class SessionTimelineWindow(StatTableWindowMixin):
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     self._table.setItem(row, column, item)
 
-            if self._custom_column_widths is None:
-                self._setup_column_resizing()
+            self._apply_initial_column_resizing()
             # Re-enable sorting once — triggers a single sort, acceptable after a structural change.
             self._table.setSortingEnabled(True)
 
@@ -139,14 +149,7 @@ class SessionTimelineWindow(StatTableWindowMixin):
                 is_connected = PlayersRegistry.is_player_connected(player)
                 color = _COLOR_CONNECTED if is_connected else _COLOR_DISCONNECTED
 
-                try:
-                    session_seconds = player.datetime.get_session_time().total_seconds()
-                except PlayerDateTimeCorruptionError:
-                    session_seconds = (now - player.datetime.last_rejoin).total_seconds()
-                try:
-                    total_seconds = player.datetime.get_total_session_time().total_seconds()
-                except PlayerDateTimeCorruptionError:
-                    total_seconds = session_seconds
+                session_seconds, total_seconds = _calculate_player_session_times(player, now)
 
                 status_cell = self._table.item(target_row, _COLUMN_STATUS)
                 status_text = 'Connected' if is_connected else 'Disconnected'

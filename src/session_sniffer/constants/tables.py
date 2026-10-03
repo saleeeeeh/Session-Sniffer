@@ -329,3 +329,13 @@ SEARCHABLE_COLUMN_EXCLUSIONS: frozenset[str] = frozenset(
         'Offset',
     },
 )
+
+# Mapping of column-formatting setting keys to their affected table column names.
+COLUMN_FORMAT_SETTING_TO_COLUMNS: dict[str, tuple[str, ...]] = {
+    'gui_columns_timezone_display': ('Time Zone',),
+    'gui_columns_datetime_show_date': DATETIME_TRACKING_COLUMNS,
+    'gui_columns_datetime_show_time': DATETIME_TRACKING_COLUMNS,
+    'gui_columns_datetime_show_elapsed_time': DATETIME_TRACKING_COLUMNS,
+    'gui_columns_geo_country_append_alpha2': ('Country',),
+    'gui_columns_geo_continent_append_alpha2': ('Continent',),
+}
