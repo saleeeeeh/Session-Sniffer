@@ -112,7 +112,7 @@ class CrashingQThread(QThread):
                 )
         if active_threads:
             time.sleep(0.05)
-        cls._active_threads = {thread for thread in cls._active_threads if thread.isRunning()}
+        cls._active_threads = {thread for thread in cls._active_threads if thread.isRunning() or not thread.wait(50)}
         if cls._active_threads:
             logger.warning(
                 'CrashingQThread stop_all_active_threads: %d thread(s) still running after wait, retaining references to prevent crash: %s',
@@ -123,9 +123,9 @@ class CrashingQThread(QThread):
 
     def _discard_if_stopped(self) -> None:
         """Discard the strong reference if the thread has fully terminated, or reschedule."""
-        if self.isRunning():
+        if self.isRunning() or not self.wait(100):
             logger.debug(
-                'CrashingQThread _discard_if_stopped: thread %s (cpp_ptr: %s) still running, rescheduling discard',
+                'CrashingQThread _discard_if_stopped: thread %s (cpp_ptr: %s) still running or terminating, rescheduling discard',
                 self._thread_name,
                 self._cpp_ptr,
             )

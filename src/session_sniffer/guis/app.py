@@ -22,12 +22,13 @@ from PySide6.QtWidgets import (
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.guis.theme import get_dark_palette
+from session_sniffer.logging_setup import dump_crash_diagnostics, flush_all_loggers
 
 logger = logging.getLogger(__name__)
 
 
 def _qt_message_handler(message_type: QtMsgType, context: QMessageLogContext, message: str) -> None:
-    if (
+    if message_type != QtMsgType.QtFatalMsg and (
         'Portal operation not allowed' in message
         or 'QFileSystemWatcher: FindNextChangeNotification failed' in message
         or 'QThreadStorage: entry' in message
@@ -45,6 +46,8 @@ def _qt_message_handler(message_type: QtMsgType, context: QMessageLogContext, me
     full_message = f'Qt {type_name}: {message}{ctx_info}'
     if message_type == QtMsgType.QtFatalMsg:
         logger.critical('%s', full_message)
+        dump_crash_diagnostics(full_message)
+        flush_all_loggers()
     elif message_type == QtMsgType.QtCriticalMsg:
         logger.error('%s', full_message)
     elif message_type == QtMsgType.QtWarningMsg:
