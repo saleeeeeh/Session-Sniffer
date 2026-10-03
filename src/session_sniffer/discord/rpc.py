@@ -285,7 +285,6 @@ def _run(client_id: int, queue: QueueType, connection_status: Event) -> None:
                 logger.debug('Discord RPC connection failed')
                 continue
 
-            logger.debug('Discord RPC connected')
             connection_status.set()
 
         try:
