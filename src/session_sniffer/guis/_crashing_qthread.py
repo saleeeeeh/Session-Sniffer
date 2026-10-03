@@ -14,6 +14,7 @@ from typing import ClassVar, override
 import shiboken6
 from PySide6.QtCore import QCoreApplication, QObject, QThread, QTimer
 
+from session_sniffer.background.events import gui_closed__event
 from session_sniffer.core import terminate_on_uncaught_exception
 from session_sniffer.logging_setup import register_diagnostic_provider
 
@@ -128,7 +129,7 @@ class CrashingQThread(QThread):
                 self._thread_name,
                 self._cpp_ptr,
             )
-            if QCoreApplication.instance() is not None:
+            if QCoreApplication.instance() is not None and not gui_closed__event.is_set():
                 QTimer.singleShot(500, self._discard_if_stopped)
             return
 
@@ -146,7 +147,7 @@ class CrashingQThread(QThread):
             wait_ok = self.wait(5000)
             logger.debug('CrashingQThread _on_thread_finished: native thread joined (wait_ok: %s) for %s (cpp_ptr: %s)', wait_ok, self._thread_name, self._cpp_ptr)
         finally:
-            if QCoreApplication.instance() is not None:
+            if QCoreApplication.instance() is not None and not gui_closed__event.is_set():
                 logger.debug('CrashingQThread _on_thread_finished: scheduling discard check for %s (cpp_ptr: %s)', self._thread_name, self._cpp_ptr)
                 QTimer.singleShot(1000, self._discard_if_stopped)
             else:

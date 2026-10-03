@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar, NamedTuple
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+from session_sniffer.background.events import gui_closed__event
 from session_sniffer.networking.interface import INTERFACE_TYPE_BRIDGED, INTERFACE_TYPE_SHARING
 from session_sniffer.settings import Settings
 
@@ -397,13 +398,13 @@ class GUIRenderingState:
     _condition: ClassVar[Condition] = Condition(_lock)
     _current: ClassVar[GUIRenderingSnapshot | None] = None
     _version: ClassVar[int] = 0  # Incremented each time a new snapshot is published
-    _wake_requested: ClassVar[bool] = False
+    _wake_generation: ClassVar[int] = 0
 
     @classmethod
     def wake(cls) -> None:
         """Wake waiting consumers immediately without a new snapshot."""
         with cls._condition:
-            cls._wake_requested = True
+            cls._wake_generation += 1
             cls._condition.notify_all()
 
     @classmethod
@@ -430,13 +431,13 @@ class GUIRenderingState:
             Tuple of (snapshot, version). Snapshot is None if timeout occurs or wake was requested.
         """
         with cls._condition:
+            start_wake_gen = cls._wake_generation
             if not cls._condition.wait_for(
-                lambda: cls._version != last_seen_version or cls._wake_requested,
+                lambda: cls._version != last_seen_version or cls._wake_generation != start_wake_gen or gui_closed__event.is_set(),
                 timeout=timeout,
             ):
                 return None, last_seen_version
 
-            cls._wake_requested = False
             return (cls._current if cls._version != last_seen_version else None), cls._version
 
     @classmethod

@@ -842,7 +842,13 @@ def main() -> None:
     if Settings.show_discord_popup:
         QTimer.singleShot(3000, _show_discord_intro)
 
+    about_to_quit_executed = False
+
     def _on_app_about_to_quit() -> None:
+        nonlocal about_to_quit_executed
+        if about_to_quit_executed:
+            return
+        about_to_quit_executed = True
         logger.info('_on_app_about_to_quit triggered: setting gui_closed, waking rendering state and player cores')
         gui_closed__event.set()
         GUIRenderingState.wake()
