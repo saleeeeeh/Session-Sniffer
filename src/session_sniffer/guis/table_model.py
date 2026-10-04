@@ -13,7 +13,7 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     Qt,
 )
-from PySide6.QtGui import QBrush, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QHeaderView,
     QTableView,
@@ -525,7 +525,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         return len(self._headers)
 
     @override
-    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QBrush | QIcon | set[str] | None:
+    def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QColor | QIcon | set[str] | None:
         """Override data method to customize data retrieval and alignment."""
         if not isValid(self) or not index.isValid():
             return None
@@ -537,7 +537,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         if row_index < 0 or row_index >= len(self._data) or column_index < 0 or column_index >= len(self._data[row_index]):
             return None  # Return None for invalid index
 
-        output: str | QBrush | QIcon | set[str] | None = None
+        output: str | QColor | QIcon | set[str] | None = None
 
         if role == Qt.ItemDataRole.DecorationRole:
             if self._column_indices.country is not None and self._column_indices.country == column_index:
@@ -578,12 +578,12 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             output = self._data[row_index][column_index]
         elif role == Qt.ItemDataRole.ForegroundRole and 0 <= row_index < len(self._compiled_colors) and 0 <= column_index < len(self._compiled_colors[row_index]):
             # Return the cell's foreground color
-            output = QBrush(self._compiled_colors[row_index][column_index].foreground)
+            output = self._compiled_colors[row_index][column_index].foreground
         elif role == Qt.ItemDataRole.BackgroundRole and 0 <= row_index < len(self._compiled_colors) and 0 <= column_index < len(self._compiled_colors[row_index]):
             # Return the cell's background color
-            bg_color = self._compiled_colors[row_index][column_index].background
-            if bg_color is not None:
-                output = QBrush(bg_color)
+            background_color = self._compiled_colors[row_index][column_index].background
+            if background_color is not None:
+                output = background_color
         elif role == Qt.ItemDataRole.ToolTipRole:
             # Return the tooltip text for the cell
             horizontal_header = self.view.horizontalHeader()
@@ -746,7 +746,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
     def get_display_text(self, index: QModelIndex) -> str | None:
         """Extract display text as a string from model data.
 
-        This method handles the case where model data might return `str`, `QBrush`, `QIcon` or `None` for decoration roles, but we only want the display text as a string.
+        This method handles the case where model data might return `str`, `QColor`, `QIcon` or `None` for decoration roles, but we only want the display text as a string.
 
         Args:
             index: The QModelIndex to get display text from.

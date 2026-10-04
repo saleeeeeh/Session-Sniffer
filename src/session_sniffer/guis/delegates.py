@@ -124,10 +124,10 @@ class ElidedTextTooltipDelegate(QStyledItemDelegate):
                 painter.fillRect(rect, grad)
                 painter.restore()
             else:
-                bg_brush = index.data(Qt.ItemDataRole.BackgroundRole)
-                if isinstance(bg_brush, QBrush) and not is_selected:
+                background_brush = index.data(Qt.ItemDataRole.BackgroundRole)
+                if isinstance(background_brush, (QColor, QBrush)) and not is_selected:
                     painter.save()
-                    painter.fillRect(cast('QRect', option.rect), bg_brush)  # type: ignore[redundant-cast]
+                    painter.fillRect(cast('QRect', option.rect), background_brush)  # type: ignore[redundant-cast]
                     painter.restore()
 
         opt = QStyleOptionViewItem(option)
@@ -135,10 +135,10 @@ class ElidedTextTooltipDelegate(QStyledItemDelegate):
         # Clear HasFocus so that global stylesheet focus rules do not force white text onto unselected cells
         opt.state &= ~QStyle.StateFlag.State_HasFocus
         if not bool(opt.state & QStyle.StateFlag.State_Selected):
-            fg_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-            if isinstance(fg_brush, QBrush):
-                opt.palette.setBrush(QPalette.ColorRole.Text, fg_brush)
-                opt.palette.setBrush(QPalette.ColorRole.WindowText, fg_brush)
+            foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
+            if isinstance(foreground_brush, (QColor, QBrush)):
+                opt.palette.setBrush(QPalette.ColorRole.Text, foreground_brush)
+                opt.palette.setBrush(QPalette.ColorRole.WindowText, foreground_brush)
         else:
             opt.palette.setColor(QPalette.ColorRole.Text, QColor('#ffffff'))
             opt.palette.setColor(QPalette.ColorRole.HighlightedText, QColor('#ffffff'))
@@ -202,7 +202,7 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
                 painter.restore()
             else:
                 background_brush = index.data(Qt.ItemDataRole.BackgroundRole)
-                if isinstance(background_brush, QBrush):
+                if isinstance(background_brush, (QColor, QBrush)):
                     painter.save()
                     painter.fillRect(cell_rectangle, background_brush)
                     painter.restore()
@@ -214,7 +214,9 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
         text_color = QColor('#ffffff')
         if not bool(style_option.state & QStyle.StateFlag.State_Selected):
             foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-            if isinstance(foreground_brush, QBrush):
+            if isinstance(foreground_brush, QColor):
+                text_color = foreground_brush
+            elif isinstance(foreground_brush, QBrush):
                 text_color = foreground_brush.color()
 
         if painter:
@@ -273,7 +275,10 @@ class SearchHighlightDelegate(ElidedTextTooltipDelegate):
                         is_disconnected = not raw_is_connected
                 if not is_disconnected:
                     foreground_brush = index.data(Qt.ItemDataRole.ForegroundRole)
-                    if isinstance(foreground_brush, QBrush) and foreground_brush.color() == QColor(TableColors.DISCONNECTED_TEXT):
+                    resolved_foreground_color = (
+                        foreground_brush if isinstance(foreground_brush, QColor) else (foreground_brush.color() if isinstance(foreground_brush, QBrush) else None)
+                    )
+                    if resolved_foreground_color is not None and resolved_foreground_color == QColor(TableColors.DISCONNECTED_TEXT):
                         is_disconnected = True
                 looky_color = QColor(TableColors.DISCONNECTED_LOOKY_TEXT) if is_disconnected else QColor(TableColors.LOOKY_TEXT)
                 looky_format.setForeground(looky_color)
