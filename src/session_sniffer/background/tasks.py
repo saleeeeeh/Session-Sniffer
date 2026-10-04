@@ -965,16 +965,16 @@ def player_rates_core() -> None:
                 time.sleep(0)
 
             if (current_time - player.packets.pps.last_update_time) >= 1.0:
-                player.packets.pps.calculate_and_update_rate()
+                player.packets.pps.calculate_and_update_rate(current_time)
 
             if (current_time - player.packets.ppm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
-                player.packets.ppm.calculate_and_update_rate()
+                player.packets.ppm.calculate_and_update_rate(current_time)
 
             if (current_time - player.bandwidth.bps.last_update_time) >= 1.0:
-                player.bandwidth.bps.calculate_and_update_rate()
+                player.bandwidth.bps.calculate_and_update_rate(current_time)
 
             if (current_time - player.bandwidth.bpm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
-                player.bandwidth.bpm.calculate_and_update_rate()
+                player.bandwidth.bpm.calculate_and_update_rate(current_time)
 
             global_bandwidth += player.bandwidth.exchanged
             global_download += player.bandwidth.download

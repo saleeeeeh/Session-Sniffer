@@ -43,12 +43,12 @@ class PlayerPackets:
         accumulated_packets: int = 0
         calculated_rate: int = 0
 
-        def calculate_and_update_rate(self) -> None:
+        def calculate_and_update_rate(self, now: float | None = None) -> None:
             """Calculate rate from accumulated packets and reset counter."""
             self.is_first_calculation = False
             self.calculated_rate = self.accumulated_packets
             self.accumulated_packets = 0
-            self.last_update_time = time.monotonic()
+            self.last_update_time = time.monotonic() if now is None else now
 
         def reset(self) -> None:
             """Resets the PlayerPPS to its initial state."""
@@ -73,12 +73,12 @@ class PlayerPackets:
         accumulated_packets: int = 0
         calculated_rate: int = 0
 
-        def calculate_and_update_rate(self) -> None:
+        def calculate_and_update_rate(self, now: float | None = None) -> None:
             """Calculate rate from accumulated packets and reset counter."""
             self.is_first_calculation = False
             self.calculated_rate = self.accumulated_packets
             self.accumulated_packets = 0
-            self.last_update_time = time.monotonic()
+            self.last_update_time = time.monotonic() if now is None else now
 
         def reset(self) -> None:
             """Resets the PlayerPPM to its initial state."""
@@ -253,12 +253,12 @@ class PlayerBandwidth:
         accumulated_bytes: int = 0
         calculated_rate: int = 0
 
-        def calculate_and_update_rate(self) -> None:
+        def calculate_and_update_rate(self, now: float | None = None) -> None:
             """Calculate rate from accumulated bytes and reset counter."""
             self.is_first_calculation = False
             self.calculated_rate = self.accumulated_bytes
             self.accumulated_bytes = 0
-            self.last_update_time = time.monotonic()
+            self.last_update_time = time.monotonic() if now is None else now
 
         def reset(self) -> None:
             """Resets the BPS to its initial state."""
@@ -283,12 +283,12 @@ class PlayerBandwidth:
         accumulated_bytes: int = 0
         calculated_rate: int = 0
 
-        def calculate_and_update_rate(self) -> None:
+        def calculate_and_update_rate(self, now: float | None = None) -> None:
             """Calculate rate from accumulated bytes and reset counter."""
             self.is_first_calculation = False
             self.calculated_rate = self.accumulated_bytes
             self.accumulated_bytes = 0
-            self.last_update_time = time.monotonic()
+            self.last_update_time = time.monotonic() if now is None else now
 
         def reset(self) -> None:
             """Resets the BPM to its initial state."""
