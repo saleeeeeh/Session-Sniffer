@@ -33,7 +33,7 @@ class SessionDurationWindow(StatTableWindowMixin):
     @skip_if_menu_open
     def refresh(self) -> None:
         """Rebuild the table with current session duration data."""
-        disconnected = PlayersRegistry.get_default_sorted_players(include_connected=False, include_disconnected=True)
+        disconnected = PlayersRegistry.get_disconnected_players()
         entries = [
             (player.datetime.session_time.total_seconds(), player.ip, ', '.join(player.usernames) if player.usernames else '—')
             for player in disconnected
@@ -42,10 +42,8 @@ class SessionDurationWindow(StatTableWindowMixin):
         entries.sort(key=lambda entry: entry[0], reverse=True)
 
         self._table.setSortingEnabled(False)
-        self._table.setRowCount(0)
-        for duration_seconds, ip, usernames in entries:
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+        self._table.setRowCount(len(entries))
+        for row, (duration_seconds, ip, usernames) in enumerate(entries):
             duration_item = NumericTableWidgetItem(format_duration(duration_seconds))
             duration_item.setData(Qt.ItemDataRole.UserRole, duration_seconds)
             duration_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)

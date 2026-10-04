@@ -1,6 +1,7 @@
 """Background QThread that polls rendering snapshots and emits GUI update payloads."""
 
 import logging
+from collections.abc import Sequence
 from typing import override
 
 from PySide6.QtCore import Signal
@@ -24,27 +25,27 @@ _COLUMN_ALL = -1
 _COLUMN_NOT_FOUND = -2
 
 
-def _search_filter(
-    rows: list[tuple[list[str], list[CellColor]]],
+def _search_filter[T: Sequence[str], C: Sequence[CellColor]](
+    rows: Sequence[tuple[T, C]],
     text: str,
     column: int,
-) -> list[tuple[list[str], list[CellColor]]]:
+) -> list[tuple[T, C]]:
     """Return only rows whose target cell(s) contain `text` (case-insensitive).
 
     When `column` is -1, all cells are checked. Otherwise only the cell at `column` is checked.
     """
     lowered = text.lower()
     if column < 0:
-        return [(row, colors) for row, colors in rows if any(lowered in cell.lower() for cell in row)]
-    return [(row, colors) for row, colors in rows if column < len(row) and lowered in row[column].lower()]
+        return [entry for entry in rows if any(lowered in cell.lower() for cell in entry[0])]
+    return [entry for entry in rows if column < len(entry[0]) and lowered in entry[0][column].lower()]
 
 
-def _paginate(
-    rows: list[tuple[list[str], list[CellColor]]],
+def _paginate[T](
+    rows: Sequence[T],
     total_rows: int,
     rows_per_page: int,
     requested_page: int,
-) -> tuple[list[tuple[list[str], list[CellColor]]], int, int]:
+) -> tuple[Sequence[T], int, int]:
     """Slice rows into a single page.
 
     Returns:
@@ -85,6 +86,13 @@ class GUIWorkerThread(CrashingQThread):
         last_pagination_version: int = -1
         last_sort_version: int = -1
 
+        cached_connected_zipped: list[tuple[Sequence[str], Sequence[CellColor]]] = []
+        cached_disconnected_zipped: list[tuple[Sequence[str], Sequence[CellColor]]] = []
+        cached_connected_sorted: Sequence[tuple[Sequence[str], Sequence[CellColor]]] = ()
+        cached_disconnected_sorted: Sequence[tuple[Sequence[str], Sequence[CellColor]]] = ()
+        cached_connected_count: int = 0
+        cached_disconnected_count: int = 0
+
         logger.debug('GUIWorkerThread _run loop entered')
         while not gui_closed__event.is_set() and not self.isInterruptionRequested():
             snapshot, last_seen_version = GUIRenderingState.wait_rendering_snapshot(
@@ -101,73 +109,106 @@ class GUIWorkerThread(CrashingQThread):
 
             if snapshot is not None:
                 last_snapshot = snapshot
-            elif (search_version == last_search_version and pagination_version == last_pagination_version and sort_version == last_sort_version) or last_snapshot is None:
+                cached_connected_zipped = list(
+                    zip(snapshot.connected.rows, snapshot.connected.colors, strict=True)
+                )
+                cached_disconnected_zipped = list(
+                    zip(snapshot.disconnected.rows, snapshot.disconnected.colors, strict=True)
+                )
+            elif (
+                search_version == last_search_version
+                and pagination_version == last_pagination_version
+                and sort_version == last_sort_version
+            ) or last_snapshot is None:
                 continue
+
+            needs_filter_and_sort = (
+                snapshot is not None
+                or search_version != last_search_version
+                or sort_version != last_sort_version
+            )
 
             last_search_version = search_version
             last_pagination_version = pagination_version
             last_sort_version = sort_version
-            connected_count = last_snapshot.connected.row_count
-            disconnected_count = last_snapshot.disconnected.row_count
 
-            # Preprocess rows with colors
-            connected_rows_with_colors: list[tuple[list[str], list[CellColor]]] = [
-                (list(row), list(colors)) for row, colors in zip(last_snapshot.connected.rows, last_snapshot.connected.colors, strict=True)
-            ]
-            disconnected_rows_with_colors: list[tuple[list[str], list[CellColor]]] = [
-                (list(row), list(colors)) for row, colors in zip(last_snapshot.disconnected.rows, last_snapshot.disconnected.colors, strict=True)
-            ]
+            if needs_filter_and_sort:
+                # Apply search filter (before sorting and pagination so counts and pages stay accurate)
+                if search_text:
+                    if search_column_name and search_column_name != 'All Columns':
+                        try:
+                            connected_col = last_snapshot.column_config.connected_column_names.index(search_column_name)
+                        except ValueError:
+                            connected_col = _COLUMN_NOT_FOUND
+                        try:
+                            disconnected_col = last_snapshot.column_config.disconnected_column_names.index(search_column_name)
+                        except ValueError:
+                            disconnected_col = _COLUMN_NOT_FOUND
+                    else:
+                        connected_col = _COLUMN_ALL
+                        disconnected_col = _COLUMN_ALL
 
-            # Apply search filter (before sorting and pagination so counts and pages stay accurate)
-            if search_text:
-                if search_column_name and search_column_name != 'All Columns':
-                    try:
-                        connected_col = last_snapshot.column_config.connected_column_names.index(search_column_name)
-                    except ValueError:
-                        connected_col = _COLUMN_NOT_FOUND
-                    try:
-                        disconnected_col = last_snapshot.column_config.disconnected_column_names.index(search_column_name)
-                    except ValueError:
-                        disconnected_col = _COLUMN_NOT_FOUND
+                    filtered_connected = (
+                        []
+                        if connected_col == _COLUMN_NOT_FOUND
+                        else _search_filter(cached_connected_zipped, search_text, connected_col)
+                    )
+                    cached_connected_count = len(filtered_connected)
+
+                    filtered_disconnected = (
+                        []
+                        if disconnected_col == _COLUMN_NOT_FOUND
+                        else _search_filter(cached_disconnected_zipped, search_text, disconnected_col)
+                    )
+                    cached_disconnected_count = len(filtered_disconnected)
                 else:
-                    connected_col = _COLUMN_ALL
-                    disconnected_col = _COLUMN_ALL
+                    filtered_connected = cached_connected_zipped
+                    cached_connected_count = last_snapshot.connected.row_count
+                    filtered_disconnected = cached_disconnected_zipped
+                    cached_disconnected_count = last_snapshot.disconnected.row_count
 
-                connected_rows_with_colors = [] if connected_col == _COLUMN_NOT_FOUND else _search_filter(connected_rows_with_colors, search_text, connected_col)
-                connected_count = len(connected_rows_with_colors)
-
-                disconnected_rows_with_colors = [] if disconnected_col == _COLUMN_NOT_FOUND else _search_filter(disconnected_rows_with_colors, search_text, disconnected_col)
-                disconnected_count = len(disconnected_rows_with_colors)
-
-            # Apply sorting (before pagination so each page contains the correct slice of sorted data)
-            if connected_rows_with_colors:
-                connected_rows_with_colors = sort_table_rows(
-                    connected_rows_with_colors,
-                    connected_sort_col,
-                    connected_sort_order,
-                    last_snapshot.column_config.connected_column_names,
+                # Apply sorting (before pagination so each page contains the correct slice of sorted data)
+                cached_connected_sorted = (
+                    sort_table_rows(
+                        filtered_connected,
+                        connected_sort_col,
+                        connected_sort_order,
+                        last_snapshot.column_config.connected_column_names,
+                    )
+                    if filtered_connected
+                    else ()
                 )
-            if disconnected_rows_with_colors:
-                disconnected_rows_with_colors = sort_table_rows(
-                    disconnected_rows_with_colors,
-                    disconnected_sort_col,
-                    disconnected_sort_order,
-                    last_snapshot.column_config.disconnected_column_names,
+                cached_disconnected_sorted = (
+                    sort_table_rows(
+                        filtered_disconnected,
+                        disconnected_sort_col,
+                        disconnected_sort_order,
+                        last_snapshot.column_config.disconnected_column_names,
+                    )
+                    if filtered_disconnected
+                    else ()
                 )
 
             # Apply pagination
-            connected_rows_with_colors, connected_page, connected_total_pages = _paginate(
-                connected_rows_with_colors,
-                connected_count,
+            connected_page_rows, connected_page, connected_total_pages = _paginate(
+                cached_connected_sorted,
+                cached_connected_count,
                 connected_rows_per_page,
                 connected_page,
             )
-            disconnected_rows_with_colors, disconnected_page, disconnected_total_pages = _paginate(
-                disconnected_rows_with_colors,
-                disconnected_count,
+            disconnected_page_rows, disconnected_page, disconnected_total_pages = _paginate(
+                cached_disconnected_sorted,
+                cached_disconnected_count,
                 disconnected_rows_per_page,
                 disconnected_page,
             )
+
+            connected_page_payload: list[tuple[list[str], list[CellColor]]] = [
+                (list(row), list(colors)) for row, colors in connected_page_rows
+            ]
+            disconnected_page_payload: list[tuple[list[str], list[CellColor]]] = [
+                (list(row), list(colors)) for row, colors in disconnected_page_rows
+            ]
 
             self.update_signal.emit(
                 GUIUpdatePayload(
@@ -178,10 +219,10 @@ class GUIWorkerThread(CrashingQThread):
                     status_config_text=last_snapshot.status.status_config_text,
                     status_issues_text=last_snapshot.status.status_issues_text,
                     status_performance_text=last_snapshot.status.status_performance_text,
-                    connected_rows_with_colors=connected_rows_with_colors,
-                    disconnected_rows_with_colors=disconnected_rows_with_colors,
-                    connected_count=connected_count,
-                    disconnected_count=disconnected_count,
+                    connected_rows_with_colors=connected_page_payload,
+                    disconnected_rows_with_colors=disconnected_page_payload,
+                    connected_count=cached_connected_count,
+                    disconnected_count=cached_disconnected_count,
                     connected_rows_per_page=connected_rows_per_page,
                     disconnected_rows_per_page=disconnected_rows_per_page,
                     connected_page=connected_page,

@@ -1,12 +1,16 @@
 """Shared Looky System UI text and small helpers."""
 
+from typing import TYPE_CHECKING
+
 from PySide6.QtGui import QAction  # noqa: TC002
 
 from session_sniffer.constants.standalone import TITLE
-from session_sniffer.models.player import Player
 from session_sniffer.networking.looky_system import LookyState
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings import Settings
+
+if TYPE_CHECKING:
+    from session_sniffer.models.player import Player
 
 LOOKY_TITLE = f'{TITLE} - Looky System'
 LOOKY_SETTINGS_AUTH_PATH = 'Settings → Looky System → Authentication'
@@ -42,7 +46,13 @@ def configure_looky_action(
 
     Avoids duplicating the gating logic and tooltip settings across multiple widgets and menus.
     """
-    target_players: list[Player] | None = [players] if isinstance(players, Player) else players
+    target_players: list[Player] | None
+    if players is None:
+        target_players = None
+    elif isinstance(players, list):
+        target_players = list(players)
+    else:
+        target_players = [players]
 
     if not Settings.looky_enabled:
         action.setEnabled(False)

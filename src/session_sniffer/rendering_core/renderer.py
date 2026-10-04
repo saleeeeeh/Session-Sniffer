@@ -483,7 +483,7 @@ def rendering_core(
             ModMenuLogsParser.refresh()
             last_modmenu_refresh_time = time.monotonic()
 
-        session_connected, session_disconnected = PlayersRegistry.get_default_sorted_connected_and_disconnected_players()
+        session_connected, session_disconnected = PlayersRegistry.get_connected_and_disconnected_players()
         players_to_disconnect = _process_player_disconnections(session_connected, session_disconnected)
 
         # Nudge the GTA5 / RDR2 suspend monitor so reasons waiting on a player 'left' event
@@ -494,7 +494,7 @@ def rendering_core(
             elif Settings.is_rdr2_feature_set():
                 RDR2SuspendManager.wake()
             if 0 < Settings.gui_disconnected_players_limit < len(session_disconnected):
-                session_disconnected = PlayersRegistry.get_default_sorted_players(include_connected=False, include_disconnected=True)
+                session_disconnected = PlayersRegistry.get_disconnected_players()
 
         _active_threads = threading.active_count()
         _effective_threshold = _THREAD_COUNT_WARN_THRESHOLD + get_active_port_scan_threads()
@@ -505,6 +505,7 @@ def rendering_core(
         for i in reversed(players_to_disconnect):
             del session_connected[i]
 
+        all_modmenu_usernames = ModMenuLogsParser.get_all_ip_to_usernames_map()
         for player in chain(session_connected, session_disconnected):
             has_geo = player.country_flag is not None or player.iplookup.ipapi.is_initialized
             looky_complete = (
@@ -525,7 +526,7 @@ def rendering_core(
                 else:
                     player.userip = resolved
 
-            modmenu_usernames_for_player = ModMenuLogsParser.get_usernames_by_ip(player.ip)
+            modmenu_usernames_for_player = all_modmenu_usernames.get(player.ip)
             if modmenu_usernames_for_player:
                 if player.mod_menus is None:
                     player.mod_menus = PlayerModMenus(

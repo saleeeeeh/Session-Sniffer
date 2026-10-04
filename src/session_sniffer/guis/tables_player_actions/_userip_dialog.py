@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import USERIP_DATABASES_DIR_PATH
 from session_sniffer.constants.standalone import TITLE
@@ -152,6 +153,8 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
 
     def _refresh(self) -> None:
         """Re-evaluate dynamic row providers and update the UI."""
+        if not isValid(self):
+            return
         usernames = self._get_usernames()
         display = format_player_display(self._player.ip, usernames)
         new_title = f'{TITLE} - UserIP Detected ({display})'
@@ -169,6 +172,12 @@ class UserIPDetectedDialog(PlayerInfoDialogMixin):
                 new_label = f'{label_provider()}:'
                 if label_widget.text() != new_label:
                     label_widget.setText(new_label)
+
+    @override
+    def done(self, r: int) -> None:
+        """Stop the refresh timer and finalize the dialog."""
+        self._timer.stop()
+        super().done(r)
 
     @override
     def reject(self) -> None:

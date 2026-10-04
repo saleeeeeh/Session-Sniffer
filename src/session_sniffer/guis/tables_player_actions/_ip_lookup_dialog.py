@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.standalone import LOOKY_BASE_HOST, TITLE
@@ -422,6 +423,8 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
 
     def _refresh(self) -> None:
         """Re-evaluate every row provider and update the value widget text."""
+        if not isValid(self):
+            return
         display = format_player_display(self._target.ip, self._target.usernames)
         new_title = f'{TITLE} - IP Lookup Details ({display})'
         if self.windowTitle() != new_title:
@@ -435,6 +438,20 @@ class IPLookupDetailsDialog(PlayerInfoDialogMixin):
                 new_label = f'{label_provider(self._target)}:'
                 if label_widget.text() != new_label:
                     label_widget.setText(new_label)
+
+    @override
+    def done(self, r: int) -> None:
+        """Stop the refresh timer and live ping worker when the dialog is finalized."""
+        self._closed_event.set()
+        self._timer.stop()
+        super().done(r)
+
+    @override
+    def reject(self) -> None:
+        """Stop the refresh timer and live ping worker and reject the dialog."""
+        self._closed_event.set()
+        self._timer.stop()
+        super().reject()
 
     @override
     def closeEvent(self, event: QCloseEvent) -> None:

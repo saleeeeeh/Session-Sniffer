@@ -40,7 +40,7 @@ class ModMenuLogsParser:
 
     _lock: ClassVar[Lock] = Lock()
     _last_mod_times: ClassVar[FileModTimes] = {}
-    _ip_to_usernames_map: ClassVar[UsernamesByIP] = defaultdict(list)
+    _ip_to_usernames_map: ClassVar[dict[str, list[str]]] = {}
 
     @staticmethod
     def _snapshot_file_mod_times() -> FileModTimes:
@@ -84,20 +84,23 @@ class ModMenuLogsParser:
                     if username not in temp_map[ip]:
                         temp_map[ip].append(username)
 
-        # Step 3: atomically update class variables under the same lock
+        # Step 3: atomically update class variables under the lock
+        frozen_map = dict(temp_map)
         with cls._lock:
-            cls._ip_to_usernames_map = temp_map
+            cls._ip_to_usernames_map = frozen_map
             cls._last_mod_times = current_mod_times
 
     @classmethod
     def has_ip(cls, ip: str) -> bool:
-        """Thread-safe check if the given IP exists in any parsed log."""
-        with cls._lock:
-            return ip in cls._ip_to_usernames_map
+        """Check if the given IP exists in any parsed log."""
+        return ip in cls._ip_to_usernames_map
 
     @classmethod
     def get_usernames_by_ip(cls, ip: str) -> list[str]:
-        """Thread-safe retrieval of usernames associated with the given IP."""
-        with cls._lock:
-            usernames = cls._ip_to_usernames_map.get(ip)
-            return usernames.copy() if usernames is not None else []
+        """Retrieval of usernames associated with the given IP."""
+        return cls._ip_to_usernames_map.get(ip, [])
+
+    @classmethod
+    def get_all_ip_to_usernames_map(cls) -> dict[str, list[str]]:
+        """Snapshot mapping of all IPs to lists of usernames."""
+        return cls._ip_to_usernames_map

@@ -29,20 +29,17 @@ class PortHeatmapWindow(StatTableWindowMixin):
     @skip_if_menu_open
     def refresh(self) -> None:
         """Rebuild the table with current port frequency data."""
-        all_players = PlayersRegistry.get_all_players()
         counts: dict[int, int] = {}
-        for player in all_players:
-            for port in tuple(player.ports.all):
+        for player in PlayersRegistry.get_players_map().values():
+            for port in player.ports.all:
                 counts[port] = counts.get(port, 0) + 1
 
         total = sum(counts.values())
         sorted_ports = sorted(counts.items(), key=lambda item: item[1], reverse=True)
 
         self._table.setSortingEnabled(False)
-        self._table.setRowCount(0)
-        for port, count in sorted_ports:
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+        self._table.setRowCount(len(sorted_ports))
+        for row, (port, count) in enumerate(sorted_ports):
             port_item = NumericTableWidgetItem(port)
             port_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             count_item = NumericTableWidgetItem(count)

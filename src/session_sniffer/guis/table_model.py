@@ -1,10 +1,11 @@
 """Session table model for connected and disconnected player tables."""
 
 import ipaddress
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from operator import attrgetter
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Final, override
 
 from PySide6.QtCore import (
     QAbstractTableModel,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QTableView,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.tables import (
@@ -139,6 +141,17 @@ GUI_COLUMN_HEADERS_TOOLTIPS = {
 }
 
 _ZERO_TD = timedelta(0)
+_DEFAULT_IPV4: Final[ipaddress.IPv4Address] = ipaddress.IPv4Address(0)
+
+
+def _parse_ip_for_sorting(ip_str: str) -> tuple[int, ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        version = addr.version
+    except ValueError:
+        addr = _DEFAULT_IPV4
+        version = 0
+    return version, addr
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,12 +165,12 @@ class _ColumnIndices:
     pps: int | None
 
 
-def sort_table_rows(
-    rows_with_colors: list[tuple[list[str], list[CellColor]]],
+def sort_table_rows[T: Sequence[str], C: Sequence[CellColor]](
+    rows_with_colors: Sequence[tuple[T, C]],
     column_name: str,
     order: Qt.SortOrder,
     headers: list[str],
-) -> list[tuple[list[str], list[CellColor]]]:
+) -> list[tuple[T, C]]:
     """Sort table rows and compiled colors by column name and sort order.
 
     Args:
@@ -170,7 +183,7 @@ def sort_table_rows(
         The sorted list of (row_cells, cell_colors) tuples.
     """
     if not rows_with_colors:
-        return rows_with_colors
+        return []
 
     resolved_column_name = column_name
     if resolved_column_name not in headers:
@@ -181,12 +194,12 @@ def sort_table_rows(
         elif headers:
             resolved_column_name = headers[0]
         else:
-            return rows_with_colors
+            return list(rows_with_colors)
 
     column_index = headers.index(resolved_column_name)
     ip_column_index = headers.index('IP Address') if 'IP Address' in headers else -1
 
-    def _extract_ip(row_cells: list[str]) -> str:
+    def _extract_ip(row_cells: Sequence[str]) -> str:
         if 0 <= ip_column_index < len(row_cells):
             return row_cells[ip_column_index]
         return ''
@@ -200,46 +213,54 @@ def sort_table_rows(
             reverse=sort_order_bool,
         )
     elif resolved_column_name in {'First Seen', 'Last Rejoin', 'Last Seen'}:
-        datetime_attr = {'First Seen': 'first_seen', 'Last Rejoin': 'last_rejoin', 'Last Seen': 'last_seen'}[resolved_column_name]
         default_datetime = datetime.max.replace(tzinfo=UTC) if sort_order_bool else datetime.min.replace(tzinfo=UTC)
         players_map = PlayersRegistry.get_players_map()
-        ip_datetime_map: dict[str, datetime] = {
-            _extract_ip(row): (
-                getattr(matched_player.datetime, datetime_attr) if (matched_player := players_map.get(_extract_ip(row))) is not None else default_datetime
-            )
-            for row, _ in sorted_rows
-        }
+
+        if resolved_column_name == 'First Seen':
+            def _datetime_sort_key(row: tuple[T, C]) -> datetime:
+                matched_player = players_map.get(_extract_ip(row[0]))
+                return matched_player.datetime.first_seen if matched_player is not None else default_datetime
+        elif resolved_column_name == 'Last Rejoin':
+            def _datetime_sort_key(row: tuple[T, C]) -> datetime:
+                matched_player = players_map.get(_extract_ip(row[0]))
+                return matched_player.datetime.last_rejoin if matched_player is not None else default_datetime
+        else:
+            def _datetime_sort_key(row: tuple[T, C]) -> datetime:
+                matched_player = players_map.get(_extract_ip(row[0]))
+                return matched_player.datetime.last_seen if matched_player is not None else default_datetime
+
         sorted_rows.sort(
-            key=lambda row: ip_datetime_map[_extract_ip(row[0])],
+            key=_datetime_sort_key,
             reverse=not sort_order_bool,
         )
     elif resolved_column_name == 'T. Session Time':
         players_map = PlayersRegistry.get_players_map()
-        ip_total_session_time_map: dict[str, timedelta] = {
-            _extract_ip(row): (
-                matched_player.datetime.get_total_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
-            )
-            for row, _ in sorted_rows
-        }
+
+        def _total_session_time_sort_key(row: tuple[T, C]) -> timedelta:
+            matched_player = players_map.get(_extract_ip(row[0]))
+            return matched_player.datetime.get_total_session_time() if matched_player is not None else _ZERO_TD
+
         sorted_rows.sort(
-            key=lambda row: ip_total_session_time_map[_extract_ip(row[0])],
+            key=_total_session_time_sort_key,
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Session Time':
         players_map = PlayersRegistry.get_players_map()
-        ip_session_time_map: dict[str, timedelta] = {
-            _extract_ip(row): (matched_player.datetime.get_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD)
-            for row, _ in sorted_rows
-        }
+        session_time_parsed_ips_cache: dict[str, tuple[int, ipaddress.IPv4Address | ipaddress.IPv6Address]] = {}
 
-        def _session_time_sort_key(row: tuple[list[str], list[CellColor]]) -> tuple[timedelta, ipaddress.IPv4Address | ipaddress.IPv6Address | int]:
+        def _get_parsed_ip(ip_str: str) -> tuple[int, ipaddress.IPv4Address | ipaddress.IPv6Address]:
+            parsed = session_time_parsed_ips_cache.get(ip_str)
+            if parsed is None:
+                parsed = _parse_ip_for_sorting(ip_str)
+                session_time_parsed_ips_cache[ip_str] = parsed
+            return parsed
+
+        def _session_time_sort_key(row: tuple[T, C]) -> tuple[timedelta, int, ipaddress.IPv4Address | ipaddress.IPv6Address]:
             player_ip = _extract_ip(row[0])
-            session_duration = ip_session_time_map[player_ip]
-            try:
-                parsed_ip: ipaddress.IPv4Address | ipaddress.IPv6Address | int = ipaddress.ip_address(player_ip)
-            except ValueError:
-                parsed_ip = 0
-            return session_duration, parsed_ip
+            matched_player = players_map.get(player_ip)
+            session_duration = matched_player.datetime.get_session_time() if matched_player is not None else _ZERO_TD
+            ip_version, parsed_ip = _get_parsed_ip(player_ip)
+            return session_duration, ip_version, parsed_ip
 
         sorted_rows.sort(
             key=_session_time_sort_key,
@@ -247,26 +268,24 @@ def sort_table_rows(
         )
     elif resolved_column_name == 'Biggest Session Time':
         players_map = PlayersRegistry.get_players_map()
-        ip_biggest_session_time_map: dict[str, timedelta] = {
-            _extract_ip(row): (
-                matched_player.datetime.get_biggest_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
-            )
-            for row, _ in sorted_rows
-        }
+
+        def _biggest_session_time_sort_key(row: tuple[T, C]) -> timedelta:
+            matched_player = players_map.get(_extract_ip(row[0]))
+            return matched_player.datetime.get_biggest_session_time() if matched_player is not None else _ZERO_TD
+
         sorted_rows.sort(
-            key=lambda row: ip_biggest_session_time_map[_extract_ip(row[0])],
+            key=_biggest_session_time_sort_key,
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Lowest Session Time':
         players_map = PlayersRegistry.get_players_map()
-        ip_lowest_session_time_map: dict[str, timedelta] = {
-            _extract_ip(row): (
-                matched_player.datetime.get_lowest_session_time() if (matched_player := players_map.get(_extract_ip(row))) is not None else _ZERO_TD
-            )
-            for row, _ in sorted_rows
-        }
+
+        def _lowest_session_time_sort_key(row: tuple[T, C]) -> timedelta:
+            matched_player = players_map.get(_extract_ip(row[0]))
+            return matched_player.datetime.get_lowest_session_time() if matched_player is not None else _ZERO_TD
+
         sorted_rows.sort(
-            key=lambda row: ip_lowest_session_time_map[_extract_ip(row[0])],
+            key=_lowest_session_time_sort_key,
             reverse=sort_order_bool,
         )
     elif resolved_column_name in {
@@ -278,7 +297,7 @@ def sort_table_rows(
         'First Port',
     }:
 
-        def _stat_to_float(row: tuple[list[str], list[CellColor]]) -> float:
+        def _stat_to_float(row: tuple[T, C]) -> float:
             try:
                 return float(row[0][column_index])
             except ValueError:
@@ -294,14 +313,15 @@ def sort_table_rows(
             'BPS': 'bandwidth.bps.calculated_rate',
             'BPM': 'bandwidth.bpm.calculated_rate',
         }
-        bandwidth_attribute = bandwidth_attr_map[resolved_column_name]
+        bandwidth_getter = attrgetter(bandwidth_attr_map[resolved_column_name])
         players_map = PlayersRegistry.get_players_map()
-        ip_bandwidth_map: dict[str, int] = {
-            _extract_ip(row): (attrgetter(bandwidth_attribute)(matched_player) if (matched_player := players_map.get(_extract_ip(row))) is not None else 0)
-            for row, _ in sorted_rows
-        }
+
+        def _bandwidth_sort_key(row: tuple[T, C]) -> int:
+            matched_player = players_map.get(_extract_ip(row[0]))
+            return int(bandwidth_getter(matched_player)) if matched_player is not None else 0
+
         sorted_rows.sort(
-            key=lambda row: ip_bandwidth_map[_extract_ip(row[0])],
+            key=_bandwidth_sort_key,
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'Ports':
@@ -316,7 +336,7 @@ def sort_table_rows(
         )
     elif resolved_column_name in {'Lat', 'Lon', 'Offset'}:
 
-        def _geo_to_float(row: tuple[list[str], list[CellColor]]) -> float:
+        def _geo_to_float(row: tuple[T, C]) -> float:
             value = row[0][column_index]
             if value == '...':
                 return float('-inf')
@@ -330,12 +350,15 @@ def sort_table_rows(
             reverse=sort_order_bool,
         )
     elif resolved_column_name == 'IP Address':
+        ip_column_parsed_ips_cache: dict[str, tuple[int, ipaddress.IPv4Address | ipaddress.IPv6Address]] = {}
 
-        def _to_ip_address(row: tuple[list[str], list[CellColor]]) -> ipaddress.IPv4Address | ipaddress.IPv6Address | int:
-            try:
-                return ipaddress.ip_address(_extract_ip(row[0]))
-            except ValueError:
-                return 0
+        def _to_ip_address(row: tuple[T, C]) -> tuple[int, ipaddress.IPv4Address | ipaddress.IPv6Address]:
+            ip_str = _extract_ip(row[0])
+            parsed = ip_column_parsed_ips_cache.get(ip_str)
+            if parsed is None:
+                parsed = _parse_ip_for_sorting(ip_str)
+                ip_column_parsed_ips_cache[ip_str] = parsed
+            return parsed
 
         sorted_rows.sort(
             key=_to_ip_address,
@@ -479,6 +502,8 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
     @override
     def rowCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:
         """Return number of rows in the model."""
+        if not isValid(self):
+            return 0
         if parent is None:
             parent = QModelIndex()
         return len(self._data)
@@ -486,6 +511,8 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
     @override
     def columnCount(self, parent: QModelIndex | QPersistentModelIndex | None = None) -> int:
         """Return number of columns in the model."""
+        if not isValid(self):
+            return 0
         if parent is None:
             parent = QModelIndex()
         return len(self._headers)
@@ -493,7 +520,7 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
     @override
     def data(self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> str | QBrush | QIcon | set[str] | None:
         """Override data method to customize data retrieval and alignment."""
-        if not index.isValid():
+        if not isValid(self) or not index.isValid():
             return None
 
         row_index = index.row()

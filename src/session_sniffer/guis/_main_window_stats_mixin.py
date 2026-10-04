@@ -166,26 +166,26 @@ class StatsMixin(QMainWindow):
                 CaptureStats.global_bps_rate,
             ),
         )
-        if self._session_rate_graph_window is not None:
+        if self._session_rate_graph_window is not None and self._session_rate_graph_window.isVisible():
             self._session_rate_graph_window.update_rates(
                 pps=CaptureStats.global_pps_rate,
                 bps=CaptureStats.global_bps_rate,
             )
-        if self._session_pps_graph_window is not None:
+        if self._session_pps_graph_window is not None and self._session_pps_graph_window.isVisible():
             self._session_pps_graph_window.update_pps(CaptureStats.global_pps_rate)
-        if self._session_bps_graph_window is not None:
+        if self._session_bps_graph_window is not None and self._session_bps_graph_window.isVisible():
             self._session_bps_graph_window.update_bps(CaptureStats.global_bps_rate)
-        if self._packets_latency_graph_window is not None:
+        if self._packets_latency_graph_window is not None and self._packets_latency_graph_window.isVisible():
             self._packets_latency_graph_window.update_latency(CaptureStats.global_avg_latency_ms)
-        if self._country_breakdown_window is not None:
+        if self._country_breakdown_window is not None and self._country_breakdown_window.isVisible():
             self._country_breakdown_window.refresh()
-        if self._reconnect_frequency_window is not None:
+        if self._reconnect_frequency_window is not None and self._reconnect_frequency_window.isVisible():
             self._reconnect_frequency_window.refresh()
-        if self._session_timeline_window is not None:
+        if self._session_timeline_window is not None and self._session_timeline_window.isVisible():
             self._session_timeline_window.refresh()
-        if self._port_heatmap_window is not None:
+        if self._port_heatmap_window is not None and self._port_heatmap_window.isVisible():
             self._port_heatmap_window.refresh()
-        if self._session_duration_window is not None:
+        if self._session_duration_window is not None and self._session_duration_window.isVisible():
             self._session_duration_window.refresh()
 
         # Sync game process control state every tick
@@ -206,23 +206,28 @@ class StatsMixin(QMainWindow):
 
     def _open_country_breakdown(self) -> None:
         """Open or focus the country breakdown window."""
-        show_or_focus_window(self, '_country_breakdown_window', lambda: CountryBreakdownWindow(always_on_top=True))
+        window = show_or_focus_window(self, '_country_breakdown_window', lambda: CountryBreakdownWindow(always_on_top=True))
+        window.refresh()
 
     def _open_reconnect_frequency(self) -> None:
         """Open or focus the reconnect frequency window."""
-        show_or_focus_window(self, '_reconnect_frequency_window', lambda: ReconnectFrequencyWindow(always_on_top=True))
+        window = show_or_focus_window(self, '_reconnect_frequency_window', lambda: ReconnectFrequencyWindow(always_on_top=True))
+        window.refresh()
 
     def _open_session_timeline(self) -> None:
         """Open or focus the session timeline window."""
-        show_or_focus_window(self, '_session_timeline_window', lambda: SessionTimelineWindow(always_on_top=True))
+        window = show_or_focus_window(self, '_session_timeline_window', lambda: SessionTimelineWindow(always_on_top=True))
+        window.refresh()
 
     def _open_port_heatmap(self) -> None:
         """Open or focus the port heatmap window."""
-        show_or_focus_window(self, '_port_heatmap_window', lambda: PortHeatmapWindow(always_on_top=True))
+        window = show_or_focus_window(self, '_port_heatmap_window', lambda: PortHeatmapWindow(always_on_top=True))
+        window.refresh()
 
     def _open_session_duration(self) -> None:
         """Open or focus the session duration window."""
-        show_or_focus_window(self, '_session_duration_window', lambda: SessionDurationWindow(always_on_top=True))
+        window = show_or_focus_window(self, '_session_duration_window', lambda: SessionDurationWindow(always_on_top=True))
+        window.refresh()
 
     def _open_capture_health(self) -> None:
         """Open or focus the capture statistics window."""
@@ -234,7 +239,8 @@ class StatsMixin(QMainWindow):
             window.open_packets_latency_graph_requested.connect(self._open_packets_latency_graph)
             return window
 
-        show_or_focus_window(self, '_capture_statistics_window', _factory)
+        window = show_or_focus_window(self, '_capture_statistics_window', _factory)
+        window.refresh()
 
     def _build_statistics_menu(self, menu_bar: QMenuBar) -> None:
         """Build the Statistics menu and attach all graph and breakdown actions."""

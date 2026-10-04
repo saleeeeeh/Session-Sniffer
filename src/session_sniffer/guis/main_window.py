@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.background import clear_resolution_queues, wake_all_player_cores
 from session_sniffer.background.events import gui_closed__event
@@ -429,6 +430,8 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
     @override
     def eventFilter(self, a0: QObject, a1: QEvent) -> bool:
         """Filter events to detect window movement."""
+        if not isValid(a0):
+            return False
         if a0 == self and a1:
             event_type = a1.type()
 
@@ -573,6 +576,8 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
 
     @Slot(object)
     def _update_gui(self, payload: GUIUpdatePayload) -> None:
+        if not isValid(self) or gui_closed__event.is_set():
+            return
         if payload.snapshot_version < self._state.min_accepted_snapshot_version:
             return
 
@@ -631,7 +636,7 @@ class MainWindow(LookyMixin, GameMixin, StatsMixin, FilesMixin, QMainWindow):
         if Settings.is_gta5_feature_set():
             self._update_looky_actions()
 
-        if self._capture_statistics_window is not None:
+        if self._capture_statistics_window is not None and self._capture_statistics_window.isVisible():
             self._capture_statistics_window.refresh()
 
     def _apply_always_on_top(self) -> None:

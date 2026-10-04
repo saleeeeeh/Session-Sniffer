@@ -53,15 +53,22 @@ class PlayersRegistry:
     _registry_lock: ClassVar[RLock] = RLock()
     _connected_players_registry: ClassVar[dict[str, Player]] = {}
     _disconnected_players_registry: ClassVar[OrderedDict[str, Player]] = OrderedDict()
+    _all_players_by_ip: ClassVar[dict[str, Player]] = {}
 
     @classmethod
     def _evict_excess_disconnected_players(cls) -> None:
         """Evict oldest disconnected players when registry exceeds the configured limit."""
         limit = Settings.gui_disconnected_players_limit
-        if limit <= 0:
+        if limit <= 0 or len(cls._disconnected_players_registry) <= limit:
             return
+        evicted_players: list[Player] = []
+        new_all_players = cls._all_players_by_ip.copy()
         while len(cls._disconnected_players_registry) > limit:
-            _, evicted_player = cls._disconnected_players_registry.popitem(last=False)
+            evicted_ip, evicted_player = cls._disconnected_players_registry.popitem(last=False)
+            new_all_players.pop(evicted_ip, None)
+            evicted_players.append(evicted_player)
+        cls._all_players_by_ip = new_all_players
+        for evicted_player in evicted_players:
             evicted_player.left_event.set()
 
     @classmethod
@@ -96,7 +103,13 @@ class PlayersRegistry:
             if player.ip in cls._connected_players_registry:
                 raise PlayerAlreadyExistsError(player.ip)
 
-            cls._connected_players_registry[player.ip] = player
+            new_connected_players = cls._connected_players_registry.copy()
+            new_connected_players[player.ip] = player
+            cls._connected_players_registry = new_connected_players
+
+            new_all_players = cls._all_players_by_ip.copy()
+            new_all_players[player.ip] = player
+            cls._all_players_by_ip = new_all_players
             return player
 
     @classmethod
@@ -113,7 +126,15 @@ class PlayersRegistry:
             if player.ip not in cls._disconnected_players_registry:
                 raise PlayerNotFoundInRegistryError(player.ip)
 
-            cls._connected_players_registry[player.ip] = cls._disconnected_players_registry.pop(player.ip)
+            cls._disconnected_players_registry.pop(player.ip)
+
+            new_connected_players = cls._connected_players_registry.copy()
+            new_connected_players[player.ip] = player
+            cls._connected_players_registry = new_connected_players
+
+            new_all_players = cls._all_players_by_ip.copy()
+            new_all_players[player.ip] = player
+            cls._all_players_by_ip = new_all_players
 
     @classmethod
     def move_player_to_disconnected(cls, player: Player) -> None:
@@ -129,7 +150,16 @@ class PlayersRegistry:
             if player.ip not in cls._connected_players_registry:
                 raise PlayerNotFoundInRegistryError(player.ip)
 
-            cls._disconnected_players_registry[player.ip] = cls._connected_players_registry.pop(player.ip)
+            new_connected_players = cls._connected_players_registry.copy()
+            new_connected_players.pop(player.ip)
+            cls._connected_players_registry = new_connected_players
+
+            cls._disconnected_players_registry[player.ip] = player
+
+            new_all_players = cls._all_players_by_ip.copy()
+            new_all_players[player.ip] = player
+            cls._all_players_by_ip = new_all_players
+
             cls._evict_excess_disconnected_players()
 
     @classmethod
@@ -145,17 +175,12 @@ class PlayersRegistry:
         Returns:
             The player object if found, otherwise `None`.
         """
-        with cls._registry_lock:
-            player = cls._connected_players_registry.get(ip)
-            if player is None:
-                player = cls._disconnected_players_registry.get(ip)
-            return player
+        return cls._all_players_by_ip.get(ip)
 
     @classmethod
     def is_player_connected(cls, player: Player) -> bool:
         """Check whether the given player instance is currently in the connected registry."""
-        with cls._registry_lock:
-            return cls._connected_players_registry.get(player.ip) is player
+        return cls._connected_players_registry.get(player.ip) is player
 
     @classmethod
     def get_connected_players(cls) -> list[Player]:
@@ -164,8 +189,7 @@ class PlayersRegistry:
         Use this instead of `get_default_sorted_players` when sort order
         is irrelevant, to avoid an unnecessary O(n log n) sort.
         """
-        with cls._registry_lock:
-            return list(cls._connected_players_registry.values())
+        return list(cls._connected_players_registry.values())
 
     @classmethod
     def get_disconnected_players(cls) -> list[Player]:
@@ -179,31 +203,46 @@ class PlayersRegistry:
             return list(cls._disconnected_players_registry.values())
 
     @classmethod
+    def get_connected_and_disconnected_players(cls) -> tuple[list[Player], list[Player]]:
+        """Return connected and disconnected players without sorting.
+
+        Avoids O(n log n) sorting when caller handles sorting or when order is irrelevant.
+        """
+        with cls._registry_lock:
+            cls._evict_excess_disconnected_players()
+            return (
+                list(cls._connected_players_registry.values()),
+                list(cls._disconnected_players_registry.values()),
+            )
+
+    @classmethod
     def get_all_players(cls) -> list[Player]:
         """Return an unsorted snapshot of all connected and disconnected players.
 
         Prefer this over `get_default_sorted_players` when sort order is irrelevant,
         to avoid the O(n log n) sort overhead.
         """
-        with cls._registry_lock:
-            cls._evict_excess_disconnected_players()
-            return list(cls._connected_players_registry.values()) + list(cls._disconnected_players_registry.values())
+        return list(cls._all_players_by_ip.values())
 
     @classmethod
     def get_players_map(cls) -> dict[str, Player]:
-        """Return an unsorted snapshot mapping of all connected and disconnected players by IP in a single lock acquisition."""
-        with cls._registry_lock:
-            cls._evict_excess_disconnected_players()
-            players_map = dict(cls._disconnected_players_registry)
-            players_map.update(cls._connected_players_registry)
-            return players_map
+        """Return an unsorted snapshot mapping of all connected and disconnected players by IP."""
+        return cls._all_players_by_ip
 
     @classmethod
     def get_total_count(cls) -> int:
         """Return the total number of tracked players (connected + disconnected) in O(1)."""
-        with cls._registry_lock:
-            cls._evict_excess_disconnected_players()
-            return len(cls._connected_players_registry) + len(cls._disconnected_players_registry)
+        return len(cls._all_players_by_ip)
+
+    @classmethod
+    def get_connected_count(cls) -> int:
+        """Return the number of connected players in O(1)."""
+        return len(cls._connected_players_registry)
+
+    @classmethod
+    def get_disconnected_count(cls) -> int:
+        """Return the number of disconnected players in O(1)."""
+        return len(cls._disconnected_players_registry)
 
     @classmethod
     def get_default_sorted_players(
@@ -246,7 +285,11 @@ class PlayersRegistry:
         """Clear all connected players from the registry."""
         with cls._registry_lock:
             players = list(cls._connected_players_registry.values())
-            cls._connected_players_registry.clear()
+            cls._connected_players_registry = {}
+            new_all_players = cls._all_players_by_ip.copy()
+            for player in players:
+                new_all_players.pop(player.ip, None)
+            cls._all_players_by_ip = new_all_players
         for player in players:
             player.left_event.set()
 
@@ -256,6 +299,10 @@ class PlayersRegistry:
         with cls._registry_lock:
             players = list(cls._disconnected_players_registry.values())
             cls._disconnected_players_registry.clear()
+            new_all_players = cls._all_players_by_ip.copy()
+            for player in players:
+                new_all_players.pop(player.ip, None)
+            cls._all_players_by_ip = new_all_players
         for player in players:
             player.left_event.set()
 
@@ -270,7 +317,15 @@ class PlayersRegistry:
             The removed player object if found, otherwise `None`.
         """
         with cls._registry_lock:
-            player = cls._connected_players_registry.pop(ip, None)
+            player = cls._connected_players_registry.get(ip)
+            if player is not None:
+                new_connected_players = cls._connected_players_registry.copy()
+                new_connected_players.pop(ip)
+                cls._connected_players_registry = new_connected_players
+
+                new_all_players = cls._all_players_by_ip.copy()
+                new_all_players.pop(ip, None)
+                cls._all_players_by_ip = new_all_players
         if player is not None:
             player.left_event.set()
         return player
@@ -287,6 +342,10 @@ class PlayersRegistry:
         """
         with cls._registry_lock:
             player = cls._disconnected_players_registry.pop(ip, None)
+            if player is not None:
+                new_all_players = cls._all_players_by_ip.copy()
+                new_all_players.pop(ip, None)
+                cls._all_players_by_ip = new_all_players
         if player is not None:
             player.left_event.set()
         return player

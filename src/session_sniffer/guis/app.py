@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.guis.theme import get_dark_palette
@@ -78,12 +79,9 @@ class _DisableScrollValueChangeFilter(QObject):
 
     @override
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        event_type = event.type()
-        if event_type == QEvent.Type.Polish:
-            is_target, target = self._is_scroll_value_change_widget(watched)
-            if is_target and target is not None and target.focusPolicy() == Qt.FocusPolicy.WheelFocus:
-                target.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        elif event_type == QEvent.Type.Wheel and isinstance(event, QWheelEvent):
+        if not isValid(watched):
+            return False
+        if event.type() == QEvent.Type.Wheel and isinstance(event, QWheelEvent):
             is_target, target = self._is_scroll_value_change_widget(watched)
             if is_target and target is not None:
                 if target.focusPolicy() == Qt.FocusPolicy.WheelFocus:
@@ -94,7 +92,7 @@ class _DisableScrollValueChangeFilter(QObject):
 
                 event.ignore()
                 ancestor = target.parentWidget()
-                while ancestor is not None:
+                while ancestor is not None and isValid(ancestor):
                     if isinstance(ancestor, QAbstractScrollArea):
                         QCoreApplication.sendEvent(ancestor.viewport(), event)
                         return True
@@ -104,10 +102,10 @@ class _DisableScrollValueChangeFilter(QObject):
 
     @staticmethod
     def _is_scroll_value_change_widget(watched: QObject) -> tuple[bool, QWidget | None]:
-        if not isinstance(watched, QWidget):
+        if not isValid(watched) or not isinstance(watched, QWidget):
             return False, None
         current_widget: QWidget | None = watched
-        while current_widget is not None:
+        while current_widget is not None and isValid(current_widget):
             if isinstance(current_widget, QAbstractScrollArea):
                 return False, None
             if isinstance(current_widget, (QComboBox, QAbstractSpinBox, QSlider, QDial)):

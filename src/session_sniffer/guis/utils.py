@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import IMAGES_DIR_PATH, RESOURCES_DIR_PATH
 from session_sniffer.guis.delegates import ElidedTextTooltipDelegate
@@ -401,6 +402,8 @@ def set_dialog_window_flags(dialog: QDialog, *, keep_on_top: bool = False) -> No
 
 def activate_window(widget: QWidget) -> None:
     """Restore if minimized, raise, and activate *widget*."""
+    if not isValid(widget):
+        return
     if widget.isMinimized():
         widget.showNormal()
     else:
@@ -444,8 +447,10 @@ def show_or_focus_window[T: QWidget](
     """Focus an existing window referenced by `getattr(owner, attr_name)`, or instantiate, track, and show a new one."""
     current = getattr(owner, attr_name, None)
     if current is not None:
-        activate_window(current)
-        return cast('T', current)
+        if isValid(current):
+            activate_window(current)
+            return cast('T', current)
+        setattr(owner, attr_name, None)
 
     window = factory()
     window.destroyed.connect(lambda: setattr(owner, attr_name, None) if getattr(owner, attr_name, None) is window else None)
@@ -462,12 +467,18 @@ class ActiveDialogRegistry[K, V: QWidget]:
         self._dialogs: dict[K, V] = {}
 
     def get(self, key: K) -> V | None:
-        """Return the active dialog for *key*, if one exists."""
-        return self._dialogs.get(key)
+        """Return the active dialog for *key*, if one exists and is valid."""
+        existing = self._dialogs.get(key)
+        if existing is not None:
+            if not isValid(existing):
+                self._dialogs.pop(key, None)
+                return None
+            return existing
+        return None
 
     def focus(self, key: K) -> bool:
         """Focus the active dialog for *key* if one exists. Return True if focused, False otherwise."""
-        existing = self._dialogs.get(key)
+        existing = self.get(key)
         if existing is not None:
             activate_window(existing)
             return True
@@ -476,11 +487,13 @@ class ActiveDialogRegistry[K, V: QWidget]:
     def close_all(self) -> None:
         """Close all tracked dialogs."""
         for dialog in list(self._dialogs.values()):
-            dialog.close()
+            if isValid(dialog):
+                dialog.close()
+        self._dialogs.clear()
 
     def show_or_focus(self, key: K, factory: Callable[[], V]) -> V:
         """Focus the active dialog for *key*, or instantiate, retain, and show a new one."""
-        existing = self._dialogs.get(key)
+        existing = self.get(key)
         if existing is not None:
             activate_window(existing)
             return existing

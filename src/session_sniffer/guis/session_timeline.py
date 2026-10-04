@@ -72,16 +72,15 @@ class SessionTimelineWindow(StatTableWindowMixin):
     @skip_if_menu_open
     def refresh(self) -> None:
         """Update the table with current player presence data."""
-        all_players = PlayersRegistry.get_all_players()
-        num_players = len(all_players)
-
+        num_players = PlayersRegistry.get_total_count()
         if not num_players:
             if self._table.rowCount() > 0:
                 self._table.setRowCount(0)
             return
 
+        all_players = PlayersRegistry.get_all_players()
         now = datetime.now(tz=all_players[0].datetime.first_seen.tzinfo)
-        current_ips_set = {player.ip for player in all_players}
+        current_ips_set = set(PlayersRegistry.get_players_map().keys())
 
         table_ip_to_row: dict[str, int] = {}
         for row in range(self._table.rowCount()):

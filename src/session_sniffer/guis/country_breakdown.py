@@ -29,9 +29,8 @@ class CountryBreakdownWindow(StatTableWindowMixin):
     @skip_if_menu_open
     def refresh(self) -> None:
         """Rebuild the table with current country data."""
-        all_players = PlayersRegistry.get_all_players()
         counts: dict[str, int] = {}
-        for player in all_players:
+        for player in PlayersRegistry.get_players_map().values():
             if (
                 country := player.iplookup.ipapi.country
                 if (player.iplookup.geolite2.country == '...' and player.iplookup.ipapi.country != '...')
@@ -42,10 +41,8 @@ class CountryBreakdownWindow(StatTableWindowMixin):
         sorted_counts = sorted(counts.items(), key=lambda item: item[1], reverse=True)
 
         self._table.setSortingEnabled(False)
-        self._table.setRowCount(0)
-        for country, count in sorted_counts:
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+        self._table.setRowCount(len(sorted_counts))
+        for row, (country, count) in enumerate(sorted_counts):
             country_item = QTableWidgetItem(country)
             count_item = NumericTableWidgetItem(count)
             count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)

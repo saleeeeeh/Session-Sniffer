@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QToolTip,
     QWidget,
 )
+from shiboken6 import isValid
 
 from session_sniffer.constants.local import RESOURCES_DIR_PATH
 from session_sniffer.constants.tables import (
@@ -168,7 +169,9 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
     @override
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Show country flag tooltips on hover and forward other events."""
-        if isinstance(event, QHoverEvent):
+        if not isValid(watched):
+            return False
+        if watched == self.viewport() and isinstance(event, QHoverEvent):
             index = self.indexAt(event.position().toPoint())  # Get hovered cell
             if index.isValid():
                 model = self.model()
@@ -530,14 +533,23 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
 
     def capture_selection(self) -> None:
         """Save the current cell selection by player IP and scroll positions for later restoration."""
+        if not isValid(self):
+            return
         self._saved_h_scroll = self.horizontalScrollBar().value()
         self._saved_v_scroll = self.verticalScrollBar().value()
-        selected_indexes = self.selectionModel().selectedIndexes()
+        selection_model = self.selectionModel()
+        if not isValid(selection_model):
+            self._saved_selection.clear()
+            return
+        selected_indexes = selection_model.selectedIndexes()
         if not selected_indexes:
             self._saved_selection.clear()
             return
 
         model = self.model()
+        if not isValid(model):
+            self._saved_selection.clear()
+            return
         self._saved_selection.clear()
         for model_index in selected_indexes:
             if not model_index.isValid():
@@ -551,6 +563,8 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
 
     def restore_selection(self) -> None:
         """Restore cell selection and scroll positions from previously captured state."""
+        if not isValid(self):
+            return
         if self._saved_h_scroll is not None:
             self.horizontalScrollBar().setValue(self._saved_h_scroll)
         if self._saved_v_scroll is not None:
@@ -559,6 +573,12 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
             return
 
         model = self.model()
+        if not isValid(model):
+            return
+        selection_model = self.selectionModel()
+        if not isValid(selection_model):
+            return
+
         selection = QItemSelection()
 
         for ip, column in self._saved_selection:
@@ -568,7 +588,7 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
                 if index.isValid():
                     selection.select(index, index)
 
-        self.selectionModel().select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        selection_model.select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
         self._saved_selection.clear()
 
     @override
@@ -628,7 +648,15 @@ class SessionTableView(TableHeaderMenuMixin, TableContextMenuMixin, QTableView):
             icon_size.height(),
         )
         if flag_rect.contains(event.position().toPoint()):
-            QToolTip.showText(event.globalPosition().toPoint(), player.iplookup.geolite2.country, self)
+            country_name: str | None = None
+            if player.iplookup.geolite2 and player.iplookup.geolite2.country:
+                country_name = player.iplookup.geolite2.country
+            elif player.iplookup.ipapi and player.iplookup.ipapi.country:
+                country_name = player.iplookup.ipapi.country
+            if country_name:
+                QToolTip.showText(event.globalPosition().toPoint(), country_name, self)
+            else:
+                QToolTip.hideText()
         else:
             QToolTip.hideText()
 

@@ -37,7 +37,10 @@ class _GUIThreadDispatcher(QObject):
         super().__init__()
 
         def _dispatch_fn(fn: Callable[[], None]) -> None:
-            fn()
+            try:
+                fn()
+            except Exception:  # pylint: disable=broad-exception-caught
+                logger.exception('Unhandled exception in GUI thread dispatcher')
 
         self._call.connect(_dispatch_fn)
 

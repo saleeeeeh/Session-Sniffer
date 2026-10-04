@@ -330,18 +330,34 @@ class CaptureStatisticsWindow(RateGraphWindowMixin):
         total_elapsed = int(time.time() - self._process_started_at)
         self._label_total_uptime.setText(format_duration(total_elapsed))
 
-        all_players = PlayersRegistry.get_all_players()
-        connected_players = PlayersRegistry.get_connected_players()
-        self._label_connected.setText(str(len(connected_players)))
-        self._label_disconnected.setText(str(len(all_players) - len(connected_players)))
-        self._label_total.setText(str(len(all_players)))
+        connected_count = PlayersRegistry.get_connected_count()
+        disconnected_count = PlayersRegistry.get_disconnected_count()
+        total_count = PlayersRegistry.get_total_count()
+        self._label_connected.setText(str(connected_count))
+        self._label_disconnected.setText(str(disconnected_count))
+        self._label_total.setText(str(total_count))
 
-        self._label_bandwidth.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.exchanged for player in all_players)))
-        self._label_download.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.download for player in all_players)))
-        self._label_upload.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.upload for player in all_players)))
-        self._label_total_bandwidth.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.total_exchanged for player in all_players)))
-        self._label_total_download.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.total_download for player in all_players)))
-        self._label_total_upload.setText(PlayerBandwidth.format_bytes(sum(player.bandwidth.total_upload for player in all_players)))
+        current_bandwidth = 0
+        current_download = 0
+        current_upload = 0
+        total_bandwidth = 0
+        total_download = 0
+        total_upload = 0
+        for player in PlayersRegistry.get_players_map().values():
+            bandwidth = player.bandwidth
+            current_bandwidth += bandwidth.exchanged
+            current_download += bandwidth.download
+            current_upload += bandwidth.upload
+            total_bandwidth += bandwidth.total_exchanged
+            total_download += bandwidth.total_download
+            total_upload += bandwidth.total_upload
+
+        self._label_bandwidth.setText(PlayerBandwidth.format_bytes(current_bandwidth))
+        self._label_download.setText(PlayerBandwidth.format_bytes(current_download))
+        self._label_upload.setText(PlayerBandwidth.format_bytes(current_upload))
+        self._label_total_bandwidth.setText(PlayerBandwidth.format_bytes(total_bandwidth))
+        self._label_total_download.setText(PlayerBandwidth.format_bytes(total_download))
+        self._label_total_upload.setText(PlayerBandwidth.format_bytes(total_upload))
 
         self._label_bps.setText(PlayerBandwidth.format_bytes(CaptureStats.global_bps_rate))
         self._label_bpm.setText(PlayerBandwidth.format_bytes(CaptureStats.global_bpm_rate))
