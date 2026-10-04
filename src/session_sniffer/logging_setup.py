@@ -137,6 +137,13 @@ def _install_win32_crt_handlers() -> None:
         _c_purecall_handler = _PURECALL_HANDLER_TYPE(_win32_purecall_handler)
         ucrt._set_purecall_handler(_c_purecall_handler)  # noqa: SLF001 # pylint: disable=protected-access
 
+        with contextlib.suppress(AttributeError, OSError):
+            vcruntime = ctypes.cdll.LoadLibrary('vcruntime140.dll')
+            if hasattr(vcruntime, '_set_purecall_handler'):
+                vcruntime._set_purecall_handler.argtypes = [_PURECALL_HANDLER_TYPE]  # noqa: SLF001 # pylint: disable=protected-access
+                vcruntime._set_purecall_handler.restype = ctypes.c_void_p  # noqa: SLF001 # pylint: disable=protected-access
+                vcruntime._set_purecall_handler(_c_purecall_handler)  # noqa: SLF001 # pylint: disable=protected-access
+
         _c_sigabrt_handler = _SIGNAL_HANDLER_TYPE(_win32_sigabrt_handler)
         _prev_sigabrt_handler = int(ucrt.signal(22, _c_sigabrt_handler))
         _win32_crt_handlers_installed = True
