@@ -401,8 +401,8 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         super().__init__()
 
         self._view: SessionTableView | None = None  # Initially, no view is attached
-        self._data: list[list[str]] = []  # The data to be displayed in the table
-        self._compiled_colors: list[list[CellColor]] = []  # The compiled colors for the table
+        self._data: list[tuple[str, ...]] = []  # The data to be displayed in the table
+        self._compiled_colors: list[tuple[CellColor, ...]] = []  # The compiled colors for the table
         self._headers = headers  # The column headers
         self._column_indices = _ColumnIndices(
             ip=self._headers.index('IP Address'),
@@ -727,13 +727,13 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
         """Return the IP address for every row currently in the model."""
         return [self.get_ip_from_data_safely(row_data) for row_data in self._data]
 
-    def get_ip_from_data_safely(self, row_data: list[str]) -> str:
+    def get_ip_from_data_safely(self, row_data: Sequence[str]) -> str:
         """Safely extract an IP address as a string from row data.
 
         This method ensures the IP address is always returned as a string type.
 
         Args:
-            row_data: The row data list containing the IP address.
+            row_data: The row data sequence containing the IP address.
 
         Returns:
             The IP address as a clean string, or empty string if index is out of bounds.
@@ -796,11 +796,11 @@ class SessionTableModel(QAbstractTableModel):  # pylint: disable=too-many-public
             return False
         return any(len(row_data) > ports_column and ',' in row_data[ports_column] for row_data in self._data)
 
-    def sync_rows(self, rows_with_colors: list[tuple[list[str], list[CellColor]]]) -> bool:
+    def sync_rows(self, rows_with_colors: Sequence[tuple[tuple[str, ...], tuple[CellColor, ...]]]) -> bool:
         """Synchronize the table model with pre-sorted, paginated rows and colors.
 
         Args:
-            rows_with_colors: List of (row_cells, cell_colors) tuples.
+            rows_with_colors: Sequence of (row_cells, cell_colors) tuples.
 
         Returns:
             True if the table content changed, False otherwise.

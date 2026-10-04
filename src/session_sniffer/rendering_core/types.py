@@ -1,6 +1,7 @@
 """Type definitions for the rendering core and GUI update payloads."""
 
 from collections import deque
+from collections.abc import Sequence
 from dataclasses import dataclass
 from threading import Condition, Lock
 from typing import TYPE_CHECKING, ClassVar, NamedTuple
@@ -333,8 +334,8 @@ class GUIUpdatePayload(NamedTuple):
     status_config_text: str
     status_issues_text: str
     status_performance_text: str
-    connected_rows_with_colors: list[tuple[list[str], list[CellColor]]]
-    disconnected_rows_with_colors: list[tuple[list[str], list[CellColor]]]
+    connected_rows_with_colors: Sequence[tuple[tuple[str, ...], tuple[CellColor, ...]]]
+    disconnected_rows_with_colors: Sequence[tuple[tuple[str, ...], tuple[CellColor, ...]]]
     connected_count: int
     disconnected_count: int
     connected_rows_per_page: int

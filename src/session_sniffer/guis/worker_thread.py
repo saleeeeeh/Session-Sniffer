@@ -86,10 +86,10 @@ class GUIWorkerThread(CrashingQThread):
         last_pagination_version: int = -1
         last_sort_version: int = -1
 
-        cached_connected_zipped: list[tuple[Sequence[str], Sequence[CellColor]]] = []
-        cached_disconnected_zipped: list[tuple[Sequence[str], Sequence[CellColor]]] = []
-        cached_connected_sorted: Sequence[tuple[Sequence[str], Sequence[CellColor]]] = ()
-        cached_disconnected_sorted: Sequence[tuple[Sequence[str], Sequence[CellColor]]] = ()
+        cached_connected_zipped: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
+        cached_disconnected_zipped: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
+        cached_connected_sorted: Sequence[tuple[tuple[str, ...], tuple[CellColor, ...]]] = ()
+        cached_disconnected_sorted: Sequence[tuple[tuple[str, ...], tuple[CellColor, ...]]] = ()
         cached_connected_count: int = 0
         cached_disconnected_count: int = 0
 
@@ -199,13 +199,6 @@ class GUIWorkerThread(CrashingQThread):
                 disconnected_page,
             )
 
-            connected_page_payload: list[tuple[list[str], list[CellColor]]] = [
-                (list(row), list(colors)) for row, colors in connected_page_rows
-            ]
-            disconnected_page_payload: list[tuple[list[str], list[CellColor]]] = [
-                (list(row), list(colors)) for row, colors in disconnected_page_rows
-            ]
-
             self.update_signal.emit(
                 GUIUpdatePayload(
                     snapshot_version=last_seen_version,
@@ -215,8 +208,8 @@ class GUIWorkerThread(CrashingQThread):
                     status_config_text=last_snapshot.status.status_config_text,
                     status_issues_text=last_snapshot.status.status_issues_text,
                     status_performance_text=last_snapshot.status.status_performance_text,
-                    connected_rows_with_colors=connected_page_payload,
-                    disconnected_rows_with_colors=disconnected_page_payload,
+                    connected_rows_with_colors=connected_page_rows,
+                    disconnected_rows_with_colors=disconnected_page_rows,
                     connected_count=cached_connected_count,
                     disconnected_count=cached_disconnected_count,
                     connected_rows_per_page=connected_rows_per_page,
