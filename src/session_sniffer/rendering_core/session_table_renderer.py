@@ -185,6 +185,8 @@ def build_session_table_snapshot(
 
     _base_connected_cell = CellColor(foreground=_CONNECTED_TEXT_COLOR, background=HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR)
     _base_connected_row_colors = [_base_connected_cell] * context.connected_num_columns
+    _server_connected_cell = CellColor(foreground=_CONNECTED_USERIP_TEXT_COLOR, background=server_bg_color)
+    _server_connected_row_colors = [_server_connected_cell] * context.connected_num_columns
 
     for player in context.session_connected:
         if Settings.capture_filtered_isps and is_player_isp_filtered(player, Settings.capture_filtered_isps):
@@ -195,7 +197,7 @@ def build_session_table_snapshot(
             row_colors = [CellColor(foreground=row_fg_color, background=player.userip.settings.color)] * context.connected_num_columns
         elif Settings.gui_servers_color_enabled and player.is_third_party_server:
             row_fg_color = _CONNECTED_USERIP_TEXT_COLOR
-            row_colors = [CellColor(foreground=row_fg_color, background=server_bg_color)] * context.connected_num_columns
+            row_colors = _server_connected_row_colors.copy()
         else:
             row_fg_color = _CONNECTED_TEXT_COLOR
             row_colors = _base_connected_row_colors.copy()
@@ -346,21 +348,22 @@ def build_session_table_snapshot(
         session_connected_rows_with_colors.append((tuple(connected_row_texts), tuple(row_colors)))
 
     _base_disconnected_cell = CellColor(foreground=_DISCONNECTED_TEXT_COLOR, background=HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR)
-    _base_disconnected_row_colors = [_base_disconnected_cell] * context.disconnected_num_columns
+    _base_disconnected_row_colors = (_base_disconnected_cell,) * context.disconnected_num_columns
+    _server_disconnected_cell = CellColor(foreground=_DISCONNECTED_USERIP_TEXT_COLOR, background=server_bg_color)
+    _server_disconnected_row_colors = (_server_disconnected_cell,) * context.disconnected_num_columns
 
     for player in context.session_disconnected:
         if Settings.capture_filtered_isps and is_player_isp_filtered(player, Settings.capture_filtered_isps):
             continue
 
         if player.userip and player.userip.usernames:
-            row_fg_color = _DISCONNECTED_USERIP_TEXT_COLOR
-            row_colors = [CellColor(foreground=row_fg_color, background=player.userip.settings.color)] * context.disconnected_num_columns
+            disconnected_row_colors = (
+                CellColor(foreground=_DISCONNECTED_USERIP_TEXT_COLOR, background=player.userip.settings.color),
+            ) * context.disconnected_num_columns
         elif Settings.gui_servers_color_enabled and player.is_third_party_server:
-            row_fg_color = _DISCONNECTED_USERIP_TEXT_COLOR
-            row_colors = [CellColor(foreground=row_fg_color, background=server_bg_color)] * context.disconnected_num_columns
+            disconnected_row_colors = _server_disconnected_row_colors
         else:
-            row_fg_color = _DISCONNECTED_TEXT_COLOR
-            row_colors = _base_disconnected_row_colors.copy()
+            disconnected_row_colors = _base_disconnected_row_colors
 
         disconnected_row_texts: list[str] = []
         disconnected_row_texts.append(format_player_usernames(player))
@@ -466,7 +469,7 @@ def build_session_table_snapshot(
         if 'Pinging' in context.disconnected_shown_columns:
             disconnected_row_texts.append(format_player_boolean(player.ping.is_pinging, is_initialized=player.ping.is_initialized))
 
-        session_disconnected_rows_with_colors.append((tuple(disconnected_row_texts), tuple(row_colors)))
+        session_disconnected_rows_with_colors.append((tuple(disconnected_row_texts), disconnected_row_colors))
 
     connected_rows_with_colors = tuple(session_connected_rows_with_colors)
     disconnected_rows_with_colors = tuple(session_disconnected_rows_with_colors)
