@@ -949,12 +949,8 @@ def player_rates_core() -> None:
         if ScriptControl.has_crashed():
             return
 
-        global_bandwidth = 0
-        global_download = 0
-        global_upload = 0
-        global_bps_rate = 0
-        global_bpm_rate = 0
-        global_pps_rate = 0
+        global_bandwidth = global_download = global_upload = 0
+        global_bps_rate = global_bpm_rate = global_pps_rate = 0
 
         current_time = time.monotonic()
         for index, player in enumerate(PlayersRegistry.get_connected_players()):
@@ -966,13 +962,10 @@ def player_rates_core() -> None:
 
             if (current_time - player.packets.pps.last_update_time) >= 1.0:
                 player.packets.pps.calculate_and_update_rate(current_time)
-
             if (current_time - player.packets.ppm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
                 player.packets.ppm.calculate_and_update_rate(current_time)
-
             if (current_time - player.bandwidth.bps.last_update_time) >= 1.0:
                 player.bandwidth.bps.calculate_and_update_rate(current_time)
-
             if (current_time - player.bandwidth.bpm.last_update_time) >= _MINUTE_INTERVAL_SECONDS:
                 player.bandwidth.bpm.calculate_and_update_rate(current_time)
 
@@ -994,7 +987,13 @@ def player_rates_core() -> None:
         CaptureStats.peak_pps_rate = max(CaptureStats.peak_pps_rate, global_pps_rate)
 
         one_second_ago = datetime.now(tz=LOCAL_TZ) - _ONE_SECOND_TD
-        recent_latencies = [(timestamp, latency) for timestamp, latency in list(CaptureStats.packets_latencies) if timestamp >= one_second_ago]
-        CaptureStats.global_avg_latency_ms = sum(latency.total_seconds() * 1000 for _, latency in recent_latencies) / len(recent_latencies) if recent_latencies else 0.0
+        recent_latencies_total_ms = 0.0
+        recent_latencies_count = 0
+        for timestamp, latency in reversed(tuple(CaptureStats.packets_latencies)):
+            if timestamp < one_second_ago:
+                break
+            recent_latencies_total_ms += latency.total_seconds() * 1000
+            recent_latencies_count += 1
+        CaptureStats.global_avg_latency_ms = recent_latencies_total_ms / recent_latencies_count if recent_latencies_count else 0.0
 
         gui_closed__event.wait(max(0.05, 1.0 - (time.monotonic() - _start)))
