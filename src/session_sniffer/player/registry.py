@@ -62,12 +62,10 @@ class PlayersRegistry:
         if limit <= 0 or len(cls._disconnected_players_registry) <= limit:
             return
         evicted_players: list[Player] = []
-        new_all_players = cls._all_players_by_ip.copy()
         while len(cls._disconnected_players_registry) > limit:
             evicted_ip, evicted_player = cls._disconnected_players_registry.popitem(last=False)
-            new_all_players.pop(evicted_ip, None)
+            cls._all_players_by_ip.pop(evicted_ip, None)
             evicted_players.append(evicted_player)
-        cls._all_players_by_ip = new_all_players
         for evicted_player in evicted_players:
             evicted_player.left_event.set()
 
@@ -103,13 +101,8 @@ class PlayersRegistry:
             if player.ip in cls._connected_players_registry:
                 raise PlayerAlreadyExistsError(player.ip)
 
-            new_connected_players = cls._connected_players_registry.copy()
-            new_connected_players[player.ip] = player
-            cls._connected_players_registry = new_connected_players
-
-            new_all_players = cls._all_players_by_ip.copy()
-            new_all_players[player.ip] = player
-            cls._all_players_by_ip = new_all_players
+            cls._connected_players_registry[player.ip] = player
+            cls._all_players_by_ip[player.ip] = player
             return player
 
     @classmethod
@@ -127,14 +120,8 @@ class PlayersRegistry:
                 raise PlayerNotFoundInRegistryError(player.ip)
 
             cls._disconnected_players_registry.pop(player.ip)
-
-            new_connected_players = cls._connected_players_registry.copy()
-            new_connected_players[player.ip] = player
-            cls._connected_players_registry = new_connected_players
-
-            new_all_players = cls._all_players_by_ip.copy()
-            new_all_players[player.ip] = player
-            cls._all_players_by_ip = new_all_players
+            cls._connected_players_registry[player.ip] = player
+            cls._all_players_by_ip[player.ip] = player
 
     @classmethod
     def move_player_to_disconnected(cls, player: Player) -> None:
@@ -150,15 +137,9 @@ class PlayersRegistry:
             if player.ip not in cls._connected_players_registry:
                 raise PlayerNotFoundInRegistryError(player.ip)
 
-            new_connected_players = cls._connected_players_registry.copy()
-            new_connected_players.pop(player.ip)
-            cls._connected_players_registry = new_connected_players
-
+            cls._connected_players_registry.pop(player.ip)
             cls._disconnected_players_registry[player.ip] = player
-
-            new_all_players = cls._all_players_by_ip.copy()
-            new_all_players[player.ip] = player
-            cls._all_players_by_ip = new_all_players
+            cls._all_players_by_ip[player.ip] = player
 
             cls._evict_excess_disconnected_players()
 
@@ -189,7 +170,8 @@ class PlayersRegistry:
         Use this instead of `get_default_sorted_players` when sort order
         is irrelevant, to avoid an unnecessary O(n log n) sort.
         """
-        return list(cls._connected_players_registry.values())
+        with cls._registry_lock:
+            return list(cls._connected_players_registry.values())
 
     @classmethod
     def get_disconnected_players(cls) -> list[Player]:
@@ -222,7 +204,8 @@ class PlayersRegistry:
         Prefer this over `get_default_sorted_players` when sort order is irrelevant,
         to avoid the O(n log n) sort overhead.
         """
-        return list(cls._all_players_by_ip.values())
+        with cls._registry_lock:
+            return list(cls._all_players_by_ip.values())
 
     @classmethod
     def get_players_map(cls) -> dict[str, Player]:
@@ -285,11 +268,9 @@ class PlayersRegistry:
         """Clear all connected players from the registry."""
         with cls._registry_lock:
             players = list(cls._connected_players_registry.values())
-            cls._connected_players_registry = {}
-            new_all_players = cls._all_players_by_ip.copy()
+            cls._connected_players_registry.clear()
             for player in players:
-                new_all_players.pop(player.ip, None)
-            cls._all_players_by_ip = new_all_players
+                cls._all_players_by_ip.pop(player.ip, None)
         for player in players:
             player.left_event.set()
 
@@ -299,10 +280,8 @@ class PlayersRegistry:
         with cls._registry_lock:
             players = list(cls._disconnected_players_registry.values())
             cls._disconnected_players_registry.clear()
-            new_all_players = cls._all_players_by_ip.copy()
             for player in players:
-                new_all_players.pop(player.ip, None)
-            cls._all_players_by_ip = new_all_players
+                cls._all_players_by_ip.pop(player.ip, None)
         for player in players:
             player.left_event.set()
 
@@ -317,15 +296,9 @@ class PlayersRegistry:
             The removed player object if found, otherwise `None`.
         """
         with cls._registry_lock:
-            player = cls._connected_players_registry.get(ip)
+            player = cls._connected_players_registry.pop(ip, None)
             if player is not None:
-                new_connected_players = cls._connected_players_registry.copy()
-                new_connected_players.pop(ip)
-                cls._connected_players_registry = new_connected_players
-
-                new_all_players = cls._all_players_by_ip.copy()
-                new_all_players.pop(ip, None)
-                cls._all_players_by_ip = new_all_players
+                cls._all_players_by_ip.pop(ip, None)
         if player is not None:
             player.left_event.set()
         return player
@@ -343,9 +316,7 @@ class PlayersRegistry:
         with cls._registry_lock:
             player = cls._disconnected_players_registry.pop(ip, None)
             if player is not None:
-                new_all_players = cls._all_players_by_ip.copy()
-                new_all_players.pop(ip, None)
-                cls._all_players_by_ip = new_all_players
+                cls._all_players_by_ip.pop(ip, None)
         if player is not None:
             player.left_event.set()
         return player

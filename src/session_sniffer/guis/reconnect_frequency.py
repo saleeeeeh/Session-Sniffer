@@ -31,7 +31,7 @@ class ReconnectFrequencyWindow(StatTableWindowMixin):
         """Rebuild the table with current rejoin data."""
         entries = [
             (player.rejoins, player.ip, ', '.join(player.usernames) if player.usernames else '—')
-            for player in PlayersRegistry.get_players_map().values()
+            for player in PlayersRegistry.get_all_players()
             if player.rejoins > 0
         ]
         entries.sort(key=lambda entry: entry[0], reverse=True)

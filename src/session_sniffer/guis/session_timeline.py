@@ -80,7 +80,7 @@ class SessionTimelineWindow(StatTableWindowMixin):
 
         all_players = PlayersRegistry.get_all_players()
         now = datetime.now(tz=all_players[0].datetime.first_seen.tzinfo)
-        current_ips_set = set(PlayersRegistry.get_players_map().keys())
+        current_ips_set = {player.ip for player in all_players}
 
         table_ip_to_row: dict[str, int] = {}
         for row in range(self._table.rowCount()):

@@ -30,7 +30,7 @@ class PortHeatmapWindow(StatTableWindowMixin):
     def refresh(self) -> None:
         """Rebuild the table with current port frequency data."""
         counts: dict[int, int] = {}
-        for player in PlayersRegistry.get_players_map().values():
+        for player in PlayersRegistry.get_all_players():
             for port in player.ports.all:
                 counts[port] = counts.get(port, 0) + 1
 

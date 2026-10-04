@@ -343,7 +343,7 @@ class CaptureStatisticsWindow(RateGraphWindowMixin):
         total_bandwidth = 0
         total_download = 0
         total_upload = 0
-        for player in PlayersRegistry.get_players_map().values():
+        for player in PlayersRegistry.get_all_players():
             bandwidth = player.bandwidth
             current_bandwidth += bandwidth.exchanged
             current_download += bandwidth.download
