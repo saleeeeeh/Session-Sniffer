@@ -162,12 +162,12 @@ class WebServer:
             'connected': {
                 'count': snapshot.connected.row_count,
                 'columns': snapshot.column_config.connected_column_names,
-                'rows': [list(row) for row in snapshot.connected.rows],
+                'rows': [list(row) for row, _ in snapshot.connected.rows_with_colors],
             },
             'disconnected': {
                 'count': snapshot.disconnected.row_count,
                 'columns': snapshot.column_config.disconnected_column_names,
-                'rows': [list(row) for row in snapshot.disconnected.rows],
+                'rows': [list(row) for row, _ in snapshot.disconnected.rows_with_colors],
             },
         }
         if message_type is not None:

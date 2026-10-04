@@ -870,14 +870,12 @@ def rendering_core(
                 connected=GUITableData(
                     column_count=connected_num_columns,
                     row_count=session_table_snapshot.connected_count,
-                    rows=session_table_snapshot.connected_rows,
-                    colors=session_table_snapshot.connected_colors,
+                    rows_with_colors=session_table_snapshot.connected_rows_with_colors,
                 ),
                 disconnected=GUITableData(
                     column_count=disconnected_num_columns,
                     row_count=session_table_snapshot.disconnected_count,
-                    rows=session_table_snapshot.disconnected_rows,
-                    colors=session_table_snapshot.disconnected_colors,
+                    rows_with_colors=session_table_snapshot.disconnected_rows_with_colors,
                 ),
             ),
         )

@@ -109,12 +109,8 @@ class GUIWorkerThread(CrashingQThread):
 
             if snapshot is not None:
                 last_snapshot = snapshot
-                cached_connected_zipped = list(
-                    zip(snapshot.connected.rows, snapshot.connected.colors, strict=True)
-                )
-                cached_disconnected_zipped = list(
-                    zip(snapshot.disconnected.rows, snapshot.disconnected.colors, strict=True)
-                )
+                cached_connected_zipped = list(snapshot.connected.rows_with_colors)
+                cached_disconnected_zipped = list(snapshot.disconnected.rows_with_colors)
             elif (
                 search_version == last_search_version
                 and pagination_version == last_pagination_version

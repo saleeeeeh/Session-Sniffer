@@ -318,11 +318,9 @@ class SessionTableSnapshot(NamedTuple):
     """Immutable snapshot of connected/disconnected table rows + cell colors."""
 
     connected_count: int
-    connected_rows: tuple[tuple[str, ...], ...]
-    connected_colors: tuple[tuple[CellColor, ...], ...]
+    connected_rows_with_colors: tuple[tuple[tuple[str, ...], tuple[CellColor, ...]], ...]
     disconnected_count: int
-    disconnected_rows: tuple[tuple[str, ...], ...]
-    disconnected_colors: tuple[tuple[CellColor, ...], ...]
+    disconnected_rows_with_colors: tuple[tuple[tuple[str, ...], tuple[CellColor, ...]], ...]
 
 
 class GUIUpdatePayload(NamedTuple):
@@ -374,8 +372,7 @@ class GUITableData:
 
     column_count: int
     row_count: int
-    rows: tuple[tuple[str, ...], ...]
-    colors: tuple[tuple[CellColor, ...], ...]
+    rows_with_colors: tuple[tuple[tuple[str, ...], tuple[CellColor, ...]], ...]
 
 
 @dataclass(frozen=True, slots=True)

@@ -161,10 +161,8 @@ def build_session_table_snapshot(
     context: SessionTableRenderContext,
 ) -> SessionTableSnapshot:
     """Build connected and disconnected table rows plus compiled colors."""
-    session_connected_table__processed_data: list[list[str]] = []
-    session_connected_table__compiled_colors: list[list[CellColor]] = []
-    session_disconnected_table__processed_data: list[list[str]] = []
-    session_disconnected_table__compiled_colors: list[list[CellColor]] = []
+    session_connected_rows_with_colors: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
+    session_disconnected_rows_with_colors: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
 
     server_bg_color = (
         QColor(Settings.gui_servers_color)
@@ -332,8 +330,7 @@ def build_session_table_snapshot(
         if 'Pinging' in context.connected_shown_columns:
             connected_row_texts.append(format_player_boolean(player.ping.is_pinging, is_initialized=player.ping.is_initialized))
 
-        session_connected_table__processed_data.append(connected_row_texts)
-        session_connected_table__compiled_colors.append(row_colors)
+        session_connected_rows_with_colors.append((tuple(connected_row_texts), tuple(row_colors)))
 
     _base_disconnected_cell = CellColor(foreground=_DISCONNECTED_TEXT_COLOR, background=HARDCODED_DEFAULT_TABLE_BACKGROUND_CELL_COLOR)
     _base_disconnected_row_colors = [_base_disconnected_cell] * context.disconnected_num_columns
@@ -456,22 +453,14 @@ def build_session_table_snapshot(
         if 'Pinging' in context.disconnected_shown_columns:
             disconnected_row_texts.append(format_player_boolean(player.ping.is_pinging, is_initialized=player.ping.is_initialized))
 
-        session_disconnected_table__processed_data.append(disconnected_row_texts)
-        session_disconnected_table__compiled_colors.append(row_colors)
+        session_disconnected_rows_with_colors.append((tuple(disconnected_row_texts), tuple(row_colors)))
 
-    connected_count = len(session_connected_table__processed_data)
-    connected_rows = tuple(tuple(row) for row in session_connected_table__processed_data)
-    connected_colors = tuple(tuple(row) for row in session_connected_table__compiled_colors)
-
-    disconnected_count = len(session_disconnected_table__processed_data)
-    disconnected_rows = tuple(tuple(row) for row in session_disconnected_table__processed_data)
-    disconnected_colors = tuple(tuple(row) for row in session_disconnected_table__compiled_colors)
+    connected_rows_with_colors = tuple(session_connected_rows_with_colors)
+    disconnected_rows_with_colors = tuple(session_disconnected_rows_with_colors)
 
     return SessionTableSnapshot(
-        connected_count=connected_count,
-        connected_rows=connected_rows,
-        connected_colors=connected_colors,
-        disconnected_count=disconnected_count,
-        disconnected_rows=disconnected_rows,
-        disconnected_colors=disconnected_colors,
+        connected_count=len(connected_rows_with_colors),
+        connected_rows_with_colors=connected_rows_with_colors,
+        disconnected_count=len(disconnected_rows_with_colors),
+        disconnected_rows_with_colors=disconnected_rows_with_colors,
     )
