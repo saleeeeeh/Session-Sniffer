@@ -348,17 +348,7 @@ class Player:  # pylint: disable=too-many-public-methods
         self._traffic.packets.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
         self._traffic.bandwidth.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
 
-        if port != self._traffic.ports.last:
-            if port not in self._traffic.ports.all:
-                self._traffic.ports.all.append(port)
-
-            if port in self._traffic.ports.middle:
-                self._traffic.ports.middle.remove(port)
-
-            if self._traffic.ports.last not in self._traffic.ports.middle and self._traffic.ports.last != self._traffic.ports.first:
-                self._traffic.ports.middle.append(self._traffic.ports.last)
-
-            self._traffic.ports.last = port
+        self._traffic.ports.add_port(port)
 
         if self._traffic.joins:
             self._traffic.joins[-1].mark_as_seen(

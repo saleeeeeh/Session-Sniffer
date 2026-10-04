@@ -405,6 +405,15 @@ class PlayerPorts:
     first: int
     middle: list[int]
     last: int
+    _all_set: set[int] = dataclasses.field(default_factory=set[int])
+    _middle_set: set[int] = dataclasses.field(default_factory=set[int])
+
+    def __post_init__(self) -> None:
+        """Initialize set caches for fast port membership checks."""
+        if not self._all_set and self.all:
+            self._all_set = set(self.all)
+        if not self._middle_set and self.middle:
+            self._middle_set = set(self.middle)
 
     @classmethod
     def from_packet_port(cls, port: int) -> Self:
@@ -414,6 +423,8 @@ class PlayerPorts:
             first=port,
             middle=[],
             last=port,
+            _all_set={port},
+            _middle_set=set(),
         )
 
     def reset(self, port: int) -> None:
@@ -422,6 +433,28 @@ class PlayerPorts:
         self.all.append(port)
         self.first = port
         self.middle.clear()
+        self.last = port
+        self._all_set.clear()
+        self._all_set.add(port)
+        self._middle_set.clear()
+
+    def add_port(self, port: int) -> None:
+        """Record an observed port, updating first, middle, and last."""
+        if port == self.last:
+            return
+
+        if port not in self._all_set:
+            self._all_set.add(port)
+            self.all.append(port)
+
+        if port in self._middle_set:
+            self._middle_set.remove(port)
+            self.middle.remove(port)
+
+        if self.last != self.first and self.last not in self._middle_set:
+            self._middle_set.add(self.last)
+            self.middle.append(self.last)
+
         self.last = port
 
 
@@ -580,17 +613,7 @@ class PlayerJoin:
         self.packets.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
         self.bandwidth.increment(packet_length=packet_length, sent_by_local_host=sent_by_local_host)
 
-        if port != self.ports.last:
-            if port not in self.ports.all:
-                self.ports.all.append(port)
-
-            if port in self.ports.middle:
-                self.ports.middle.remove(port)
-
-            if self.ports.last not in self.ports.middle and self.ports.last != self.ports.first:
-                self.ports.middle.append(self.ports.last)
-
-            self.ports.last = port
+        self.ports.add_port(port)
 
     def mark_as_left(self) -> None:
         """Finalize this join when the player leaves."""
