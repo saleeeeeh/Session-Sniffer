@@ -536,12 +536,22 @@ def rendering_core(
             else:
                 player.mod_menus = None
 
-            player.usernames = dedup_preserve_order(
-                [player.ps3_username] if player.ps3_username else [],
-                player.userip.usernames if player.userip else [],
-                player.mod_menus.usernames if player.mod_menus else [],
-                player.looky_system.usernames if player.looky_system.is_initialized else [],
+            has_usernames = bool(
+                player.ps3_username
+                or (player.userip is not None and player.userip.usernames)
+                or (player.mod_menus is not None and player.mod_menus.usernames)
+                or (player.looky_system.is_initialized and player.looky_system.usernames)
             )
+            if not has_usernames:
+                if player.usernames:
+                    player.usernames = []
+            else:
+                player.usernames = dedup_preserve_order(
+                    (player.ps3_username,) if player.ps3_username else (),
+                    player.userip.usernames if player.userip is not None else (),
+                    player.mod_menus.usernames if player.mod_menus is not None else (),
+                    player.looky_system.usernames if player.looky_system.is_initialized else (),
+                )
 
             if not player.iplookup.geolite2.is_initialized:
                 player.iplookup.geolite2.country, player.iplookup.geolite2.country_code = get_country_info(player.ip)
