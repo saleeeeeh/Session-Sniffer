@@ -77,12 +77,13 @@ def format_player_country(player: Player) -> str:
     return country_name
 
 
-def format_player_gui_datetime(player_datetime: datetime) -> str:
+def format_player_gui_datetime(player_datetime: datetime, now: datetime | None = None) -> str:
     """Format player datetime according to GUI datetime column settings."""
     formatted_elapsed_time = None
 
     if Settings.gui_columns_datetime_show_elapsed_time:
-        elapsed_time = datetime.now(tz=LOCAL_TZ) - player_datetime
+        current_now = datetime.now(tz=LOCAL_TZ) if now is None else now
+        elapsed_time = current_now - player_datetime
         formatted_elapsed_time = format_elapsed_time(elapsed_time)
 
         if Settings.gui_columns_datetime_show_date is False and Settings.gui_columns_datetime_show_time is False:
@@ -163,6 +164,7 @@ def build_session_table_snapshot(
     """Build connected and disconnected table rows plus compiled colors."""
     session_connected_rows_with_colors: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
     session_disconnected_rows_with_colors: list[tuple[tuple[str, ...], tuple[CellColor, ...]]] = []
+    now = datetime.now(tz=LOCAL_TZ)
 
     server_bg_color = (
         QColor(Settings.gui_servers_color)
@@ -189,8 +191,8 @@ def build_session_table_snapshot(
 
         connected_row_texts: list[str] = []
         connected_row_texts.append(format_player_usernames(player))
-        connected_row_texts.append(format_player_gui_datetime(player.datetime.first_seen))
-        connected_row_texts.append(format_player_gui_datetime(player.datetime.last_rejoin))
+        connected_row_texts.append(format_player_gui_datetime(player.datetime.first_seen, now=now))
+        connected_row_texts.append(format_player_gui_datetime(player.datetime.last_rejoin, now=now))
         if 'T. Session Time' in context.connected_shown_columns:
             connected_row_texts.append(format_elapsed_time(player.datetime.get_total_session_time()))
         if 'Session Time' in context.connected_shown_columns:
@@ -351,9 +353,9 @@ def build_session_table_snapshot(
 
         disconnected_row_texts: list[str] = []
         disconnected_row_texts.append(format_player_usernames(player))
-        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.first_seen))
-        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.last_rejoin))
-        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.last_seen))
+        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.first_seen, now=now))
+        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.last_rejoin, now=now))
+        disconnected_row_texts.append(format_player_gui_datetime(player.datetime.last_seen, now=now))
         if 'T. Session Time' in context.disconnected_shown_columns:
             disconnected_row_texts.append(format_elapsed_time(player.datetime.get_total_session_time()))
         if 'Session Time' in context.disconnected_shown_columns:
