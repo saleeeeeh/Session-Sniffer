@@ -337,20 +337,16 @@ class CaptureStatisticsWindow(RateGraphWindowMixin):
         self._label_disconnected.setText(str(disconnected_count))
         self._label_total.setText(str(total_count))
 
-        current_bandwidth = 0
-        current_download = 0
-        current_upload = 0
-        total_bandwidth = 0
+        current_bandwidth = CaptureStats.global_bandwidth
+        current_download = CaptureStats.global_download
+        current_upload = CaptureStats.global_upload
         total_download = 0
         total_upload = 0
-        for player in PlayersRegistry.get_all_players():
+        for player in PlayersRegistry.get_players_map().values():
             bandwidth = player.bandwidth
-            current_bandwidth += bandwidth.exchanged
-            current_download += bandwidth.download
-            current_upload += bandwidth.upload
-            total_bandwidth += bandwidth.total_exchanged
             total_download += bandwidth.total_download
             total_upload += bandwidth.total_upload
+        total_bandwidth = total_download + total_upload
 
         self._label_bandwidth.setText(PlayerBandwidth.format_bytes(current_bandwidth))
         self._label_download.setText(PlayerBandwidth.format_bytes(current_download))
