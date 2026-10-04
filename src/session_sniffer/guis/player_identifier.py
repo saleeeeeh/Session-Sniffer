@@ -36,7 +36,6 @@ from session_sniffer.guis.stylesheets import (
     PROGRESS_BAR_IDLE_STYLESHEET,
 )
 from session_sniffer.models.player import PlayerBandwidth
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.settings import Settings
 from session_sniffer.text_utils import pluralize
@@ -375,7 +374,7 @@ class PlayerIdentifierWidget(QWidget):
         )
 
     def _on_start_baseline(self) -> None:
-        players = [player for player in PlayersRegistry.get_connected_players() if not is_third_party_server_ip(player.ip)]
+        players = [player for player in PlayersRegistry.get_connected_players() if not player.is_third_party_server]
         if len(players) < MIN_CONNECTED_PLAYERS:
             QMessageBox.warning(
                 self,
@@ -637,7 +636,7 @@ class PlayerIdentifierWidget(QWidget):
     # -- Periodic tick --------------------------------------------------------
 
     def _tick(self) -> None:
-        players = [player for player in PlayersRegistry.get_connected_players() if not is_third_party_server_ip(player.ip)]
+        players = [player for player in PlayersRegistry.get_connected_players() if not player.is_third_party_server]
         if self._phase == Phase.BASELINE:
             self._tick_baseline(players)
         elif self._phase == Phase.READY:

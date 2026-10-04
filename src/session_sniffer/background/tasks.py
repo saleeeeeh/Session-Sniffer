@@ -34,7 +34,7 @@ from session_sniffer.guis.tables_player_actions import (
 from session_sniffer.guis.utils import find_main_window
 from session_sniffer.models.player import Player, PlayerUserIPDetection
 from session_sniffer.networking.geolite2 import query_geolite2_asn, query_geolite2_city, query_geolite2_country
-from session_sniffer.networking.third_party_servers import ThirdPartyServers, is_ip_in_ranges, is_third_party_server_ip
+from session_sniffer.networking.third_party_servers import ThirdPartyServers, is_ip_in_ranges
 from session_sniffer.player.combo_rules import ComboRulesManager
 from session_sniffer.player.detections import GUIDetectionSettings
 from session_sniffer.player.registry import PlayersRegistry
@@ -754,7 +754,7 @@ def check_global_detections(player: Player) -> None:
     # Wait for IP lookup data to be ready
     wait_for_player_data_ready(player, data_fields=('iplookup.ipapi', 'iplookup.geolite2'), timeout=10.0)
 
-    is_server_ip = is_third_party_server_ip(player.ip)
+    is_server_ip = player.is_third_party_server
 
     # Mobile Connection Detection
     if player.iplookup.ipapi.is_initialized and player.iplookup.ipapi.mobile is True:

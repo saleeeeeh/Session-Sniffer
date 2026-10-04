@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
 from session_sniffer.constants.standard import LOCAL_TZ
 from session_sniffer.guis.player_rate_graph import DEFAULT_MAX_HISTORY, PlayerRateGraphWindow
 from session_sniffer.models.player import PlayerBandwidth
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.settings import Settings
 from session_sniffer.text_utils import pluralize
@@ -238,7 +237,7 @@ class HighRateMonitorWidget(QWidget):
         players = [
             player
             for player in PlayersRegistry.get_connected_players()
-            if player.ip not in self._blacklisted_ips and not is_third_party_server_ip(player.ip)
+            if player.ip not in self._blacklisted_ips and not player.is_third_party_server
         ]
 
         if self.mode == 'Smart':

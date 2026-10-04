@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, ClassVar
 
 from session_sniffer.constants.standard import LOCAL_TZ
 from session_sniffer.exceptions import PlayerAlreadyExistsError, PlayerNotFoundInRegistryError, UnexpectedPlayerCountError
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_elapsed_time
 
@@ -452,7 +451,7 @@ class SessionHost:
     def is_relay_host_candidate(cls, player: Player) -> bool:
         """Return True if the player matches the criteria for a relay session host."""
         return (
-            not is_third_party_server_ip(player.ip)
+            not player.is_third_party_server
             and not player.packets.received
             and MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST <= player.packets.sent <= MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST
         )
@@ -505,7 +504,7 @@ class SessionHost:
             return None
 
         candidates = list(session_connected)
-        p2p_connected = [player for player in session_connected if not is_third_party_server_ip(player.ip)]
+        p2p_connected = [player for player in session_connected if not player.is_third_party_server]
         if p2p_connected:
             earliest_connected_time = min(player.datetime.last_rejoin for player in p2p_connected)
             for disconnected_player in PlayersRegistry.get_disconnected_players():
@@ -516,7 +515,7 @@ class SessionHost:
                 ):
                     candidates.append(disconnected_player)
 
-        p2p_players = [player for player in candidates if not is_third_party_server_ip(player.ip)]
+        p2p_players = [player for player in candidates if not player.is_third_party_server]
         if not p2p_players:
             cls.last_detection_success = False
             cls.last_rejection_reason = f'All {len(candidates)} connected IP(s) are game or relay servers, not direct peer-to-peer players.'

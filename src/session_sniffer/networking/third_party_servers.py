@@ -159,7 +159,7 @@ def is_ip_in_ranges(ip_obj: IPv4Address, ranges: list[tuple[IPv4Address, IPv4Add
     return index > 0 and ip_obj <= ranges[index - 1][1]
 
 
-@lru_cache(maxsize=16384)
+@lru_cache(maxsize=65536)
 def is_third_party_server_ip(ip: str) -> bool:
     """Return True if `ip` matches any known third-party server CIDR range."""
     try:

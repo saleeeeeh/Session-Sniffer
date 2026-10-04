@@ -30,7 +30,6 @@ from session_sniffer.guis.tables_userip_mixin import resolve_usernames_for_playe
 from session_sniffer.networking.ip_range import check_ip_against_ranges
 from session_sniffer.networking.isp_filter import get_player_primary_isp, is_player_isp_filtered
 from session_sniffer.networking.looky_system import get_looky_user_url
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry, SessionHost
 from session_sniffer.rendering_core.types import CaptureState
 from session_sniffer.settings.settings import Settings
@@ -447,7 +446,7 @@ class TableContextMenuMixin(QTableView):
             )
 
         def add_looky_system_menu(parent_menu: QMenu, players: list[Player]) -> None:
-            if not Settings.is_gta5_feature_set() or not players or any(is_third_party_server_ip(player.ip) for player in players):
+            if not Settings.is_gta5_feature_set() or not players or any(player.is_third_party_server for player in players):
                 return
 
             def _apply_looky_gating(

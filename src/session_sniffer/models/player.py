@@ -24,6 +24,7 @@ from session_sniffer.models.player_traffic import (
     PlayerPackets,
     PlayerPorts,
 )
+from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import PlayersRegistry
 from session_sniffer.settings import Settings
 
@@ -70,6 +71,7 @@ class _PlayerLifecycleState:
     userip_check_positive: bool = False
     is_gta5_process: bool = False
     is_rdr2_process: bool = False
+    is_third_party_server: bool = False
 
 
 @dataclass(slots=True)
@@ -115,7 +117,9 @@ class Player:  # pylint: disable=too-many-public-methods
             packet: The first observed packet's metadata.
         """
         self._ip = ip
-        self._lifecycle = _PlayerLifecycleState()
+        self._lifecycle = _PlayerLifecycleState(
+            is_third_party_server=is_third_party_server_ip(ip),
+        )
         initial_join = PlayerJoin(
             join_index=1,
             rejoin_number=0,
@@ -208,6 +212,11 @@ class Player:  # pylint: disable=too-many-public-methods
     @is_rdr2_process.setter
     def is_rdr2_process(self, value: bool) -> None:
         self._lifecycle.is_rdr2_process = value
+
+    @property
+    def is_third_party_server(self) -> bool:
+        """Whether this player's IP address belongs to a known third-party server range."""
+        return self._lifecycle.is_third_party_server
 
     @property
     def datetime(self) -> PlayerDateTime:

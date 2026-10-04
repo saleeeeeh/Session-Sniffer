@@ -25,7 +25,6 @@ from session_sniffer.models import SessionLogFile
 from session_sniffer.models.player import Player, PlayerBandwidth, PlayerCountryFlag, PlayerModMenus
 from session_sniffer.networking.geolite2 import extract_asn_info, extract_city_info, extract_country_info
 from session_sniffer.networking.port_scanner import get_active_port_scan_threads
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.player.registry import (
     MAXIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
     MINIMUM_PACKETS_FOR_RELAY_SESSION_HOST,
@@ -584,7 +583,7 @@ def rendering_core(
                     _sniffer_start_time = time.monotonic()
                     _session_host_was_active = False
                     _relay_host_logged_ip = None
-                p2p_session_connected = [player for player in session_connected if not is_third_party_server_ip(player.ip)]
+                p2p_session_connected = [player for player in session_connected if not player.is_third_party_server]
                 current_session_host = SessionHost.get_player()
                 is_relay_host = (
                     current_session_host is not None

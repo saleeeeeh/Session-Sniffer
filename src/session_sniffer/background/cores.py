@@ -176,7 +176,7 @@ def _is_looky_eligible(player: Player) -> bool:
     """Check whether a player is eligible for Looky System resolution."""
     if not Settings.is_gta5_feature_set():
         return False
-    if is_third_party_server_ip(player.ip):
+    if player.is_third_party_server:
         return False
     return not (Settings.looky_exclusive_gta5_process and CaptureState.is_local_capture() and not player.is_gta5_process)
 
@@ -257,7 +257,7 @@ def wake_looky_core() -> None:
     if Settings.is_gta5_feature_set():
         for player in chain(PlayersRegistry.get_connected_players(), PlayersRegistry.get_disconnected_players()):
             if (
-                not is_third_party_server_ip(player.ip)
+                not player.is_third_party_server
                 and (not player.looky_system.is_initialized or player.looky_system.needs_refresh)
                 and _looky_queue.put(player.ip)
             ):

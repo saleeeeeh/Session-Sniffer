@@ -11,7 +11,6 @@ from session_sniffer.guis.colors import TableColors
 from session_sniffer.guis.exceptions import InvalidDateColumnConfigurationError
 from session_sniffer.models.player import Player, PlayerBandwidth
 from session_sniffer.networking.isp_filter import is_player_isp_filtered
-from session_sniffer.networking.third_party_servers import is_third_party_server_ip
 from session_sniffer.rendering_core.types import CellColor, SessionTableSnapshot
 from session_sniffer.settings import Settings
 from session_sniffer.text_utils import format_elapsed_time
@@ -182,7 +181,7 @@ def build_session_table_snapshot(
         if player.userip and player.userip.usernames:
             row_fg_color = _CONNECTED_USERIP_TEXT_COLOR
             row_colors = [CellColor(foreground=row_fg_color, background=player.userip.settings.color)] * context.connected_num_columns
-        elif Settings.gui_servers_color_enabled and is_third_party_server_ip(player.ip):
+        elif Settings.gui_servers_color_enabled and player.is_third_party_server:
             row_fg_color = _CONNECTED_USERIP_TEXT_COLOR
             row_colors = [CellColor(foreground=row_fg_color, background=server_bg_color)] * context.connected_num_columns
         else:
@@ -344,7 +343,7 @@ def build_session_table_snapshot(
         if player.userip and player.userip.usernames:
             row_fg_color = _DISCONNECTED_USERIP_TEXT_COLOR
             row_colors = [CellColor(foreground=row_fg_color, background=player.userip.settings.color)] * context.disconnected_num_columns
-        elif Settings.gui_servers_color_enabled and is_third_party_server_ip(player.ip):
+        elif Settings.gui_servers_color_enabled and player.is_third_party_server:
             row_fg_color = _DISCONNECTED_USERIP_TEXT_COLOR
             row_colors = [CellColor(foreground=row_fg_color, background=server_bg_color)] * context.disconnected_num_columns
         else:
