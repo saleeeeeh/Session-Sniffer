@@ -3,6 +3,10 @@
 import shutil
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -34,19 +38,9 @@ class UserIPImportExportMixin(QDialog):
     # pylint: disable=unused-argument
     def _set_status(self, text: str) -> None: ...
 
-    def _get_selected_tree_directory(self) -> Path:
-        return USERIP_DATABASES_DIR_PATH
-
     def _load_database(self, path: Path) -> None: ...
 
     def _refresh_stats(self) -> None: ...
-
-    def read_settings_from_widgets(self) -> dict[str, str]:
-        """Read and return settings values from widgets."""
-        return {}
-
-    def populate_settings_widgets(self, settings_dict: dict[str, str]) -> None:
-        """Populate settings widgets from the given dictionary."""
 
     def _mark_settings_dirty(self) -> None: ...
 
@@ -55,10 +49,13 @@ class UserIPImportExportMixin(QDialog):
     ) -> None: ...
 
     def _mark_entries_dirty(self) -> None: ...
-
-    def _highlight_duplicates(self) -> int:
-        return 0
     # pylint: enable=unused-argument
+
+    if TYPE_CHECKING:
+        _get_selected_tree_directory: Callable[[], Path]
+        read_settings_from_widgets: Callable[[], dict[str, str]]
+        populate_settings_widgets: Callable[[dict[str, str]], None]
+        _highlight_duplicates: Callable[[], int]
 
     def _is_current_database_file(self, path: Path) -> bool:
         """Return True if *path* refers to the database currently open in the entries view."""

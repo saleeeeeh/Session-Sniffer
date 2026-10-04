@@ -3,6 +3,10 @@
 from collections import defaultdict
 from ipaddress import IPv4Address
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from PySide6.QtCore import QFileSystemWatcher, QItemSelectionModel, QModelIndex, Qt, QTimer
 from PySide6.QtGui import QColor, QStandardItem, QStandardItemModel
@@ -91,9 +95,8 @@ class UserIPEntriesOperationsMixin(QDialog):
 
     def _load_database(self, path: Path) -> None: ...  # pylint: disable=unused-argument
 
-    def read_settings_from_widgets(self) -> dict[str, str]:
-        """Read and return settings values from widgets."""
-        return {}
+    if TYPE_CHECKING:
+        read_settings_from_widgets: Callable[[], dict[str, str]]
 
     # ------------------------------------------------------------------
     # Watch management
