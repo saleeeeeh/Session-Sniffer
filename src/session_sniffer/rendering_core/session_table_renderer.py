@@ -26,6 +26,7 @@ _CONNECTED_USERIP_TEXT_COLOR = QColor(TableColors.CONNECTED_USERIP_TEXT)
 _DISCONNECTED_TEXT_COLOR = QColor(TableColors.DISCONNECTED_TEXT)
 _DISCONNECTED_USERIP_TEXT_COLOR = QColor(TableColors.DISCONNECTED_USERIP_TEXT)
 _SERVER_BACKGROUND_COLOR = QColor(TableColors.SERVER_BACKGROUND)
+_RATE_GRADIENT_COLORS: tuple[QColor, ...] = tuple(QColor(0xFF - i, i, 0) for i in range(256))
 
 
 def format_player_usernames(player: Player) -> str:
@@ -141,7 +142,7 @@ def _get_rate_gradient_color(default_color: QColor, rate: int, threshold: int, *
         return default_color
 
     scaled_rate_value = min(max(rate, 0), threshold) * 0xFF // threshold
-    return QColor(0xFF - scaled_rate_value, scaled_rate_value, 0)
+    return _RATE_GRADIENT_COLORS[scaled_rate_value]
 
 
 @dataclass(frozen=True, slots=True)
