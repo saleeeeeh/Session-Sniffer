@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PySide6.QtGui import QColor
@@ -77,6 +78,20 @@ def format_player_country(player: Player) -> str:
     return country_name
 
 
+@lru_cache(maxsize=65536)
+def _format_player_static_datetime(player_datetime: datetime, *, show_date: bool, show_time: bool) -> str:
+    """Format and cache the static date and time portion of a player datetime."""
+    datetime_parts: list[str] = []
+    if show_date:
+        datetime_parts.append(player_datetime.strftime('%m/%d/%Y'))
+    if show_time:
+        datetime_parts.append(player_datetime.strftime('%H:%M:%S.%f')[:-3])
+    if not datetime_parts:
+        raise InvalidDateColumnConfigurationError
+
+    return ' '.join(datetime_parts)
+
+
 def format_player_gui_datetime(player_datetime: datetime, now: datetime | None = None) -> str:
     """Format player datetime according to GUI datetime column settings."""
     formatted_elapsed_time = None
@@ -89,18 +104,14 @@ def format_player_gui_datetime(player_datetime: datetime, now: datetime | None =
         if Settings.gui_columns_datetime_show_date is False and Settings.gui_columns_datetime_show_time is False:
             return formatted_elapsed_time
 
-    datetime_parts: list[str] = []
-    if Settings.gui_columns_datetime_show_date:
-        datetime_parts.append(player_datetime.strftime('%m/%d/%Y'))
-    if Settings.gui_columns_datetime_show_time:
-        datetime_parts.append(player_datetime.strftime('%H:%M:%S.%f')[:-3])
-    if not datetime_parts:
-        raise InvalidDateColumnConfigurationError
-
-    formatted_datetime = ' '.join(datetime_parts)
+    formatted_datetime = _format_player_static_datetime(
+        player_datetime,
+        show_date=Settings.gui_columns_datetime_show_date,
+        show_time=Settings.gui_columns_datetime_show_time,
+    )
 
     if formatted_elapsed_time:
-        formatted_datetime += f' ({formatted_elapsed_time})'
+        return f'{formatted_datetime} ({formatted_elapsed_time})'
 
     return formatted_datetime
 
